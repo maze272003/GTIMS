@@ -25,10 +25,27 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->authenticate();
-
         $request->session()->regenerate();
 
-        return redirect()->intended(route('admin.dashboard', absolute: false));
+        // --- ITO YUNG RECOMMENDED LOGIC ---
+        $user = Auth::user();
+
+        if ($user->level->name == 'superadmin') {
+            return redirect()->route('admin.dashboard');
+
+        } elseif ($user->level->name == 'admin') {
+            return redirect()->route('admin.dashboard');
+
+        } elseif ($user->level->name == 'encoder') {
+            // Siguraduhin mong may route ka para sa 'encoder.dashboard'
+            // return redirect()->route('encoder.dashboard');
+            
+            // Kung wala pa, sa default dashboard muna
+            return redirect()->route('admin.dashboard'); 
+        }
+
+        // Fallback
+        return redirect()->route('dashboard');
     }
 
     /**

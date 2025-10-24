@@ -2,33 +2,28 @@
 
 namespace App\Providers;
 
-// Idagdag mo itong dalawa:
 use Illuminate\Support\Facades\Gate;
 use App\Models\User;
+use Illuminate\Support\ServiceProvider;
 
-use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
-
-class AuthServiceProvider extends ServiceProvider
+class AppServiceProvider extends ServiceProvider
 {
     /**
-     * The model to policy mappings for the application.
-     *
-     * @var array<class-string, class-string>
+     * Register any application services.
      */
-    protected $policies = [
+    public function register(): void
+    {
         //
-    ];
+    }
 
     /**
-     * Register any authentication / authorization services.
+     * Bootstrap any application services.
      */
     public function boot(): void
     {
-        // DITO MO ILAGAY 'YUNG BUONG CODE
-        
-        $this->registerPolicies(); // Gagana na 'to dito
+        // $this->registerPolicies(); // <-- BURAHIN MO ITONG LINE NA 'TO
 
-        // I-define ang ating Gates
+        // I-define ang ating Gates (Gagana 'to kahit wala 'yung line sa taas)
         
         Gate::define('be-superadmin', function (User $user) {
             // Check kung 'yung name sa level niya ay 'superadmin'

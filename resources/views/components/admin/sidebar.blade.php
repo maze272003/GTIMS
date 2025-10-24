@@ -46,12 +46,14 @@
             </a>
         </li>
         <li>
-            <form action="#" method="POST" class="w-full">
-                <button type="submit" class="w-full flex items-center px-3 py-2.5 hover:bg-red-50 hover:text-red-600 rounded-lg font-medium text-gray-700">
-                    <i class="fa-regular fa-arrow-right-from-bracket nav-icon w-5 text-center text-gray-600"></i>
-                    <span class="nav-text ml-3 lg:inline md:hidden text-gray-700">Logout</span>
-                </button>
-            </form>
+        <form action="{{ route('logout') }}" method="POST" class="w-full">
+            @csrf <button type="submit" class="w-full flex items-center px-3 py-2.5 hover:bg-red-50 hover:text-red-600 rounded-lg font-medium text-gray-700">
+                
+                <i class="fa-regular fa-arrow-right-from-bracket nav-icon w-5 text-center text-gray-600"></i>
+                
+                <span class="nav-text ml-3 lg:inline md:hidden text-gray-700">Logout</span>
+            </button>
+        </form>
         </li>
     </ul>
 </nav>
