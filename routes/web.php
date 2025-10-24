@@ -7,25 +7,63 @@ use App\Http\Controllers\AdminController\ProductMovementController;
 use App\Http\Controllers\AdminController\InventoryController;
 use App\Http\Controllers\AdminController\PatientRecordsController;
 use App\Http\Controllers\AdminController\HistorylogController;
+// Magdagdag dito ng Superadmin controllers mo...
+// use App\Http\Controllers\SuperadminController\UserManagementController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/admin/dashboard', [DashboardController::class, 'showdashboard'])->name('admin.dashboard');
-Route::get('/admin/productmovement', [ProductMovementController::class, 'showproductmovement'])->name('admin.productmovement');
-Route::get('/admin/inventory', [InventoryController::class, 'showinventory'])->name('admin.inventory');
-Route::get('/admin/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('admin.patientrecords');
-Route::get('/admin/historylog', [HistorylogController::class, 'showhistorylog'])->name('admin.historylog');
+// Lahat ng routes sa loob nito ay kailangan naka-login (auth, verified)
+Route::middleware(['auth', 'verified'])->group(function () {
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+    // General dashboard for all logged-in users
+    Route::get('/dashboard', function () {
+        return view('dashboard');
+    })->name('dashboard');
 
-Route::middleware('auth')->group(function () {
+    // Profile routes (para sa lahat ng logged-in)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // =================== SUPERADMIN ROUTES ===================
+    // 'can:be-superadmin' -> Gagamitin ang Gate na ginawa natin
+    // 'prefix' -> Lahat ng URL sa loob nito ay magsisimula sa /superadmin
+    // 'name' -> Lahat ng route name ay magsisimula sa superadmin.
+    
+    Route::middleware('can:be-superadmin')->prefix('superadmin')->name('superadmin.')->group(function () {
+        
+        // Halimbawa: /superadmin/users -> superadmin.users.index
+        // Route::get('/users', [UserManagementController::class, 'index'])->name('users.index'); 
+        
+        // Dito mo ilagay ang iba pang superadmin routes
+        
+    });
+
+    // =================== ADMIN ROUTES ===================
+    // 'can:be-admin' -> Pwede pumasok dito si 'admin' AT 'superadmin'
+    // 'prefix' -> /admin
+    // 'name' -> admin.
+    
+    Route::middleware('can:be-admin')->prefix('admin')->name('admin.')->group(function () {
+        
+        // URL: /admin/dashboard -> Name: admin.dashboard
+        Route::get('/dashboard', [DashboardController::class, 'showdashboard'])->name('dashboard');
+        
+        // URL: /admin/productmovement -> Name: admin.productmovement
+        Route::get('/productmovement', [ProductMovementController::class, 'showproductmovement'])->name('productmovement');
+        
+        // URL: /admin/inventory -> Name: admin.inventory
+        Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
+        
+        // URL: /admin/patientrecords -> Name: admin.patientrecords
+        Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
+        
+        // URL: /admin/historylog -> Name: admin.historylog
+        Route::get('/historylog', [HistorylogController::class, 'showhistorylog'])->name('historylog');
+    });
+
 });
 
 require __DIR__.'/auth.php';
