@@ -22,6 +22,15 @@ class UserSeeder extends Seeder
             'user_level_id' => 1, // ID para sa 'superadmin'
         ]);
 
+        // 1. Superadmin
+        User::create([
+            'name' => 'Super Admin',
+            'email' => 'pescojohnanthony@gmail.com',
+            'password' => Hash::make('password'), // Awtomatikong na-hash
+            'email_verified_at' => now(), // Set as verified na
+            'user_level_id' => 1, // ID para sa 'superadmin'
+        ]);
+
         // 2. Admin
         User::create([
             'name' => 'Admin User',

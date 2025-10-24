@@ -5,6 +5,9 @@
     <h1 class="text-gray-500 font-semibold text-lg">General Tinio RHU - Inventory Management System</h1>
     <div class="hidden md:flex items-center gap-2">
         <i class="fa-regular fa-user text-red-700 text-xl"></i>
-        <p class="text-sm font-semibold text-gray-700">johnanthonypesco@gmail.com</p>
+        <div>
+            <p class="text-sm font-semibold text-gray-700">{{auth()->user()->name}}</p>
+            <p class="text-xs text-gray-500">{{auth()->user()->email}}</p>
+        </div>
     </div>
 </header>

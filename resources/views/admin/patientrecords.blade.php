@@ -100,14 +100,14 @@
                                 </td>
                                 <td class="p-3 text-sm text-gray-700 text-center">10</td>
                                 <td class="p-3 text-sm text-gray-700 text-center">October 1, 2025 10:00 AM</td>
-                                <td class="p-3 flex items-center gap-2 font-semibold">
+                                <td class="p-3 flex items-center justify-center gap-2 font-semibold">
                                     <button class="view-medications-btn bg-blue-100 text-blue-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 hover:text-white font-semibold text-sm">
                                         <i class="fa-regular fa-eye mr-1"></i>View
                                     </button>
-                                    <button class="edit-record-btn bg-green-100 text-green-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 hover:text-white font-semibold text-sm">
+                                    <button class="editrecordbtn bg-green-100 text-green-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 hover:text-white font-semibold text-sm">
                                         <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
                                     </button>
-                                    <button class="delete-record-btn bg-red-100 text-red-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 hover:text-white font-semibold text-sm">
+                                    <button class="deleterecordbtn bg-red-100 text-red-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 hover:text-white font-semibold text-sm">
                                         <i class="fa-regular fa-trash mr-1"></i>Delete
                                     </button>
                                 </td>
@@ -122,14 +122,14 @@
                                 </td>
                                 <td class="p-3 text-sm text-gray-700 text-center">15</td>
                                 <td class="p-3 text-sm text-gray-700 text-center">October 5, 2025 11:30 AM</td>
-                                <td class="p-3 flex items-center gap-2 font-semibold">
+                                <td class="p-3 flex items-center justify-center gap-2 font-semibold">
                                     <button class="view-medications-btn bg-blue-100 text-blue-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 hover:text-white font-semibold text-sm">
                                         <i class="fa-regular fa-eye mr-1"></i>View
                                     </button>
-                                    <button class="edit-record-btn bg-green-100 text-green-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 hover:text-white font-semibold text-sm">
+                                    <button class="editrecordbtn bg-green-100 text-green-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 hover:text-white font-semibold text-sm">
                                         <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
                                     </button>
-                                    <button class="delete-record-btn bg-red-100 text-red-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 hover:text-white font-semibold text-sm">
+                                    <button class="deleterecordbtn bg-red-100 text-red-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 hover:text-white font-semibold text-sm">
                                         <i class="fa-regular fa-trash mr-1"></i>Delete
                                     </button>
                                 </td>
@@ -144,14 +144,14 @@
                                 </td>
                                 <td class="p-3 text-sm text-gray-700 text-center">20</td>
                                 <td class="p-3 text-sm text-gray-700 text-center">October 10, 2025 12:30 PM</td>
-                                <td class="p-3 flex items-center gap-2 font-semibold">
+                                <td class="p-3 flex items-center justify-center gap-2 font-semibold">
                                     <button class="view-medications-btn bg-blue-100 text-blue-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 hover:text-white font-semibold text-sm">
                                         <i class="fa-regular fa-eye mr-1"></i>View
                                     </button>
-                                    <button class="edit-record-btn bg-green-100 text-green-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 hover:text-white font-semibold text-sm">
+                                    <button class="editrecordbtn bg-green-100 text-green-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 hover:text-white font-semibold text-sm">
                                         <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
                                     </button>
-                                    <button class="delete-record-btn bg-red-100 text-red-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 hover:text-white font-semibold text-sm">
+                                    <button class="deleterecordbtn bg-red-100 text-red-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 hover:text-white font-semibold text-sm">
                                         <i class="fa-regular fa-trash mr-1"></i>Delete
                                     </button>
                                 </td>
@@ -263,6 +263,7 @@
 </html>
 
 <script>
+    // Add Record
     function addRecord() {
         const adddispensationmodal = document.getElementById('adddispensationmodal');
         const closedispensationmodal = document.getElementById('closeadddispensationmodal');
@@ -277,6 +278,7 @@
         });
     }
 
+    // Medication Actions
     function setupMedicationActions() {
         const medicationContainer = document.getElementById('medication-container');
         const addMoreButton = document.getElementById('add-more-medication');
@@ -306,8 +308,27 @@
         });
     }
 
+    // Edit Record only get the patient name and barangay and purok
+    function editRecord() {
+        const editrecordmodal = document.getElementById('editrecordmodal');
+        const closerecordmodal = document.getElementById('closeeditrecordmodal');
+
+        document.querySelectorAll('.editrecordbtn').forEach(button => {
+            button.addEventListener('click', () => {
+                editrecordmodal.classList.remove('hidden');
+            }
+            );
+        });
+
+        closerecordmodal.addEventListener('click', () => {
+            editrecordmodal.classList.add('hidden');
+        });
+        
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         addRecord();
         setupMedicationActions();
+        editRecord();
     });
 </script>

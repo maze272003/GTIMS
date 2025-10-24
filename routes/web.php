@@ -11,7 +11,7 @@ use App\Http\Controllers\AdminController\HistorylogController;
 // use App\Http\Controllers\SuperadminController\UserManagementController;
 
 Route::get('/', function () {
-    return view('index');
+    return view('auth.login');
 });
 
 // Lahat ng routes sa loob nito ay kailangan naka-login (auth, verified)
