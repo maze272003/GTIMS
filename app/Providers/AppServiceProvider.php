@@ -21,23 +21,31 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // $this->registerPolicies(); // <-- BURAHIN MO ITONG LINE NA 'TO
+        // $this->registerPolicies();
 
-        // I-define ang ating Gates (Gagana 'to kahit wala 'yung line sa taas)
-        
+        /**
+         * Gate para sa mga feature na SUPERADMIN LANG ang pwedeng gumamit
+         * (Tulad ng 'manage accounts')
+         */
         Gate::define('be-superadmin', function (User $user) {
             // Check kung 'yung name sa level niya ay 'superadmin'
             return $user->level->name == 'superadmin';
         });
 
-        Gate::define('be-admin', function (User $user) {
-            // Pwedeng pumasok basta 'superadmin' O 'admin'
-            return in_array($user->level->name, ['superadmin', 'admin']);
+        /**
+         * Gate para sa LAHAT ng pwedeng pumasok sa shared admin panel
+         * (superadmin, admin, AT encoder)
+         */
+        Gate::define('can-access-admin-panel', function (User $user) {
+            // Pwedeng pumasok basta 'superadmin', 'admin', O 'encoder'
+            return in_array($user->level->name, [
+                'superadmin', 
+                'admin',
+                'encoder'
+            ]);
         });
         
-        // Pwede ka ring gumawa para sa encoder
-        Gate::define('be-encoder', function (User $user) {
-            return $user->level->name == 'encoder';
-        });
+        // (Wala na dito 'yung 'be-admin' at 'be-encoder' GATES
+        // dahil pinalitan na natin ng 'can-access-admin-panel')
     }
 }

@@ -8,10 +8,7 @@ use App\Http\Controllers\AdminController\InventoryController;
 use App\Http\Controllers\AdminController\PatientRecordsController;
 use App\Http\Controllers\AdminController\HistorylogController;
 use App\Http\Controllers\AdminController\ManageaccountController;
-
-
-// Magdagdag dito ng Superadmin controllers mo...
-// use App\Http\Controllers\SuperadminController\UserManagementController;
+use Illuminate\Support\Facades\Auth; // <-- Siguraduhin na nandito ito
 
 Route::get('/', function () {
     return view('auth.login');
@@ -20,36 +17,43 @@ Route::get('/', function () {
 // Lahat ng routes sa loob nito ay kailangan naka-login (auth, verified)
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    // General dashboard for all logged-in users
+    // =================== 1. ANG LOGIN REDIRECTOR ===================
+    // Ito ang sasalubong sa LAHAT ng user pagka-login.
+    // Ipadadala niya ang LAHAT (superadmin, admin, encoder) sa 'admin.dashboard'.
+    
     Route::get('/dashboard', function () {
-        return view('dashboard');
-    })->name('dashboard');
+        
+        // I-check kung may permission siyang pumasok sa admin panel
+        // gamit ang Gate na ginawa natin sa AppServiceProvider
+        if (Auth::user()->can('can-access-admin-panel')) {
+             // Papuntang /admin/dashboard
+            return redirect()->route('admin.dashboard');
+        }
 
-    // Profile routes (para sa lahat ng logged-in)
+        // Kung wala (halimbawa, ibang role na hindi kasama), logout
+        Auth::logout();
+        return redirect('/login')->with('error', 'You do not have permission.');
+
+    })->name('dashboard'); // <-- Ito ang default "home" ng Laravel
+
+    
+    // =================== 2. PROFILE ROUTES ===================
+    // (Para sa lahat ng naka-login)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // =================== SUPERADMIN ROUTES ===================
-    // 'can:be-superadmin' -> Gagamitin ang Gate na ginawa natin
-    // 'prefix' -> Lahat ng URL sa loob nito ay magsisimula sa /superadmin
-    // 'name' -> Lahat ng route name ay magsisimula sa superadmin.
-    
-    Route::middleware('can:be-superadmin')->prefix('superadmin')->name('superadmin.')->group(function () {
-        
-        // Halimbawa: /superadmin/users -> superadmin.users.index
-        // Route::get('/users', [UserManagementController::class, 'index'])->name('users.index'); 
-        
-        // Dito mo ilagay ang iba pang superadmin routes
-        
-    });
 
-    // =================== ADMIN ROUTES ===================
-    // 'can:be-admin' -> Pwede pumasok dito si 'admin' AT 'superadmin'
-    // 'prefix' -> /admin
-    // 'name' -> admin.
+    // =================== 3. ANG IISANG (SHARED) ADMIN PANEL ===================
+    // Pinagsama-sama na natin ang lahat dito.
+    // Dito papasok si SUPERADMIN, ADMIN, at ENCODER.
     
-    Route::middleware('can:be-admin')->prefix('admin')->name('admin.')->group(function () {
+    Route::middleware('can:can-access-admin-panel') // <-- Gamit ang bagong Gate
+         ->prefix('admin') // <-- Lahat ay /admin/...
+         ->name('admin.') // <-- Lahat ay may pangalang admin....
+         ->group(function () {
+        
+        // == SHARED ROUTES PARA SA SUPERADMIN, ADMIN, AT ENCODER ==
         
         // URL: /admin/dashboard -> Name: admin.dashboard
         Route::get('/dashboard', [DashboardController::class, 'showdashboard'])->name('dashboard');
@@ -67,9 +71,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // URL: /admin/historylog -> Name: admin.historylog
         Route::get('/historylog', [HistorylogController::class, 'showhistorylog'])->name('historylog');
 
+        
+        // == ROUTE NA PARA SA SUPERADMIN LANG ==
+        // Nasa loob pa rin ng /admin/ path, pero may extra check
+        
         // URL: /admin/manageaccount -> Name: admin.manageaccount
-        Route::get('admin/manageaccount' , [ManageaccountController::class, 'showManageaccount'])->name('manageaccount');
+        Route::get('/manageaccount' , [ManageaccountController::class, 'showManageaccount'])
+             ->middleware('can:be-superadmin') // <-- Dito chine-check kung superadmin
+             ->name('manageaccount');
     });
+
+    // WALA NA DITO 'YUNG MGA HIWALAY NA ROUTE GROUP PARA SA
+    // 'superadmin', 'admin', at 'encoder' DAHIL PINAG-ISA NA SA TAAS.
 
 });
 

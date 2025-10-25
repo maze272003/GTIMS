@@ -12,9 +12,12 @@
         <h2 class="text-3xl font-semibold text-gray-800 mt-4">Oops! Bawal ka dito.</h2>
         <p class="text-gray-600 mt-2">Paumanhin, mukhang wala kang permiso para buksan ang page na ito.</p>
         <div class="mt-8">
-            <a href="{{ url('/') }}" class="px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700">
-                Bumalik sa Home
-            </a>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Bumalik sa Home at Mag-logout
+                </button>
+            </form>
         </div>
     </div>
 </body>
