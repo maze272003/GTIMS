@@ -11,7 +11,6 @@ class InventoryController extends Controller
 {
     public function showinventory(Request $request)
     {
-        // display the product list with is_archive is false
         $products = Product::where('is_archived', false)->get();
         $inventories = Inventory::all();
 

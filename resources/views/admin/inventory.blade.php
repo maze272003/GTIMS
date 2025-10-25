@@ -253,9 +253,9 @@
         </button>
       </div>
 
-      <div class="overflow-x-auto">
+      <div class="overflow-x-auto h-fit max-h-[70vh]">
         <table class="w-full text-sm text-left">
-          <thead class="bg-gray-200 text-gray-700 uppercase text-xs">
+          <thead class="bg-gray-200 text-gray-700 uppercase text-xs sticky top-0">
             <tr>
               <th class="p-3">#</th>
               <th class="p-3">Product Details</th>
