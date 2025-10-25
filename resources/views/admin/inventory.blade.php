@@ -223,15 +223,16 @@
         </button>
       </div>
 
-      <form action="#" class="mt-5">
+      <form action="{{route('admin.inventory.addproduct')}}" class="mt-5" method="POST">
+        @csrf
         <div class="flex gap-2">
           <div class="w-1/2">
             <label for="brand" class="text-sm font-semibold text-gray-600">Brand Name:</label>
-            <input type="text" name="brand" id="brand" placeholder="Enter Brand Name" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            <input type="text" name="brand_name" id="brand_name" placeholder="Enter Brand Name" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
           </div>
           <div class="w-1/2">
-            <label for="product" class="text-sm font-semibold text-gray-600">Product Name:</label>
-            <input type="text" name="product" id="product" placeholder="Enter Product Name" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+            <label for="generic_name" class="text-sm font-semibold text-gray-600">Product Name:</label>
+            <input type="text" name="generic_name" id="generic_name" placeholder="Enter Product Name" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
           </div>
         </div>
 

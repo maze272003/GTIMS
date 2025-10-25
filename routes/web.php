@@ -59,6 +59,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         
         // URL: /admin/inventory -> Name: admin.inventory
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
+        Route::post('/inventory', [InventoryController::class, 'addProduct'])->name('inventory.addproduct');
         
         // URL: /admin/patientrecords -> Name: admin.patientrecords
         Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
