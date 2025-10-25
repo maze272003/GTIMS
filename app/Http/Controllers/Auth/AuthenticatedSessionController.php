@@ -27,8 +27,19 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
         $request->session()->regenerate();
 
-        // --- ITO YUNG RECOMMENDED LOGIC ---
+        /** @var \App\Models\User $user */
         $user = Auth::user();
+
+        // If user_level_id is null, $user->level will be null.
+        // Immediately log out the user and end their session.
+        if (is_null($user->level)) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            // Redirect to the homepage with an error message.
+            return redirect('/')->with('error', 'You are not authorized to access this application.');
+        }
 
         if ($user->level->name == 'superadmin') {
             return redirect()->route('admin.dashboard');
@@ -44,8 +55,12 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('admin.dashboard'); 
         }
 
-        // Fallback
-        return redirect()->route('dashboard');
+        // Fallback for any other roles. Log them out and redirect.
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect('/')->with('error', 'Your user role does not have access.');
     }
 
     /**

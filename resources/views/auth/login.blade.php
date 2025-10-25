@@ -24,6 +24,12 @@
                 @if (session('status'))
                     <p class="text-green-500 text-center text-sm">{{ session('status') }}</p>
                 @endif
+                {{-- error message for unathenticated user_level_id.. this is null this is fallback --}}
+                @if (session('error'))
+                    <div class="text-red-500 text-center text-sm font-medium" {{ session('status') }}>
+                        {{ session('error') }}
+                    </div>
+                @endif
                 <div>
                     <label for="email" class="text-sm text-black/80 font-medium">Email Address:</label>
                     <input id="email" type="email" name="email" value="{{ old('email') }}" 

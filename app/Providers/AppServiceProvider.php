@@ -29,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
          */
         Gate::define('be-superadmin', function (User $user) {
             // Check kung 'yung name sa level niya ay 'superadmin'
-            return $user->level->name == 'superadmin';
+            return $user->level && $user->level->name == 'superadmin';
         });
 
         /**
@@ -38,7 +38,7 @@ class AppServiceProvider extends ServiceProvider
          */
         Gate::define('can-access-admin-panel', function (User $user) {
             // Pwedeng pumasok basta 'superadmin', 'admin', O 'encoder'
-            return in_array($user->level->name, [
+            return $user->level && in_array($user->level->name, [
                 'superadmin', 
                 'admin',
                 'encoder'
