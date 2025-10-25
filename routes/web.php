@@ -7,6 +7,9 @@ use App\Http\Controllers\AdminController\ProductMovementController;
 use App\Http\Controllers\AdminController\InventoryController;
 use App\Http\Controllers\AdminController\PatientRecordsController;
 use App\Http\Controllers\AdminController\HistorylogController;
+use App\Http\Controllers\AdminController\ManageaccountController;
+
+
 // Magdagdag dito ng Superadmin controllers mo...
 // use App\Http\Controllers\SuperadminController\UserManagementController;
 
@@ -62,6 +65,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         
         // URL: /admin/historylog -> Name: admin.historylog
         Route::get('/historylog', [HistorylogController::class, 'showhistorylog'])->name('historylog');
+
+        // URL: /admin/manageaccount -> Name: admin.manageaccount
+        Route::get('admin/manageaccount' , [ManageaccountController::class, 'showManageaccount'])->name('manageaccount');
     });
 
 });
