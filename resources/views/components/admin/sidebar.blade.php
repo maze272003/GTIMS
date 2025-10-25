@@ -32,6 +32,12 @@
             </a>
         </li>
         <li>
+            <a href="{{ route('admin.manageaccount') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 md:text-gray-700">
+                <i class="fa-regular fa-users nav-icon w-5 text-center text-gray-600"></i>
+                <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700">Manage Account</span>
+            </a>
+        </li>
+        <li>
             <a href="{{ route('admin.historylog') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 md:text-gray-700">
                 <i class="fa-regular fa-clock-rotate-left nav-icon w-5 text-center text-gray-600"></i>
                 <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700">History Logs</span>
@@ -47,11 +53,11 @@
         </li>
         <li>
         <form action="{{ route('logout') }}" method="POST" class="w-full">
-            @csrf <button type="submit" class="w-full flex items-center px-3 py-2.5 hover:bg-red-50 hover:text-red-600 rounded-lg font-medium text-gray-700">
+            @csrf 
+            <button type="submit" class="w-full flex items-center px-3 py-2.5 hover:bg-red-50 hover:text-red-600 rounded-lg font-medium text-red-700">
+                <i class="fa-regular fa-arrow-right-from-bracket nav-icon w-5 text-center"></i>
                 
-                <i class="fa-regular fa-arrow-right-from-bracket nav-icon w-5 text-center text-gray-600"></i>
-                
-                <span class="nav-text ml-3 lg:inline md:hidden text-gray-700">Logout</span>
+                <span class="nav-text ml-3 lg:inline md:hidden">Logout</span>
             </button>
         </form>
         </li>

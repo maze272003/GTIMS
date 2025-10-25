@@ -84,7 +84,7 @@
                             <tr>
                                 <th class="p-3 text-gray-700 uppercase text-sm text-left tracking-wide">#</th>
                                 <th class="p-3 text-gray-700 uppercase text-sm text-left tracking-wide">Resident Details</th>
-                                <th class="p-3 text-gray-700 uppercase text-sm text-center tracking-wide">Total Dispensed Medication</th>
+                                <th class="p-3 text-gray-700 uppercase text-sm text-center tracking-wide">Category (Senior/Adult/Child)</th>
                                 <th class="p-3 text-gray-700 uppercase text-sm tracking-wide">Date Dispensed</th>
                                 <th class="p-3 text-gray-700 uppercase text-sm text-center tracking-wide">Actions</th>
                             </tr>
@@ -260,7 +260,10 @@
         </main>
     </div>
 </body>
+{{-- <x-admin.loader /> --}}
 </html>
+
+
 
 <script>
     // Add Record
