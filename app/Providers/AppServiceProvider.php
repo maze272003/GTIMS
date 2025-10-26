@@ -52,6 +52,10 @@ class AppServiceProvider extends ServiceProvider
             // Check kung 'yung name sa level niya ay 'superadmin'
             return $user->level && $user->level->name == 'superadmin';
         });
+        Gate::define('be-admin', function (User $user) {
+            // Check kung 'yung name sa level niya ay 'admin'
+            return $user->level && $user->level->name == 'admin';
+        });
 
         /**
          * Gate para sa LAHAT ng pwedeng pumasok sa shared admin panel
