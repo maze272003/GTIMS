@@ -14,7 +14,8 @@ class Inventory extends Model
         'product_id',
         'batch_number',
         'quantity',
-        'expiry_date'
+        'expiry_date',
+        'is_archived'
     ];
 
     public function product()

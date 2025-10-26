@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('generic_name');
             $table->string('form');
             $table->string('strength');
-            $table->string('is_archived')->nullable()->default('false');
+            $table->string('is_archived')->nullable()->default(2);
             $table->timestamps();
         });
     }

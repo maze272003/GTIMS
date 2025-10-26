@@ -15,5 +15,11 @@ class Product extends Model
         'generic_name',
         'form',
         'strength',
+        'is_archived'
     ];
+
+    public function inventories()
+    {
+        return $this->hasMany(Inventory::class);
+    }
 }

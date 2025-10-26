@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('batch_number');
             $table->integer('quantity');
             $table->date('expiry_date');
+            $table->boolean('is_archived')->default(2);
             $table->timestamps();
         });
     }

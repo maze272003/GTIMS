@@ -155,6 +155,56 @@ modal.addEventListener('click', (e) => {
 });
 }
 
+function showarchivemodal(){
+    const modal = document.getElementById('viewarchiveproductsmodal');
+    const btn = document.getElementById('viewarchiveproductsbtn');
+    const closeBtn = document.getElementById('closeviewarchiveproductsmodal');
+    btn.addEventListener('click', () => {
+        modal.classList.remove('hidden');
+    });
+    closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+}
+
+function showArchiveStockmodal(){
+    const modal = document.getElementById('viewarchivedstocksmodal');
+    const closeBtn = document.getElementById('closeviewarchivedstocksmodal');
+    const productNameSpan = document.getElementById('archived-product-name');
+    const stocksTbody = document.getElementById('archived-stocks-tbody');
+    document.querySelectorAll('.view-archivestock-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const row = this.closest('tr');
+            const productId = row.dataset.productId;
+            const productName = `${row.dataset.brand} ${row.dataset.product} ${row.dataset.strength} ${row.dataset.form}`;
+            productNameSpan.textContent = productName;
+            const rows = stocksTbody.querySelectorAll('tr');
+            let hasVisibleRows = false;
+            rows.forEach(row => {
+                if (row.dataset.productId === productId) {
+                    row.style.display = '';
+                    hasVisibleRows = true;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            if (!hasVisibleRows && rows.length > 0 && rows[0].querySelector('td').textContent === 'No Archived Stocks Available') {
+                rows[0].style.display = '';
+            }
+            modal.classList.remove('hidden');
+        });
+    });
+    closeBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+}
+
 function sweetalertforallfunction(){
     const addproductform = document.getElementById('add-product-form');
     const addproductbtn = document.getElementById('add-product-btn');
@@ -236,6 +286,8 @@ document.addEventListener('DOMContentLoaded', () => {
     showEditProductModal();
     showEditStockModal();
     sweetalertforallfunction();
+    showarchivemodal();
+    showArchiveStockmodal();
 });
 
 // sweetalert for add new product

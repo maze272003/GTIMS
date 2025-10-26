@@ -67,7 +67,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/inventory/update', [InventoryController::class, 'updateProduct'])->name('inventory.updateproduct');
         Route::post('/inventory/addstock', [InventoryController::class, 'addStock'])->name('inventory.addstock');
         Route::put('/inventory/editstock', [InventoryController::class, 'editStock'])->name('inventory.editstock');
-        
+        Route::put('/inventory/archive', [InventoryController::class, 'archiveProduct'])->name('inventory.archiveproduct');
+        Route::put('/inventory/unarchive', [InventoryController::class, 'unarchiveProduct'])->name('inventory.unarchiveproduct');
         // URL: /admin/patientrecords -> Name: admin.patientrecords
         Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
         
