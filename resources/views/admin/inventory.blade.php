@@ -261,7 +261,7 @@
                                   data-product="{{ $product->generic_name }}"
                                   data-form="{{ $product->form }}"
                                   data-strength="{{ $product->strength }}">
-                                  <td class="p-3">{{ $loop->iteration + ($products->currentPage() - 1) * $products->perPage() }}</td>
+                                  <td class="p-3">{{ $loop->iteration }}</td>
                                   <td class="p-3">
                                       <div class="flex gap-4">
                                           <div>
