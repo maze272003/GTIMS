@@ -1,5 +1,6 @@
 {{-- partials/_inventory_table.blade.php --}}
-<table class="w-full">
+
+<table class="w-full pagination-links text-sm text-left">
     <thead class="sticky top-0 bg-gray-200">
         <tr>
             <th class="p-3 text-gray-700 uppercase text-sm text-left tracking-wide">#</th>
