@@ -1,3 +1,5 @@
+// SPA for navigation - Single Page Application 
+
 document.addEventListener('DOMContentLoaded', () => {
     
     // 1. Kunin ang mga importanteng elements
