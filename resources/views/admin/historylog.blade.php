@@ -1,4 +1,7 @@
 <x-app-layout>
+    <x-slot name="title">
+        HistoryLog - General Tinio
+    </x-slot>
 <body class="bg-gray-50">
  
     <x-admin.sidebar/>

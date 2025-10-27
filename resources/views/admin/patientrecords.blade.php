@@ -1,4 +1,7 @@
 <x-app-layout>
+    <x-slot name="title">
+        Patients Records - General Tinio
+    </x-slot>
 <body class="bg-gray-50">
     <x-admin.sidebar/>
     <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
@@ -252,7 +255,7 @@
 {{-- <x-admin.loader /> --}}
 </x-app-layout>
 <script src="{{asset('js/patientrecords.js')}}"></script>
-<script src="{{ asset('js/spa-navigation.js') }}"></script>
+{{-- <script src="{{ asset('js/spa-navigation.js') }}"></script> --}}
 
 
 <script>

@@ -71,6 +71,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/inventory/editstock', [InventoryController::class, 'editStock'])->name('inventory.editstock');
             Route::put('/inventory/archive', [InventoryController::class, 'archiveProduct'])->name('inventory.archiveproduct');
             Route::put('/inventory/unarchive', [InventoryController::class, 'unarchiveProduct'])->name('inventory.unarchiveproduct');
+            Route::get('/inventory/archived-stocks', [InventoryController::class, 'fetchArchivedStocks'])
+             ->name('admin.inventory.fetchArchivedStocks');
             
             // --- Iba pang Admin Routes ---
             Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');

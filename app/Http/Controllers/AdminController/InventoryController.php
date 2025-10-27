@@ -6,21 +6,18 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Inventory;
-// use pagination
+use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 class InventoryController extends Controller
 {
     
+    // show inventory
     public function showinventory(Request $request)
     {
-        // Kunin ang search term mula sa URL (e.g., ?search=amoxicillin)
         $search = $request->input('search', '');
-
-        // Simulan ang query
         $inventoryQuery = Inventory::where('is_archived', 2);
 
-        // Kung may search term, i-filter ang query
         if (!empty($search)) {
             $inventoryQuery->where(function ($query) use ($search) {
                 $query->where('batch_number', 'like', "%{$search}%")
@@ -33,33 +30,62 @@ class InventoryController extends Controller
             });
         }
 
-        // Paginate the results
-        // Gagamitin natin ang withQueryString() para maalala ng pagination links ang search query
         $inventories = $inventoryQuery->paginate(20)->withQueryString();
 
-        // Suriin kung ito ay isang AJAX request
         if ($request->ajax()) {
-            // Kung AJAX, ibalik lang ang partial view ng table
             return view('admin.partials._inventory_table', ['inventories' => $inventories])->render();
         }
 
-        // Para sa normal page load, kunin ang lahat ng data
         $products = Product::where('is_archived', 2)->get();
         $archiveproducts = Product::where('is_archived', 1)->get();
-        $archivedstocks = Inventory::where('is_archived', 1)->paginate(20);
-        // Eto yung kinukuha lahat ng data para macount yung mga card sa inventory page
-        $inventorycount = Inventory::where('is_archived', 2)->get();
+        $inventorycount = Inventory::where('is_archived', 1)->get();
 
-        // Ibalik ang buong view
         return view('admin.inventory', [
             'products' => $products, 
-            'inventories' => $inventories, // Ito ay filtered na kung may search
+            'inventories' => $inventories,
             'archiveproducts' => $archiveproducts,
-            'archivedstocks' => $archivedstocks,
-            'inventorycount' => $inventorycount
+            'inventorycount' => $inventorycount,
         ]);
     }
 
+    // fetch archived stocks
+    public function fetchArchivedStocks(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+        ]);
+
+        $productId = $request->input('product_id');
+        
+        $archivedstocks = Inventory::where('is_archived', 1)
+            ->where('product_id', $productId)
+            ->orderBy('expiry_date', 'desc')
+            ->paginate(20);
+
+        $html = '';
+        if ($archivedstocks->isEmpty() && $request->page == 1) {
+            $html = '<tr><td colspan="4" class="p-3 text-center text-red-500">No Archived Stocks Available</td></tr>';
+        } else {
+            foreach ($archivedstocks as $key => $stock) {
+                $rowNumber = ($archivedstocks->currentPage() - 1) * $archivedstocks->perPage() + $key + 1;
+                $expiryDate = Carbon::parse($stock->expiry_date)->format('M d, Y');
+                
+                $html .= "<tr class=\"hover:bg-gray-50\">
+                            <td class=\"text-left p-3\">{$rowNumber}</td>
+                            <td class=\"text-left font-semibold text-gray-700\">{$stock->batch_number}</td>
+                            <td class=\"text-left font-semibold text-gray-500 \">{$stock->quantity}</td>
+                            <td class=\"text-center font-semibold text-gray-500\">{$expiryDate}</td>
+                          </tr>";
+            }
+        }
+
+        return response()->json([
+            'html' => $html,
+            'has_more_pages' => $archivedstocks->hasMorePages(), 
+        ]);
+    }
+
+    // ADD PRODUCT
     public function addProduct(Request $request, Product $product) {
         $validated = $request->validateWithBag( 'addproduct', [
             'generic_name' => 'min:3|max:120|required',
@@ -131,7 +157,6 @@ class InventoryController extends Controller
     }
 
     // UNARCHIVE PRODUCT
-
     public function unarchiveProduct(Request $request) {
         $validated = $request->validateWithBag('unarchiveproduct', [
             'product_id' => 'required|exists:products,id',
@@ -152,8 +177,8 @@ class InventoryController extends Controller
 
         return redirect()->route('admin.inventory')->with('success', 'Product unarchived successfully.');
     }
+    
     // ADD STOCK
-
     public function addStock(Request $request) {
         $validated = $request->validateWithBag( 'addstock', [
             'product_id' => 'required|exists:products,id',
@@ -188,7 +213,6 @@ class InventoryController extends Controller
     }
 
     // EDIT STOCK
-
     public function editStock(Request $request)
     {
         $validated = $request->validateWithBag('editstock', [

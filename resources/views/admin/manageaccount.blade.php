@@ -1,6 +1,8 @@
 <x-app-layout>
 <body class="bg-gray-50">
-
+    <x-slot name="title">
+        Management Account - General Tinio
+    </x-slot>
     <x-admin.sidebar/>
 
     <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
