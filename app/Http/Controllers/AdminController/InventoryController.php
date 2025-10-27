@@ -161,7 +161,7 @@ class InventoryController extends Controller
             ],
         ]);
 
-        return redirect()->route('admin.inventory')->with('success', 'Product updated successfully.');
+        return to_route('admin.inventory')->with('success', 'Product updated successfully.');
     }
 
     // ARCHIVE PRODUCT
@@ -196,7 +196,7 @@ class InventoryController extends Controller
             ],
         ]);
 
-        return redirect()->route('admin.inventory')->with('success', 'Product archived successfully.');
+        return to_route('admin.inventory')->with('success', 'Product archived successfully.');
     }
 
     // UNARCHIVE PRODUCT
@@ -230,7 +230,7 @@ class InventoryController extends Controller
             ],
         ]);
 
-        return redirect()->route('admin.inventory')->with('success', 'Product unarchived successfully.');
+        return to_route('admin.inventory')->with('success', 'Product unarchived successfully.');
     }
     
     // ADD STOCK
@@ -351,9 +351,7 @@ class InventoryController extends Controller
             ],
         ]);
 
-        return redirect()
-            ->route('admin.inventory')
-            ->with('success', 'Stock updated successfully.');
+        return to_route('admin.inventory')->with('success', 'Stock updated successfully.');
     }
 
 }
