@@ -40,7 +40,7 @@ class InventoryController extends Controller
 
         $products = Product::where('is_archived', 2)->get();
         $archiveproducts = Product::where('is_archived', 1)->get();
-        $inventorycount = Inventory::where('is_archived', 1)->get();
+        $inventorycount = Inventory::where('is_archived', 2)->get();
 
         return view('admin.inventory', [
             'products' => $products, 

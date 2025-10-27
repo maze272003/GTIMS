@@ -54,7 +54,7 @@ class HistorylogController extends Controller
             $query->where('created_at', '<=', $toDate);
         }
 
-        $historyLogs = $query->paginate(10)->withQueryString();
+        $historyLogs = $query->paginate(20)->withQueryString();
 
         // For dropdown data
         

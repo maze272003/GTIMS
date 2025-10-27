@@ -1,146 +1,170 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('viewMoreModal');
-    const modalDesc = document.getElementById('modalDescription');
-    const closeBtn = document.getElementById('closeModalBtn');
-    const searchInput = document.getElementById('searchInput');
+document.addEventListener('DOMContentLoaded', function () {
     const tableContainer = document.getElementById('history-table');
-    const loader = document.getElementById('table-loader');
-    const toggleFilterBtn = document.getElementById('toggleFilterBtn');
-    const filterPanel = document.getElementById('filterPanel');
-    const applyFilterBtn = document.getElementById('applyFilterBtn');
-    const resetFilterBtn = document.getElementById('resetFilterBtn');
-    const filterForm = document.getElementById('filterForm');
-    let typingTimer;
-    const delay = 500; // delay before triggering live search
+    const modal          = document.getElementById('viewMoreModal');
+    const modalDesc      = document.getElementById('modalDescription');
+    const closeBtn       = document.getElementById('closeModalBtn');
+    const searchInput    = document.getElementById('searchInput');
+    const toggleFilter   = document.getElementById('toggleFilterBtn');
+    const filterPanel    = document.getElementById('filterPanel');
+    const applyFilter    = document.getElementById('applyFilterBtn');
+    const resetFilter    = document.getElementById('resetFilterBtn');
+    const filterForm     = document.getElementById('filterForm');
+    const loader         = document.getElementById('table-loader');
 
-    // === Modal Logic ===
-    function attachModalEvents() {
-        document.querySelectorAll('.view-more-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                modalDesc.textContent = button.dataset.full;
+    let debounceTimer;
+    const DEBOUNCE_DELAY = 300;
+
+    /* -------------------------------------------------
+       Helper: Debounce
+       ------------------------------------------------- */
+    function debounce(func, delay) {
+        return function (...args) {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    /* -------------------------------------------------
+       Re-attach “View More” buttons after every AJAX load
+       ------------------------------------------------- */
+    function attachViewMore() {
+        document.querySelectorAll('.view-more-btn').forEach(btn => {
+            btn.onclick = () => {
+                modalDesc.textContent = btn.dataset.full;
                 modal.classList.remove('hidden');
-            });
+            };
         });
     }
 
-    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-    modal.addEventListener('click', e => {
-        if (e.target === modal) modal.classList.add('hidden');
-    });
+    /* -------------------------------------------------
+       Modal close
+       ------------------------------------------------- */
+    closeBtn.onclick = () => modal.classList.add('hidden');
+    modal.onclick = e => { if (e.target === modal) modal.classList.add('hidden'); };
 
-    attachModalEvents();
+    /* -------------------------------------------------
+       Filter panel toggle (smooth)
+       ------------------------------------------------- */
+    if (toggleFilter && filterPanel) {
+        toggleFilter.onclick = () => {
+            const hidden = filterPanel.classList.contains('max-h-0');
+            filterPanel.classList.toggle('max-h-0', !hidden);
+            filterPanel.classList.toggle('max-h-[1000px]', hidden);
+            filterPanel.classList.toggle('opacity-0', !hidden);
+            filterPanel.classList.toggle('opacity-100', hidden);
+            filterPanel.classList.toggle('p-0', !hidden);
+            filterPanel.classList.toggle('p-4', hidden);
+            toggleFilter.innerHTML = hidden
+                ? '<i class="fas fa-xmark text-xs"></i> Hide Filters'
+                : '<i class="fas fa-filter text-xs"></i> Show Filters';
+        };
+    }
 
-    // === Toggle Filter Panel with Smooth Animation ===
-    toggleFilterBtn.addEventListener('click', () => {
-        const isHidden = filterPanel.classList.contains('max-h-0');
-        
-        if (isHidden) {
-            filterPanel.classList.remove('max-h-0', 'opacity-0', 'p-0');
-            filterPanel.classList.add('max-h-[1000px]', 'opacity-100', 'p-4');
-            filterPanel.style.transition = 'all 0.4s ease';
-            toggleFilterBtn.innerHTML = '<i class="fas fa-xmark text-xs"></i> Hide Filters';
-        } else {
-            filterPanel.classList.remove('max-h-[1000px]', 'opacity-100', 'p-4');
-            filterPanel.classList.add('max-h-0', 'opacity-0', 'p-0');
-            filterPanel.style.transition = 'all 0.4s ease';
-            toggleFilterBtn.innerHTML = '<i class="fas fa-filter text-xs"></i> Show Filters';
-        }
-    });
-
-    // Initialize default state
-    filterPanel.classList.add('transition-all', 'duration-500', 'ease-in-out', 'overflow-hidden', 'max-h-0', 'opacity-0', 'p-0');
-
-    // === Live Search ===
-    searchInput.addEventListener('input', () => {
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(() => performSearch(), delay);
-    });
-
-    // === Apply Filters ===
-    applyFilterBtn.addEventListener('click', () => {
-        performSearch();
-    });
-
-    // === Reset Filters ===
-    resetFilterBtn.addEventListener('click', () => {
-        filterForm.reset();
-        performSearch();
-    });
-
-    // === Fetch and Update Table ===
-    function performSearch(url = null) {
-        const targetUrl = url ? new URL(url, window.location.origin) : new URL(window.location.href);
-        const params = new URLSearchParams(targetUrl.search); // preserve existing params like ?page=2
-
-        const query = searchInput.value;
-        const action = document.getElementById('filterAction').value;
-        const user = document.getElementById('filterUser').value;
-        const from = document.getElementById('filterFrom').value;
-        const to = document.getElementById('filterTo').value;
-
-        // Merge or remove parameters dynamically
-        query ? params.set('search', query) : params.delete('search');
-        action ? params.set('action', action) : params.delete('action');
-        user ? params.set('user', user) : params.delete('user');
-        from ? params.set('from', from) : params.delete('from');
-        to ? params.set('to', to) : params.delete('to');
-
-        targetUrl.search = params.toString();
-
+    /* -------------------------------------------------
+       Core AJAX fetch
+       ------------------------------------------------- */
+    function fetchHistory(url) {
         showLoader();
-
-        fetch(targetUrl, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(response => response.text())
-        .then(html => {
-            tableContainer.innerHTML = html;
-            attachModalEvents();
-            attachPaginationEvents();
-            attachSortEvent();
-            window.history.pushState({}, '', targetUrl); // Update browser URL
-        })
-        .catch(err => console.error('AJAX error:', err))
-        .finally(() => setTimeout(() => hideLoader(), 200));
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.text())
+            .then(html => {
+                tableContainer.innerHTML = html;
+                window.history.pushState({ path: url }, '', url);
+                attachViewMore();
+                attachPagination();
+                attachSort();
+            })
+            .catch(err => console.error('AJAX error:', err))
+            .finally(() => setTimeout(hideLoader, 200));
     }
 
-    // === Pagination Handling ===
-    function attachPaginationEvents() {
-        document.querySelectorAll('#history-table .pagination a').forEach(link => {
-            link.addEventListener('click', (e) => {
+    /* -------------------------------------------------
+       Pagination (delegated)
+       ------------------------------------------------- */
+    function attachPagination() {
+        tableContainer.addEventListener('click', e => {
+            const a = e.target.closest('a');
+            if (a && a.closest('.pagination-links')) {
                 e.preventDefault();
-                const pageUrl = link.href;
-                performSearch(pageUrl);
-            });
+                fetchHistory(a.href);
+            }
         });
     }
 
-    // === Sort by Date Handling ===
-    function attachSortEvent() {
-        const sortBtn = document.getElementById('sortDateBtn');
-        if (!sortBtn) return;
-
-        sortBtn.addEventListener('click', () => {
-            const currentUrl = new URL(window.location.href);
-            const params = new URLSearchParams(currentUrl.search);
-            const currentSort = params.get('sort') || 'desc';
-            const newSort = currentSort === 'desc' ? 'asc' : 'desc';
-            params.set('sort', newSort);
-            currentUrl.search = params.toString();
-            performSearch(currentUrl.toString());
-        });
+    /* -------------------------------------------------
+       Date sort button
+       ------------------------------------------------- */
+    function attachSort() {
+        const btn = document.getElementById('sortDateBtn');
+        if (!btn) return;
+        btn.onclick = () => {
+            const u = new URL(location.href);
+            const p = u.searchParams;
+            const cur = p.get('sort') || 'desc';
+            p.set('sort', cur === 'desc' ? 'asc' : 'desc');
+            fetchHistory(u.toString());
+        };
     }
 
-    // === Loader Functions ===
-    function showLoader() {
-        if (loader) loader.classList.remove('hidden');
+    /* -------------------------------------------------
+       Search (debounced)
+       ------------------------------------------------- */
+    if (searchInput) {
+        searchInput.addEventListener('keyup', debounce(() => {
+            const base = location.origin + location.pathname;
+            const u    = new URL(base);
+            const q    = searchInput.value.trim();
+            if (q) u.searchParams.set('search', q);
+            else u.searchParams.delete('search');
+            fetchHistory(u.href);
+        }, DEBOUNCE_DELAY));
     }
 
-    function hideLoader() {
-        if (loader) loader.classList.add('hidden');
+    /* -------------------------------------------------
+       Filters (apply / reset)
+       ------------------------------------------------- */
+    if (applyFilter) {
+        applyFilter.onclick = () => performFilters();
+    }
+    if (resetFilter) {
+        resetFilter.onclick = () => {
+            filterForm.reset();
+            performFilters();
+        };
     }
 
-    // Initialize pagination and sorting listeners on page load
-    attachPaginationEvents();
-    attachSortEvent();
+    function performFilters() {
+        const base = location.origin + location.pathname;
+        const u    = new URL(base);
+        const p    = u.searchParams;
+
+        const vals = {
+            search: searchInput?.value.trim(),
+            action: document.getElementById('filterAction')?.value,
+            user  : document.getElementById('filterUser')?.value,
+            from  : document.getElementById('filterFrom')?.value,
+            to    : document.getElementById('filterTo')?.value,
+        };
+
+        Object.entries(vals).forEach(([k, v]) => v ? p.set(k, v) : p.delete(k));
+        fetchHistory(u.href);
+    }
+
+    /* -------------------------------------------------
+       Loader helpers
+       ------------------------------------------------- */
+    function showLoader() { if (loader) loader.classList.remove('hidden'); }
+    function hideLoader() { if (loader) loader.classList.add('hidden'); }
+
+    /* -------------------------------------------------
+       Browser back/forward
+       ------------------------------------------------- */
+    window.addEventListener('popstate', () => fetchHistory(location.href));
+
+    /* -------------------------------------------------
+       Initialise everything on first load
+       ------------------------------------------------- */
+    attachViewMore();
+    attachPagination();
+    attachSort();
 });

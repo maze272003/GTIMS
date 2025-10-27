@@ -1,7 +1,4 @@
 <x-app-layout>
-    <x-slot name="title">
-        HistoryLog - General Tinio
-    </x-slot>
 <body class="bg-gray-50">
  
     <x-admin.sidebar/>
@@ -102,12 +99,17 @@
     </div>
  
     <!-- Modal -->
-    <div id="viewMoreModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-xl w-11/12 md:w-1/2 p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-3">Full Description</h3>
-            <p id="modalDescription" class="text-gray-600 whitespace-pre-line"></p>
-            <div class="mt-4 text-right">
-                <button id="closeModalBtn" class="px-4 py-2 bg-red-700 text-white text-sm rounded-lg hover:bg-red-800 font-semibold">Close</button>
+    <div id="viewMoreModal" class="fixed w-full h-screen top-0 left-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+        <div class="modal bg-white rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto p-6">
+            <div class="flex items-center justify-between border-b border-gray-200 pb-3 mb-4 sticky top-0 bg-white z-10">
+                <h3 class="text-xl font-medium text-gray-700">Full Description</h3>
+                <button id="closeModalBtn" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <i class="fa-regular fa-xmark text-xl text-gray-600"></i>
+                </button>
+            </div>
+
+            <div class="overflow-y-auto max-h-[70vh] pr-1">
+                <p id="modalDescription" class="text-gray-600 whitespace-pre-line text-sm leading-relaxed"></p>
             </div>
         </div>
     </div>
