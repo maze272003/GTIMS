@@ -46,7 +46,7 @@ class InventoryController extends Controller
         // Para sa normal page load, kunin ang lahat ng data
         $products = Product::where('is_archived', 2)->get();
         $archiveproducts = Product::where('is_archived', 1)->get();
-        $archivedstocks = Inventory::where('is_archived', 1)->get();
+        $archivedstocks = Inventory::where('is_archived', 1)->paginate(20);
 
         // Ibalik ang buong view
         return view('admin.inventory', [
