@@ -26,43 +26,47 @@
                 </div>
 
                 <!-- FILTER PANEL -->
-                <div id="filterPanel" class="hidden border-b border-gray-100 p-4 bg-gray-50">
-                    <form id="filterForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                            <label class="text-sm text-gray-600">Action</label>
-                            <select id="filterAction" name="action" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
-                                <option value="">All Actions</option>
-                                @foreach($actions as $action)
-                                    <option value="{{ $action }}">{{ $action }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                <div id="filterPanel" class="max-h-0 overflow-hidden transition-all duration-[400ms] border-b border-gray-100 bg-gray-50">
+                    <div class="p-4">
+                        <form id="filterForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div>
+                                <label class="text-sm text-gray-600">Action</label>
+                                <select id="filterAction" name="action" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
+                                    <option value="">All Actions</option>
+                                    @foreach($actions as $action)
+                                        <option value="{{ $action }}">{{ $action }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
 
-                        <div>
-                            <label class="text-sm text-gray-600">User</label>
-                            <select id="filterUser" name="user" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
-                                <option value="">All Users</option>
-                                @foreach($users as $user)
-                                    <option value="{{ $user }}">{{ $user }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                            <div>
+                                <label class="text-sm text-gray-600">User</label>
+                                <select id="filterUser" name="user" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
+                                    <option value="">All Users</option>
+                                    @foreach($users as $user)
+                                        <option value="{{ $user }}">{{ $user }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
 
-                        <div>
-                            <label class="text-sm text-gray-600">From</label>
-                            <input id="filterFrom" type="date" name="from" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
-                        </div>
+                            <div>
+                                <label class="text-sm text-gray-600">From</label>
+                                <input id="filterFrom" type="date" name="from" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
+                            </div>
 
-                        <div>
-                            <label class="text-sm text-gray-600">To</label>
-                            <input id="filterTo" type="date" name="to" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
+                            <div>
+                                <label class="text-sm text-gray-600">To</label>
+                                <input id="filterTo" type="date" name="to" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
+                            </div>
+                        </form>
+
+                        <div class="mt-3 text-right">
+                            <button id="applyFilterBtn" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Apply Filters</button>
+                            <button id="resetFilterBtn" class="px-4 py-2 bg-gray-300 text-gray-800 text-sm rounded-lg hover:bg-gray-400">Reset</button>
                         </div>
-                    </form>
-                    <div class="mt-3 text-right">
-                        <button id="applyFilterBtn" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Apply Filters</button>
-                        <button id="resetFilterBtn" class="px-4 py-2 bg-gray-300 text-gray-800 text-sm rounded-lg hover:bg-gray-400">Reset</button>
                     </div>
                 </div>
+                <!-- END FILTER PANEL -->
 
                 <div class="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div class="relative w-full md:w-1/2">

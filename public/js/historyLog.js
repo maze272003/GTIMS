@@ -32,9 +32,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === Toggle Filter Panel ===
     toggleFilterBtn.addEventListener('click', () => {
-        filterPanel.classList.toggle('hidden');
-        toggleFilterBtn.innerHTML = filterPanel.classList.contains('hidden') ? '<i class="fas fa-filter text-xs"></i> Show Filters' : '<i class="fas fa-xmark text-xs"></i> Hide Filters';
+        const isOpen = filterPanel.classList.contains('max-h-[1000px]');
+        
+        if (isOpen) {
+            filterPanel.classList.remove('max-h-[1000px]', 'p-4');
+            filterPanel.classList.add('max-h-0');
+            toggleFilterBtn.innerHTML = '<i class="fas fa-filter text-xs"></i> Show Filters';
+        } else {
+            filterPanel.classList.remove('max-h-0');
+            filterPanel.classList.add('max-h-[1000px]', 'p-4'); // allow space for expansion
+            toggleFilterBtn.innerHTML = '<i class="fas fa-xmark text-xs"></i> Hide Filters';
+        }
     });
+
     // === Live Search ===
     searchInput.addEventListener('input', () => {
         clearTimeout(typingTimer);
