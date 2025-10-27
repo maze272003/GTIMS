@@ -316,3 +316,123 @@ function initializeInventoryPage() {
 document.addEventListener('DOMContentLoaded', initializeInventoryPage);
 
 // Inalis na natin 'yung mga duplicate na 'DOMContentLoaded' listeners
+
+function showArchiveStockmodal(){
+    const modal = document.getElementById('viewarchivedstocksmodal');
+    if (!modal) return; // Prevent errors if modal isn't on the page
+
+    const closeBtn = document.getElementById('closeviewarchivedstocksmodal');
+    const productNameSpan = document.getElementById('archived-product-name');
+    const stocksTbody = document.getElementById('archived-stocks-tbody');
+    const loader = document.getElementById('archive-loader');
+    const scrollContainer = document.getElementById('archived-stock-list'); 
+
+    let currentPage = 1;
+    let currentProductId = null;
+    let isLoading = false;
+    let hasMorePages = true;
+
+    // --- Function to fetch data ---
+    async function loadMoreArchivedStocks(productId, page) {
+        if (isLoading || !hasMorePages) return; 
+        
+        isLoading = true;
+        if(loader) loader.classList.remove('hidden'); 
+
+        try {
+            const url = `/admin/inventory/archived-stocks?product_id=${productId}&page=${page}`; // Use correct path
+            const response = await fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest', 
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (page === 1 && stocksTbody) {
+                stocksTbody.innerHTML = ''; // Clear table only on first load
+            }
+            
+            if(stocksTbody) stocksTbody.insertAdjacentHTML('beforeend', data.html); 
+            hasMorePages = data.has_more_pages;
+            if (hasMorePages) {
+                currentPage = page + 1; // Prepare for next page
+            } else {
+                console.log("No more pages to load."); // Optional: log when done
+            }
+
+
+        } catch (error) {
+            console.error('Failed to fetch archived stocks:', error);
+            if (page === 1 && stocksTbody) { 
+                stocksTbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-red-500">Error loading data. Please try again.</td></tr>';
+            }
+        } finally {
+            isLoading = false;
+            if(loader) loader.classList.add('hidden'); 
+        }
+    }
+
+    // --- Attach listener to buttons that open the modal ---
+    document.querySelectorAll('.view-archivestock-btn').forEach(button => {
+        button.addEventListener('click', function () {
+            const row = this.closest('tr');
+            if (!row) return; // Add check if row is not found
+            const productId = row.dataset.productId;
+            const productName = `${row.dataset.brand} ${row.dataset.product} ${row.dataset.strength} ${row.dataset.form}`;
+            
+            if(productNameSpan) productNameSpan.textContent = productName;
+            
+            // Reset state
+            if(stocksTbody) stocksTbody.innerHTML = ''; 
+            currentPage = 1;
+            currentProductId = productId;
+            hasMorePages = true;
+            isLoading = false;
+            if(scrollContainer) scrollContainer.scrollTop = 0; 
+
+            if(modal) modal.classList.remove('hidden');
+            
+            // Initial load
+            if(currentProductId) {
+                loadMoreArchivedStocks(currentProductId, currentPage);
+            } else {
+                 console.error("Product ID is missing.");
+                 if(stocksTbody) stocksTbody.innerHTML = '<tr><td colspan="4" class="p-3 text-center text-red-500">Cannot load data: Product ID missing.</td></tr>';
+            }
+        });
+    });
+
+    // --- Attach scroll listener ---
+    if(scrollContainer) {
+        scrollContainer.addEventListener('scroll', () => {
+            const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+            
+            // Load more when near the bottom (adjust threshold as needed)
+            if (scrollHeight - scrollTop - clientHeight < 100) { 
+                if (!isLoading && hasMorePages && currentProductId) {
+                    console.log("Loading page:", currentPage); // Add console log for debugging
+                    loadMoreArchivedStocks(currentProductId, currentPage);
+                }
+            }
+        });
+    }
+
+    // --- Logic for closing the modal ---
+    if(closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            if(modal) modal.classList.add('hidden');
+        });
+    }
+
+    if(modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.add('hidden');
+        });
+    }
+}

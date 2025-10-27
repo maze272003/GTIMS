@@ -133,9 +133,10 @@
   ])
 
   {{-- view archived stocks modal --}}
-  @include('components.admin.modals.inventory.archived-stocks', [
+  {{-- @include('components.admin.modals.inventory.archived-stocks', [
       'archivedstocks' => $archivedstocks,
-  ])
+  ]) --}}
+   @include('components.admin.modals.inventory.archived-stocks')
 
   {{-- add new product modal--}}
   @include('components.admin.modals.inventory.add-new-product')
