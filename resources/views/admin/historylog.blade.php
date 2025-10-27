@@ -19,26 +19,60 @@
                 <div class="p-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <h2 class="text-lg font-semibold text-gray-700">System Activity Timeline</h2>
                     <div class="flex gap-2">
-                        <button class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                        <button id="toggleFilterBtn" class="px-4 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 flex items-center gap-2">
                             <i class="fas fa-filter text-xs"></i> Filter
                         </button>
                     </div>
                 </div>
 
+                <!-- FILTER PANEL -->
+                <div id="filterPanel" class="hidden border-b border-gray-100 p-4 bg-gray-50">
+                    <form id="filterForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="text-sm text-gray-600">Action</label>
+                            <select id="filterAction" name="action" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="">All Actions</option>
+                                @foreach($actions as $action)
+                                    <option value="{{ $action }}">{{ $action }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-sm text-gray-600">User</label>
+                            <select id="filterUser" name="user" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="">All Users</option>
+                                @foreach($users as $user)
+                                    <option value="{{ $user }}">{{ $user }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="text-sm text-gray-600">From</label>
+                            <input id="filterFrom" type="date" name="from" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+
+                        <div>
+                            <label class="text-sm text-gray-600">To</label>
+                            <input id="filterTo" type="date" name="to" class="w-full mt-1 p-2 border border-gray-300 rounded-lg text-sm">
+                        </div>
+                    </form>
+                    <div class="mt-3 text-right">
+                        <button id="applyFilterBtn" class="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Apply Filters</button>
+                        <button id="resetFilterBtn" class="px-4 py-2 bg-gray-300 text-gray-800 text-sm rounded-lg hover:bg-gray-400">Reset</button>
+                    </div>
+                </div>
+
                 <div class="p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div class="relative w-full md:w-1/2">
-                        <!-- Search Icon -->
                         <i class="fa-regular fa-magnifying-glass absolute left-3 top-[21%] transform text-gray-400 text-sm"></i>
-                        
-                        <!-- Search Input -->
                         <input 
                             id="searchInput"
                             type="text" 
                             placeholder="Search activity..." 
                             class="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-transparent text-sm transition-all"
                         >
-                        
-                        <!-- Tip Indicator -->
                         <p class="text-xs text-gray-400 mt-1 pl-1 italic">
                             Tip: You can search by 
                             <span class="font-medium text-gray-500">action</span>, 
@@ -49,14 +83,12 @@
                     </div>
                 </div>
 
-                <!-- Table wrapper (static container) -->
+                <!-- Table wrapper -->
                 <div class="relative overflow-x-auto p-5">
-                    <!-- Loader Overlay (stays fixed here, not replaced) -->
                     <div id="table-loader" class="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-sm hidden z-10">
                         <div class="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
 
-                    <!-- Dynamic table content -->
                     <div id="history-table">
                         @include('admin.partials._history_table')
                     </div>

@@ -11,8 +11,10 @@
     <tbody class="divide-y divide-gray-100">
         @forelse($historyLogs as $index => $log)
             <tr class="text-gray-700 hover:bg-gray-50 transition duration-100">
-                <td class="p-4 text-sm font-medium">{{ ($historyLogs->currentPage() - 1) * $historyLogs->perPage() + $loop->iteration }}</td>
-                <td class="p-4 text-sm">
+                <td class="p-4 text-sm font-medium">
+                    {{ ($historyLogs->currentPage() - 1) * $historyLogs->perPage() + $loop->iteration }}
+                </td>
+                <td class="p-4 text-sm text-center">
                     @php
                         $badgeColor = match(strtoupper($log->action)) {
                             'PRODUCT REGISTERED' => 'bg-green-100 text-green-800',
@@ -28,7 +30,9 @@
                         {{ strtoupper($log->action) }}
                     </span>
                 </td>
-                <td class="p-4 text-sm text-center font-medium">{{ $log->user_name ?? 'System' }}</td>
+                <td class="p-4 text-sm text-center font-medium">
+                    {{ $log->user_name ?? 'System' }}
+                </td>
                 <td class="p-4 text-sm text-gray-500">
                     @php
                         $maxLength = 100;
@@ -45,19 +49,30 @@
                         </button>
                     @endif
                 </td>
-                <td class="p-4 text-sm">{{ $log->created_at->format('F j, Y h:i A') }}</td>
+                <td class="p-4 text-sm">
+                    {{ $log->created_at->format('F j, Y h:i A') }}
+                </td>
             </tr>
         @empty
             <tr>
-                <td colspan="5" class="p-4 text-center text-gray-500">No history logs found.</td>
+                <td colspan="5" class="p-4 text-center text-gray-500">
+                    No history logs found for the selected filters.
+                </td>
             </tr>
         @endforelse
     </tbody>
 </table>
 
 <div class="p-4 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4">
-    <p class="text-sm text-gray-600 mr-3">Showing {{ $historyLogs->firstItem() ?? 0 }} to {{ $historyLogs->lastItem() ?? 0 }} of {{ $historyLogs->total() }} results</p>
+    <p class="text-sm text-gray-600 mr-3">
+        Showing {{ $historyLogs->firstItem() ?? 0 }} to {{ $historyLogs->lastItem() ?? 0 }} of {{ $historyLogs->total() }} results
+    </p>
+
     <div class="flex space-x-2 pagination">
-        {{ $historyLogs->links() }}
+        {{-- 
+            Important: ensures all filters persist through pagination.
+            Laravel automatically merges query parameters from ->withQueryString()
+        --}}
+        {{ $historyLogs->appends(request()->query())->links() }}
     </div>
 </div>

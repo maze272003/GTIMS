@@ -5,15 +5,21 @@ namespace App\Http\Controllers\AdminController;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\HistoryLog;
+use Carbon\Carbon;
 
 class HistorylogController extends Controller
 {
     public function showhistorylog(Request $request)
     {
         $search = $request->input('search', '');
+        $action = $request->input('action', '');
+        $user = $request->input('user', '');
+        $from = $request->input('from', '');
+        $to = $request->input('to', '');
 
         $query = HistoryLog::query()->orderBy('created_at', 'desc');
 
+        // === Search Filter ===
         if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('action', 'like', "%{$search}%")
@@ -24,12 +30,40 @@ class HistorylogController extends Controller
             });
         }
 
+        // === Action Filter ===
+        if (!empty($action)) {
+            $query->where('action', $action);
+        }
+
+        // === User Filter ===
+        if (!empty($user)) {
+            $query->where('user_name', $user);
+        }
+
+        // === Date Range Filter ===
+        if (!empty($from) && !empty($to)) {
+            $fromDate = Carbon::parse($from)->startOfDay();
+            $toDate = Carbon::parse($to)->endOfDay();
+            $query->whereBetween('created_at', [$fromDate, $toDate]);
+        } elseif (!empty($from)) {
+            $fromDate = Carbon::parse($from)->startOfDay();
+            $query->where('created_at', '>=', $fromDate);
+        } elseif (!empty($to)) {
+            $toDate = Carbon::parse($to)->endOfDay();
+            $query->where('created_at', '<=', $toDate);
+        }
+
         $historyLogs = $query->paginate(10)->withQueryString();
 
+        // For dropdown data
+        
         if ($request->ajax()) {
             return view('admin.partials._history_table', compact('historyLogs'))->render();
         }
-
-        return view('admin.historylog', compact('historyLogs'));
+        
+        $actions = HistoryLog::select('action')->distinct()->pluck('action');
+        $users = HistoryLog::select('user_name')->distinct()->pluck('user_name');
+        
+        return view('admin.historylog', compact('historyLogs', 'actions', 'users'));
     }
 }
