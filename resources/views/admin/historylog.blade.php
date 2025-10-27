@@ -1,15 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>General Tinio - Inventory Management System</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.1.0/css/all.css">
-    <link rel="icon" type="image/png" href="{{ asset('images/gtlogo.png') }}">
-    <link rel="stylesheet" href="{{ asset('css/style.css') }}">
-</head>
+<x-app-layout>
 <body class="bg-gray-50">
  
     <x-admin.sidebar/>
@@ -121,4 +110,4 @@
     </div>
  
 </body>
-</html>
+</x-app-layout>
