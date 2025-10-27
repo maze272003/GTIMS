@@ -47,6 +47,7 @@ class InventoryController extends Controller
         $products = Product::where('is_archived', 2)->get();
         $archiveproducts = Product::where('is_archived', 1)->get();
         $archivedstocks = Inventory::where('is_archived', 1)->paginate(20);
+        // Eto yung kinukuha lahat ng data para macount yung mga card sa inventory page
         $inventorycount = Inventory::where('is_archived', 2)->get();
 
         // Ibalik ang buong view
