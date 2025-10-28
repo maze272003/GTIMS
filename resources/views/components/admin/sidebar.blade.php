@@ -1,3 +1,4 @@
+{{-- components/admin/sidebar.blade.php --}}
 <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden md:hidden"></div>
 <nav id="sidebar" class="fixed top-0 left-0 h-full bg-white shadow-lg w-64 p-5 flex flex-col transition-all duration-300 z-50 translate-x-[-100%] md:translate-x-0 md:w-20 lg:w-64">
     <div class="flex items-center justify-between border-b-2 border-gray-200 pb-3">
