@@ -76,6 +76,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             
             // --- Iba pang Admin Routes ---
             Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
+            Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
+
             Route::get('/historylog', [HistorylogController::class, 'showhistorylog'])->name('historylog');
         });
 
