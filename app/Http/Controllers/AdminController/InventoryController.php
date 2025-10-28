@@ -10,6 +10,7 @@ use App\Models\HistoryLog; // <-- added
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth; // <-- added
+use App\Models\ProductMovement; // <-- ADD THIS
 
 class InventoryController extends Controller
 {
@@ -259,6 +260,19 @@ class InventoryController extends Controller
             $existingStock->quantity += $validated['quantity'];
             $existingStock->save();
 
+            // === START: ADD THIS BLOCK ===
+        ProductMovement::create([
+            'product_id' => $existingStock->product_id,
+            'inventory_id' => $existingStock->id,
+            'user_id' => $user?->id,
+            'type' => 'IN',
+            'quantity' => $validated['quantity'], // The amount ADDED
+            'quantity_before' => $oldStock,
+            'quantity_after' => $existingStock->quantity, // The new total
+            'description' => 'Manual stock addition (existing batch)',
+        ]);
+        // === END: ADD THIS BLOCK ===
+
             $product = Product::findOrFail($validated['product_id']);
             $oldQty = number_format($oldStock);
             $plannedQty = number_format($validated['quantity']);
@@ -282,6 +296,19 @@ class InventoryController extends Controller
                 'quantity' => $validated['quantity'],
                 'expiry_date' => $validated['expiry'],
             ]);
+
+            // === START: ADD THIS BLOCK ===
+        ProductMovement::create([
+            'product_id' => $addstock->product_id,
+            'inventory_id' => $addstock->id,
+            'user_id' => $user?->id,
+            'type' => 'IN',
+            'quantity' => $addstock->quantity, // The amount ADDED
+            'quantity_before' => 0, // It's a new batch
+            'quantity_after' => $addstock->quantity, // The new total
+            'description' => 'Manual stock addition (new batch)',
+        ]);
+        // === END: ADD THIS BLOCK ===
 
             // logging for new stock creation
             $prod = Product::findOrFail($validated['product_id']);
@@ -334,6 +361,26 @@ class InventoryController extends Controller
             'quantity'     => $validated['quantity'],
             'expiry_date'  => $validated['expiry'],
         ]);
+        // === START: ADD THIS BLOCK ===
+    $quantityChange = $validated['quantity'] - $old['quantity'];
+
+    // Only log if the quantity actually changed
+    if ($quantityChange != 0) {
+        $movementType = $quantityChange > 0 ? 'IN' : 'OUT';
+        $description = $quantityChange > 0 ? 'Manual stock adjustment (add)' : 'Manual stock adjustment (remove)';
+
+        ProductMovement::create([
+            'product_id' => $inventory->product_id,
+            'inventory_id' => $inventory->id,
+            'user_id' => Auth::id(),
+            'type' => $movementType,
+            'quantity' => abs($quantityChange), // The absolute amount that changed
+            'quantity_before' => $old['quantity'],
+            'quantity_after' => $validated['quantity'],
+            'description' => $description,
+        ]);
+    }
+    // === END: ADD THIS BLOCK ===
 
         // logging
         $prod = $inventory->product;

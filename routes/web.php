@@ -60,8 +60,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware('level.admin') // <-- CHECK KUNG LEVEL 1 o 2
              ->group(function () {
             
-            Route::get('/productmovement', [ProductMovementController::class, 'showproductmovement'])->name('productmovement');
-            
+Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');            
             // --- Inventory Routes ---
             Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
             Route::post('/inventory', [InventoryController::class, 'addProduct'])->name('inventory.addproduct');
@@ -75,6 +74,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             
             // --- Iba pang Admin Routes ---
             Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
+            Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
+
             Route::get('/historylog', [HistorylogController::class, 'showhistorylog'])->name('historylog');
         });
 
