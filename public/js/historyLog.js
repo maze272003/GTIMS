@@ -108,14 +108,29 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* -------------------------------------------------
        Search (debounced)
+       FIX: Now respects active filters
        ------------------------------------------------- */
     if (searchInput) {
         searchInput.addEventListener('keyup', debounce(() => {
             const base = location.origin + location.pathname;
             const u    = new URL(base);
-            const q    = searchInput.value.trim();
-            if (q) u.searchParams.set('search', q);
-            else u.searchParams.delete('search');
+            const p    = u.searchParams;
+
+            // Preserve current filters
+            const vals = {
+                action: document.getElementById('filterAction')?.value,
+                user  : document.getElementById('filterUser')?.value,
+                from  : document.getElementById('filterFrom')?.value,
+                to    : document.getElementById('filterTo')?.value,
+            };
+
+            Object.entries(vals).forEach(([k, v]) => v ? p.set(k, v) : p.delete(k));
+
+            // Add search term
+            const q = searchInput.value.trim();
+            if (q) p.set('search', q);
+            else p.delete('search');
+
             fetchHistory(u.href);
         }, DEBOUNCE_DELAY));
     }
