@@ -14,6 +14,6 @@
             </div>
         </main>
     </div>
-<script src="{{ asset('js/spa-navigation.js') }}"></script>
+
 </body>
 </x-app-layout>

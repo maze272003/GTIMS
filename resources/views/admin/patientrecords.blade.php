@@ -255,7 +255,7 @@
 {{-- <x-admin.loader /> --}}
 </x-app-layout>
 <script src="{{asset('js/patientrecords.js')}}"></script>
-{{-- <script src="{{ asset('js/spa-navigation.js') }}"></script> --}}
+
 
 
 <script>

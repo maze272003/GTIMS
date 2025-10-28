@@ -14,7 +14,7 @@
         <link rel="stylesheet" href="{{ asset('css/style.css') }}">
         {{-- sweetalert --}}
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-        <script src="{{ asset('js/spa-navigation.js') }}"></script>
+       
     </head>
     <body class="font-sans antialiased">
             <!-- Page Content -->
