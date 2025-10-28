@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Patientrecords;
 use App\Models\Dispensedmedication;
 use App\Models\ProductMovement; // <-- ADD THIS
+use App\Models\Barangay;
 use Illuminate\Support\Facades\Auth; // <-- ADD THIS
 
 class PatientRecordsController extends Controller
@@ -16,18 +17,18 @@ class PatientRecordsController extends Controller
     public function showpatientrecords(Request $request)
     {
         $products = Inventory::with('product')->where('is_archived', 2)->get(); 
-        $patientrecords = Patientrecords::with('dispensedMedications')->get();
+        $barangays = Barangay::all();
+        $patientrecords = Patientrecords::with(['dispensedMedications', 'barangay'])->get();
 
         // count all dispensed medications
-
         $totalPeopleServed = $patientrecords->count();
-
         $totalProductsDispensed = $patientrecords->sum(function ($patientrecord) {
             return $patientrecord->dispensedMedications->count();
         });
 
         return view('admin.patientrecords', [
             'products' => $products,
+            'barangays' => $barangays,
             'patientrecords' => $patientrecords,
             'totalPeopleServed' => $totalPeopleServed,
             'totalProductsDispensed' => $totalProductsDispensed,
@@ -37,7 +38,7 @@ class PatientRecordsController extends Controller
     public function adddispensation(Request $request) {
         $validated = $request->validateWithBag('adddispensation', [
             'patient-name' => 'required|string|max:255',
-            'barangay' => 'required|string|max:255',
+            'barangay_id' => 'required|exists:barangays,id',
             'purok' => 'required|string|max:255',
             'category' => 'required|in:Adult,Child,Senior',
             'date-dispensed' => 'required|date',
@@ -46,7 +47,7 @@ class PatientRecordsController extends Controller
             'medications.*.quantity' => 'required|integer|min:1',
         ], [
             'patient-name.required' => 'Patient name is required.',
-            'barangay.required' => 'Barangay is required.',
+            'barangay_id.required' => 'Barangay is required.',
             'purok.required' => 'Purok is required.',
             'category.required' => 'Category is required.',
             'date-dispensed.required' => 'Date dispensed is required.',
@@ -55,7 +56,7 @@ class PatientRecordsController extends Controller
             'medications.*.quantity.required' => 'Quantity is required.',
         ]);
         $medicationsDetails = [];
-    $user_id = Auth::id(); // Get the user ID once
+        $user_id = Auth::id(); 
 
         // Check inventory first
         foreach ($validated['medications'] as $med) {
@@ -68,7 +69,7 @@ class PatientRecordsController extends Controller
         // Create PatientRecord
         $newRecord = Patientrecords::create([
             'patient_name' => $validated['patient-name'],
-            'barangay' => $validated['barangay'],
+            'barangay_id' => $validated['barangay_id'],
             'purok' => $validated['purok'],
             'category' => $validated['category'],
             'date_dispensed' => $validated['date-dispensed'],
@@ -78,28 +79,28 @@ class PatientRecordsController extends Controller
         // Create dispensed medications and deduct inventory
         foreach ($validated['medications'] as $med) {
             $inventory = Inventory::findOrFail($med['name']);
-           // === START: CAPTURE QUANTITIES FOR LOGGING ===
-        $quantity_before = $inventory->quantity;
-        $quantity_to_deduct = $med['quantity'];
-        $quantity_after = $quantity_before - $quantity_to_deduct;
-        // === END: CAPTURE QUANTITIES ===
+            // === START: CAPTURE QUANTITIES FOR LOGGING ===
+            $quantity_before = $inventory->quantity;
+            $quantity_to_deduct = $med['quantity'];
+            $quantity_after = $quantity_before - $quantity_to_deduct;
+            // === END: CAPTURE QUANTITIES ===
 
-        // Deduct inventory
-        $inventory->quantity = $quantity_after; // Use the calculated new quantity
-        $inventory->save();
+            // Deduct inventory
+            $inventory->quantity = $quantity_after; // Use the calculated new quantity
+            $inventory->save();
 
-        // === START: LOG TO PRODUCT MOVEMENT TABLE ===
-        ProductMovement::create([
-            'product_id'      => $inventory->product_id,
-            'inventory_id'    => $inventory->id,
-            'user_id'         => $user_id,
-            'type'            => 'OUT',
-            'quantity'        => $quantity_to_deduct, // The amount that moved
-            'quantity_before' => $quantity_before,
-            'quantity_after'  => $quantity_after,
-            'description'     => "Dispensed to Patient: {$newRecord->patient_name} (Record: #{$newRecord->id})",
-        ]);
-        // === END: LOG TO PRODUCT MOVEMENT TABLE ===
+            // === START: LOG TO PRODUCT MOVEMENT TABLE ===
+            ProductMovement::create([
+                'product_id'      => $inventory->product_id,
+                'inventory_id'    => $inventory->id,
+                'user_id'         => $user_id,
+                'type'            => 'OUT',
+                'quantity'        => $quantity_to_deduct, // The amount that moved
+                'quantity_before' => $quantity_before,
+                'quantity_after'  => $quantity_after,
+                'description'     => "Dispensed to Patient: {$newRecord->patient_name} (Record: #{$newRecord->id})",
+            ]);
+            // === END: LOG TO PRODUCT MOVEMENT TABLE ===
 
             $dispensedMed = Dispensedmedication::create([
                 'patientrecord_id' => $newRecord->id,
