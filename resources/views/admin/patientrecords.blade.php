@@ -274,6 +274,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="view-medications-tbody" class="divide-y divide-gray-200">
+                                    {{-- JavaScript will populate this table--}}
                                 </tbody>
                             </table>
                         </div>
