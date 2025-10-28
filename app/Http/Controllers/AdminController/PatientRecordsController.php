@@ -8,6 +8,8 @@ use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\Patientrecords;
 use App\Models\Dispensedmedication;
+use App\Models\ProductMovement; // <-- ADD THIS
+use Illuminate\Support\Facades\Auth; // <-- ADD THIS
 
 class PatientRecordsController extends Controller
 {
@@ -52,6 +54,8 @@ class PatientRecordsController extends Controller
             'medications.*.name.required' => 'Medicine selection is required.',
             'medications.*.quantity.required' => 'Quantity is required.',
         ]);
+        $medicationsDetails = [];
+    $user_id = Auth::id(); // Get the user ID once
 
         // Check inventory first
         foreach ($validated['medications'] as $med) {
@@ -74,8 +78,28 @@ class PatientRecordsController extends Controller
         // Create dispensed medications and deduct inventory
         foreach ($validated['medications'] as $med) {
             $inventory = Inventory::findOrFail($med['name']);
-            $inventory->quantity -= $med['quantity'];
-            $inventory->save();
+           // === START: CAPTURE QUANTITIES FOR LOGGING ===
+        $quantity_before = $inventory->quantity;
+        $quantity_to_deduct = $med['quantity'];
+        $quantity_after = $quantity_before - $quantity_to_deduct;
+        // === END: CAPTURE QUANTITIES ===
+
+        // Deduct inventory
+        $inventory->quantity = $quantity_after; // Use the calculated new quantity
+        $inventory->save();
+
+        // === START: LOG TO PRODUCT MOVEMENT TABLE ===
+        ProductMovement::create([
+            'product_id'      => $inventory->product_id,
+            'inventory_id'    => $inventory->id,
+            'user_id'         => $user_id,
+            'type'            => 'OUT',
+            'quantity'        => $quantity_to_deduct, // The amount that moved
+            'quantity_before' => $quantity_before,
+            'quantity_after'  => $quantity_after,
+            'description'     => "Dispensed to Patient: {$newRecord->patient_name} (Record: #{$newRecord->id})",
+        ]);
+        // === END: LOG TO PRODUCT MOVEMENT TABLE ===
 
             $dispensedMed = Dispensedmedication::create([
                 'patientrecord_id' => $newRecord->id,
