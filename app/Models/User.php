@@ -50,4 +50,11 @@ class User extends Authenticatable
     {
         return $this->belongsTo(UserLevel::class, 'user_level_id');
     }
+
+    // ... existing functions ...
+
+    public function productMovements()
+    {
+        return $this->hasMany(ProductMovement::class);
+    }
 }

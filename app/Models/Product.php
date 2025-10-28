@@ -22,4 +22,9 @@ class Product extends Model
     {
         return $this->hasMany(Inventory::class);
     }
+
+    public function movements()
+    {
+        return $this->hasMany(ProductMovement::class);
+    }
 }

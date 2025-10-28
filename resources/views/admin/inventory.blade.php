@@ -23,7 +23,7 @@
             <div>
               <p class="text-sm text-gray-600 font-medium">In Stock</p>
               <p class="text-3xl font-bold text-gray-900 mt-2">
-                {{ $inventories->where('quantity', '>=', 100)->count() }}
+                {{ $inventorycount->where('quantity', '>=', 100)->count() }}
               </p>
               <p class="text-xs text-green-600 mt-1 flex items-center">
                 <i class="fa-regular fa-arrow-trend-up mr-1"></i> Currently in stock
@@ -39,7 +39,7 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="text-sm text-gray-600 font-medium">Low Stock</p>
-              <p class="text-3xl font-bold text-gray-900 mt-2">{{ $inventories->where('quantity', '<', 100)->where('quantity', '>', 0)->count() }}</p>
+              <p class="text-3xl font-bold text-gray-900 mt-2">{{ $inventorycount->where('quantity', '<', 100)->where('quantity', '>', 0)->count() }}</p>
               <p class="text-xs text-orange-600 mt-1 flex items-center">
                 <i class="fa-regular fa-triangle-exclamation mr-1"></i> Requires attention
               </p>
@@ -55,7 +55,7 @@
             <div>
               <p class="text-sm text-gray-600 font-medium">Expired Stock</p>
               <p class="text-3xl font-bold text-gray-900 mt-2">
-                {{ $inventories->where('expiry_date', '<', Carbon::now())->count() }}
+                {{ $inventorycount->where('expiry_date', '<', Carbon::now())->count() }}
               </p>
               <p class="text-xs text-red-600 mt-1 flex items-center">
                 <i class="fa-regular fa-ban mr-1"></i>Must be removed
@@ -72,7 +72,7 @@
             <div>
               <p class="text-sm text-gray-600 font-medium">Nearly Expired</p>
               <p class="text-3xl font-bold text-gray-900 mt-2">
-                {{ $inventories->where('expiry_date', '>', Carbon::now())->where('expiry_date', '<', Carbon::now()->addDays(30))->count() }}
+                {{ $inventorycount->where('expiry_date', '>', Carbon::now())->where('expiry_date', '<', Carbon::now()->addDays(30))->count() }}
               </p>
               <p class="text-xs text-yellow-600 mt-1 flex items-center">
                 <i class="fa-regular fa-hourglass-half mr-1"></i>Expires in 30 days

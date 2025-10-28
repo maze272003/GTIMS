@@ -8,22 +8,19 @@ use App\Models\Product;
 use App\Models\Inventory;
 use App\Models\HistoryLog; // <-- added
 use Carbon\Carbon;
-// use pagination
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth; // <-- added
+use App\Models\ProductMovement; // <-- ADD THIS
 
 class InventoryController extends Controller
 {
     
+    // show inventory
     public function showinventory(Request $request)
     {
-        // Kunin ang search term mula sa URL (e.g., ?search=amoxicillin)
         $search = $request->input('search', '');
-
-        // Simulan ang query
         $inventoryQuery = Inventory::where('is_archived', 2);
 
-        // Kung may search term, i-filter ang query
         if (!empty($search)) {
             $inventoryQuery->where(function ($query) use ($search) {
                 $query->where('batch_number', 'like', "%{$search}%")
@@ -36,29 +33,25 @@ class InventoryController extends Controller
             });
         }
 
-        // Paginate the results
-        // Gagamitin natin ang withQueryString() para maalala ng pagination links ang search query
-        $inventories = $inventoryQuery->paginate(10)->withQueryString();
+        $inventories = $inventoryQuery->paginate(20)->withQueryString();
 
-        // Kung AJAX, ibalik lang ang partial view ng table
         if ($request->ajax()) {
             return view('admin.partials._inventory_table', ['inventories' => $inventories])->render();
         }
 
-        // Para sa normal page load, kunin ang data (MALIBAN SA ARCHIVED STOCKS)
         $products = Product::where('is_archived', 2)->get();
         $archiveproducts = Product::where('is_archived', 1)->get();
-        // $archivedstocks = Inventory::where('is_archived', 1)->paginate(20); // <-- ALISIN ITO
+        $inventorycount = Inventory::where('is_archived', 2)->get();
 
-        // Ibalik ang buong view (NA WALANG ARCHIVED STOCKS)
         return view('admin.inventory', [
             'products' => $products, 
             'inventories' => $inventories,
             'archiveproducts' => $archiveproducts,
-            // 'archivedstocks' => $archivedstocks, // <-- ALISIN DIN ITO
+            'inventorycount' => $inventorycount,
         ]);
     }
 
+    // fetch archived stocks
     public function fetchArchivedStocks(Request $request)
     {
         $request->validate([
@@ -70,7 +63,7 @@ class InventoryController extends Controller
         $archivedstocks = Inventory::where('is_archived', 1)
             ->where('product_id', $productId)
             ->orderBy('expiry_date', 'desc')
-            ->paginate(20); // Limit to 20 per request
+            ->paginate(20);
 
         $html = '';
         if ($archivedstocks->isEmpty() && $request->page == 1) {
@@ -80,11 +73,11 @@ class InventoryController extends Controller
                 $rowNumber = ($archivedstocks->currentPage() - 1) * $archivedstocks->perPage() + $key + 1;
                 $expiryDate = Carbon::parse($stock->expiry_date)->format('M d, Y');
                 
-                $html .= "<tr class=\"hover:bg-gray-50 dark:hover:bg-gray-700\">
-                            <td class=\"text-left p-3 dark:text-gray-300\">{$rowNumber}</td>
-                            <td class=\"text-left font-semibold text-gray-700 dark:text-gray-200\">{$stock->batch_number}</td>
-                            <td class=\"text-left font-semibold text-gray-500 dark:text-gray-400\">{$stock->quantity}</td>
-                            <td class=\"text-center font-semibold text-gray-500 dark:text-gray-400\">{$expiryDate}</td>
+                $html .= "<tr class=\"hover:bg-gray-50\">
+                            <td class=\"text-left p-3\">{$rowNumber}</td>
+                            <td class=\"text-left font-semibold text-gray-700\">{$stock->batch_number}</td>
+                            <td class=\"text-left font-semibold text-gray-500 \">{$stock->quantity}</td>
+                            <td class=\"text-center font-semibold text-gray-500\">{$expiryDate}</td>
                           </tr>";
             }
         }
@@ -95,6 +88,7 @@ class InventoryController extends Controller
         ]);
     }
 
+    // ADD PRODUCT
     public function addProduct(Request $request, Product $product) {
         $validated = $request->validateWithBag( 'addproduct', [
             'generic_name' => 'min:3|max:120|required',
@@ -168,7 +162,7 @@ class InventoryController extends Controller
             ],
         ]);
 
-        return redirect()->route('admin.inventory')->with('success', 'Product updated successfully.');
+        return to_route('admin.inventory')->with('success', 'Product updated successfully.');
     }
 
     // ARCHIVE PRODUCT
@@ -203,11 +197,10 @@ class InventoryController extends Controller
             ],
         ]);
 
-        return redirect()->route('admin.inventory')->with('success', 'Product archived successfully.');
+        return to_route('admin.inventory')->with('success', 'Product archived successfully.');
     }
 
     // UNARCHIVE PRODUCT
-
     public function unarchiveProduct(Request $request) {
         $validated = $request->validateWithBag('unarchiveproduct', [
             'product_id' => 'required|exists:products,id',
@@ -238,10 +231,10 @@ class InventoryController extends Controller
             ],
         ]);
 
-        return redirect()->route('admin.inventory')->with('success', 'Product unarchived successfully.');
+        return to_route('admin.inventory')->with('success', 'Product unarchived successfully.');
     }
+    
     // ADD STOCK
-
     public function addStock(Request $request) {
         $validated = $request->validateWithBag( 'addstock', [
             'product_id' => 'required|exists:products,id',
@@ -267,6 +260,19 @@ class InventoryController extends Controller
             $existingStock->quantity += $validated['quantity'];
             $existingStock->save();
 
+            // === START: ADD THIS BLOCK ===
+        ProductMovement::create([
+            'product_id' => $existingStock->product_id,
+            'inventory_id' => $existingStock->id,
+            'user_id' => $user?->id,
+            'type' => 'IN',
+            'quantity' => $validated['quantity'], // The amount ADDED
+            'quantity_before' => $oldStock,
+            'quantity_after' => $existingStock->quantity, // The new total
+            'description' => 'Manual stock addition (existing batch)',
+        ]);
+        // === END: ADD THIS BLOCK ===
+
             $product = Product::findOrFail($validated['product_id']);
             $oldQty = number_format($oldStock);
             $plannedQty = number_format($validated['quantity']);
@@ -291,6 +297,19 @@ class InventoryController extends Controller
                 'expiry_date' => $validated['expiry'],
             ]);
 
+            // === START: ADD THIS BLOCK ===
+        ProductMovement::create([
+            'product_id' => $addstock->product_id,
+            'inventory_id' => $addstock->id,
+            'user_id' => $user?->id,
+            'type' => 'IN',
+            'quantity' => $addstock->quantity, // The amount ADDED
+            'quantity_before' => 0, // It's a new batch
+            'quantity_after' => $addstock->quantity, // The new total
+            'description' => 'Manual stock addition (new batch)',
+        ]);
+        // === END: ADD THIS BLOCK ===
+
             // logging for new stock creation
             $prod = Product::findOrFail($validated['product_id']);
 
@@ -313,7 +332,6 @@ class InventoryController extends Controller
     }
 
     // EDIT STOCK
-
     public function editStock(Request $request)
     {
         $validated = $request->validateWithBag('editstock', [
@@ -343,6 +361,26 @@ class InventoryController extends Controller
             'quantity'     => $validated['quantity'],
             'expiry_date'  => $validated['expiry'],
         ]);
+        // === START: ADD THIS BLOCK ===
+    $quantityChange = $validated['quantity'] - $old['quantity'];
+
+    // Only log if the quantity actually changed
+    if ($quantityChange != 0) {
+        $movementType = $quantityChange > 0 ? 'IN' : 'OUT';
+        $description = $quantityChange > 0 ? 'Manual stock adjustment (add)' : 'Manual stock adjustment (remove)';
+
+        ProductMovement::create([
+            'product_id' => $inventory->product_id,
+            'inventory_id' => $inventory->id,
+            'user_id' => Auth::id(),
+            'type' => $movementType,
+            'quantity' => abs($quantityChange), // The absolute amount that changed
+            'quantity_before' => $old['quantity'],
+            'quantity_after' => $validated['quantity'],
+            'description' => $description,
+        ]);
+    }
+    // === END: ADD THIS BLOCK ===
 
         // logging
         $prod = $inventory->product;
@@ -360,9 +398,7 @@ class InventoryController extends Controller
             ],
         ]);
 
-        return redirect()
-            ->route('admin.inventory')
-            ->with('success', 'Stock updated successfully.');
+        return to_route('admin.inventory')->with('success', 'Stock updated successfully.');
     }
 
 }

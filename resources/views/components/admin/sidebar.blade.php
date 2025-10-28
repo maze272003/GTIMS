@@ -24,7 +24,7 @@
                 </a>
             </li>
             <li>
-                <a href="{{ route('admin.productmovement') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 md:text-gray-700">
+                <a href="{{ route('admin.movements') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 md:text-gray-700">
                     <i class="fa-regular fa-file-spreadsheet nav-icon w-5 text-center text-gray-600"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700">Product Movement</span>
                 </a>
