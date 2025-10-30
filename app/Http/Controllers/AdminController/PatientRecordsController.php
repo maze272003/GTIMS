@@ -107,6 +107,7 @@ class PatientRecordsController extends Controller
 
             $dispensedMed = Dispensedmedication::create([
                 'patientrecord_id' => $newRecord->id,
+                'barangay_id' => $validated['barangay_id'],
                 'batch_number' => $inventory->batch_number ?? 'N/A',
                 'generic_name' => $inventory->product->generic_name ?? 'N/A',
                 'brand_name' => $inventory->product->brand_name ?? 'N/A',
