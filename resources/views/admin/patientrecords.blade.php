@@ -71,7 +71,8 @@
                                 @forelse ($patientrecords as $patientrecord)
                                     <tr data-record-id="{{ $patientrecord->id }}"
                                         data-patient-name="{{ $patientrecord->patient_name }}"
-                                        data-barangay="{{ $patientrecord->barangay }}"
+                                        data-barangay-id="{{ $patientrecord->barangay_id }}"
+                                        data-barangay="{{ $patientrecord->barangay->barangay_name ?? '' }}"
                                         data-purok="{{ $patientrecord->purok }}"
                                         data-category="{{ $patientrecord->category }}"
                                         data-medications="{{ json_encode($patientrecord->dispensedMedications->map(function ($med) {
@@ -88,7 +89,7 @@
                                         <td class="p-3 text-sm text-gray-700 text-left">
                                             <div>
                                                 <p class="font-semibold text-gray-700 capitalize">{{ $patientrecord->patient_name }}</p>
-                                                <p class="italic text-gray-500 capitalize">{{ $patientrecord->barangay }}, {{ $patientrecord->purok }}</p>
+                                                <p class="italic text-gray-500 capitalize">{{ $patientrecord->barangay->barangay_name ?? '' }}, {{ $patientrecord->purok }}</p>
                                             </div>
                                         </td>
                                         <td class="p-3 text-sm text-gray-700 text-center">{{ $patientrecord->category }}</td>
@@ -140,9 +141,14 @@
                             </div>
                             <div class="flex gap-2 mt-3">
                                 <div class="w-1/2">
-                                    <label for="barangay" class="text-sm font-semibold text-gray-600">Barangay:</label>
-                                    <input type="text" name="barangay" id="barangay" placeholder="Enter Barangay" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" value="{{ old('barangay') }}">
-                                    @error('barangay', 'adddispensation')
+                                    <label for="barangay_id" class="text-sm font-semibold text-gray-600">Barangay:</label>
+                                    <select name="barangay_id" id="barangay_id" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                                        <option value="" disabled {{ old('barangay_id') ? '' : 'selected' }}>Select Barangay</option>
+                                        @foreach ($barangays as $barangay)
+                                            <option value="{{ $barangay->id }}" {{ old('barangay_id') == $barangay->id ? 'selected' : '' }}>{{ $barangay->barangay_name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('barangay_id', 'adddispensation')
                                         <p class="mt-1 text-sm text-red-600 error-message">{{ $message }}</p>
                                     @enderror
                                 </div>
@@ -221,7 +227,9 @@
                             </button>
                         </div>
                         <form id="edit-dispensation-form" action="#">
-                            <input type="hidden" id="edit-record-id">
+                            @csrf
+                            @method('PUT')
+                            <input type="hidden" id="edit-record-id" name="id">
                             <div class="flex gap-2 mb-3">
                                 <div class="flex-1">
                                     <label for="edit-patient-name" class="text-sm font-semibold text-gray-600">Patient Name:</label>
@@ -230,8 +238,13 @@
                             </div>
                             <div class="flex gap-2 mb-3">
                                 <div class="w-1/2">
-                                    <label for="edit-barangay" class="text-sm font-semibold text-gray-600">Barangay:</label>
-                                    <input type="text" name="barangay" id="edit-barangay" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                                    <label for="edit-barangay_id" class="text-sm font-semibold text-gray-600">Barangay:</label>
+                                    <select name="barangay_id" id="edit-barangay_id" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                                        <option value="" disabled>Select Barangay</option>
+                                        @foreach ($barangays as $barangay)
+                                            <option value="{{ $barangay->id }}">{{ $barangay->barangay_name }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
                                 <div class="w-1/2">
                                     <label for="edit-purok" class="text-sm font-semibold text-gray-600">Purok:</label>
@@ -241,9 +254,9 @@
                             <div class="mb-3">
                                 <label for="edit-category" class="text-sm font-semibold text-gray-600">Category:</label>
                                 <select name="category" id="edit-category" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
-                                    <option value="Senior">Senior</option>
-                                    <option value="Child">Child</option>
                                     <option value="Adult">Adult</option>
+                                    <option value="Child">Child</option>
+                                    <option value="Senior">Senior</option>
                                 </select>
                             </div>
                             <button type="submit" class="bg-blue-500 text-white p-2 rounded-lg mt-5 hover:-translate-y-1 hover:shadow-md transition-all duration-200 w-fit">
@@ -274,6 +287,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="view-medications-tbody" class="divide-y divide-gray-200">
+                                    {{-- JavaScript will populate this table--}}
                                 </tbody>
                             </table>
                         </div>
@@ -285,77 +299,3 @@
     </body>
     <script src="{{ asset('js/patientrecords.js') }}"></script>
 </x-app-layout>
-<script src="{{asset('js/patientrecords.js')}}"></script>
-
-
-
-<script>
-    // Add Record
-    function addRecord() {
-        const adddispensationmodal = document.getElementById('adddispensationmodal');
-        const closedispensationmodal = document.getElementById('closeadddispensationmodal');
-        const adddispensationbtn = document.getElementById('adddispensationbtn');
-
-        adddispensationbtn.addEventListener('click', () => {
-            adddispensationmodal.classList.remove('hidden');
-        });
-
-        closedispensationmodal.addEventListener('click', () => {
-            adddispensationmodal.classList.add('hidden');
-        });
-    }
-
-    // Medication Actions
-    function setupMedicationActions() {
-        const medicationContainer = document.getElementById('medication-container');
-        const addMoreButton = document.getElementById('add-more-medication');
-        let medicationIndex = 1; 
-
-        addMoreButton.addEventListener('click', () => {
-            const newMedicationGroup = medicationContainer.cloneNode(true);
-            newMedicationGroup.querySelector('select').id = `medication-${medicationIndex}`;
-            newMedicationGroup.querySelector('select').name = `medications[${medicationIndex}][name]`;
-            newMedicationGroup.querySelector('input[type="number"]').id = `quantity-${medicationIndex}`;
-            newMedicationGroup.querySelector('input[type="number"]').name = `medications[${medicationIndex}][quantity]`;
-            
-            newMedicationGroup.querySelector('select').value = '';
-            newMedicationGroup.querySelector('input[type="number"]').value = '';
-
-            const removeButton = document.createElement('button');
-            removeButton.type = 'button';
-            removeButton.className = 'bg-red-500 text-white p-2 rounded-lg mt-2 hover:-translate-y-1 hover:shadow-md transition-all duration-200 w-fit';
-            removeButton.innerHTML = '<i class="fa-regular fa-trash"></i> <span>Remove</span>';
-            removeButton.addEventListener('click', () => {
-                newMedicationGroup.remove();
-            });
-
-            newMedicationGroup.appendChild(removeButton);
-            medicationContainer.parentNode.insertBefore(newMedicationGroup, medicationContainer.nextSibling);
-            medicationIndex++;
-        });
-    }
-
-    // Edit Record only get the patient name and barangay and purok
-    function editRecord() {
-        const editrecordmodal = document.getElementById('editrecordmodal');
-        const closerecordmodal = document.getElementById('closeeditrecordmodal');
-
-        document.querySelectorAll('.editrecordbtn').forEach(button => {
-            button.addEventListener('click', () => {
-                editrecordmodal.classList.remove('hidden');
-            }
-            );
-        });
-
-        closerecordmodal.addEventListener('click', () => {
-            editrecordmodal.classList.add('hidden');
-        });
-        
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        addRecord();
-        setupMedicationActions();
-        editRecord();
-    });
-</script>
