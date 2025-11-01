@@ -63,7 +63,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware('level.admin') // <-- CHECK KUNG LEVEL 1 o 2
              ->group(function () {
             
-Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');            
+Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');    
+Route::post('/get-ai-analysis', [DashboardController::class, 'getAiAnalysis'])->name('ai.analysis');        
             // --- Inventory Routes ---
             Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
             Route::post('/inventory', [InventoryController::class, 'addProduct'])->name('inventory.addproduct');

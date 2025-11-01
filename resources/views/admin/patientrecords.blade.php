@@ -44,77 +44,123 @@
                         <i class="fa-regular fa-plus mr-2"></i> Record New Dispensation
                     </button>
                 </div>
-                <!-- Records Table -->
-                <div class="mt-5 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div class="p-4 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <div class="relative w-full sm:w-1/2">
-                            <i class="fa-regular fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                            <input type="text" placeholder="Search records..." class="w-full pl-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                {{-- Records Table --}}
+                <div id="patientrecords-data-container">
+                    <div class="mt-5 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="p-4 border-b border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div class="relative w-full sm:w-1/2">
+                                <i class="fa-regular fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                                <input type="text" id="patientrecords-search-input" placeholder="Search records..." class="w-full pl-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                            </div>
+                            <button class="bg-white inline-flex items-center justify-center p-2 border border-gray-300 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200">
+                                <i class="fa-regular fa-file-export text-lg text-green-600"></i>
+                                <span class="ml-2">Export into CSV</span>
+                            </button>
                         </div>
-                        <button class="bg-white inline-flex items-center justify-center p-2 border border-gray-300 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200">
-                            <i class="fa-regular fa-file-export text-lg text-green-600"></i>
-                            <span class="ml-2">Export into CSV</span>
-                        </button>
-                    </div>
-                    <div class="overflow-x-auto p-5">
-                        <table class="w-full">
-                            <thead class="sticky top-0 bg-gray-200">
-                                <tr>
-                                    <th class="p-3 text-gray-700 uppercase text-sm text-left tracking-wide">#</th>
-                                    <th class="p-3 text-gray-700 uppercase text-sm text-left tracking-wide">Resident Details</th>
-                                    <th class="p-3 text-gray-700 uppercase text-sm text-center tracking-wide">Resident Category</th>
-                                    <th class="p-3 text-gray-700 uppercase text-sm tracking-wide">Date Dispensed</th>
-                                    <th class="p-3 text-gray-700 uppercase text-sm text-center tracking-wide">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                @forelse ($patientrecords as $patientrecord)
-                                    <tr data-record-id="{{ $patientrecord->id }}"
-                                        data-patient-name="{{ $patientrecord->patient_name }}"
-                                        data-barangay="{{ $patientrecord->barangay }}"
-                                        data-purok="{{ $patientrecord->purok }}"
-                                        data-category="{{ $patientrecord->category }}"
-                                        data-medications="{{ json_encode($patientrecord->dispensedMedications->map(function ($med) {
-                                            return [
-                                                'batch' => $med->batch_number,
-                                                'medication' => $med->generic_name,
-                                                'brand' => $med->brand_name,
-                                                'form' => $med->form,
-                                                'strength' => $med->strength,
-                                                'quantity' => $med->quantity,
-                                            ];
-                                        })->toArray()) }}">
-                                        <td class="p-3 text-sm text-gray-700 text-left">{{ $loop->iteration }}</td>
-                                        <td class="p-3 text-sm text-gray-700 text-left">
-                                            <div>
-                                                <p class="font-semibold text-gray-700 capitalize">{{ $patientrecord->patient_name }}</p>
-                                                <p class="italic text-gray-500 capitalize">{{ $patientrecord->barangay }}, {{ $patientrecord->purok }}</p>
-                                            </div>
-                                        </td>
-                                        <td class="p-3 text-sm text-gray-700 text-center">{{ $patientrecord->category }}</td>
-                                        <td class="p-3 text-sm text-gray-700 text-center">
-                                            <p class="font-semibold">{{ $patientrecord->date_dispensed->format('F j, Y') }}</p>
-                                            <p class="italic text-gray-500">{{ $patientrecord->date_dispensed->format('h:mm A') }}
-                                        </td>
-                                        <td class="p-3 flex items-center justify-center gap-2 font-semibold">
-                                            <button class="view-medications-btn bg-blue-100 text-blue-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
-                                                <i class="fa-regular fa-eye mr-1"></i>View All
-                                            </button>
-                                            <button class="editrecordbtn bg-green-100 text-green-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
-                                                <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
-                                            </button>
-                                            <button class="deleterecordbtn bg-red-100 text-red-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
-                                                <i class="fa-regular fa-trash mr-1"></i>Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                @empty
+                        <div class="overflow-x-auto p-5">
+                            <table class="w-full pagination-links text-sm text-left">
+                                <thead class="sticky top-0 bg-gray-200">
                                     <tr>
-                                        <td colspan="5" class="p-3 text-center text-gray-500">No records found.</td>
+                                        <th class="p-3 text-gray-700 uppercase text-sm text-left tracking-wide">#</th>
+                                        <th class="p-3 text-gray-700 uppercase text-sm text-left tracking-wide">Resident Details</th>
+                                        <th class="p-3 text-gray-700 uppercase text-sm text-center tracking-wide">Resident Category</th>
+                                        <th class="p-3 text-gray-700 uppercase text-sm tracking-wide">Date Dispensed</th>
+                                        <th class="p-3 text-gray-700 uppercase text-sm text-center tracking-wide">Actions</th>
                                     </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    @if ($patientrecords->isEmpty())
+                                        <tr>
+                                            <td colspan="5" class="p-3 text-center text-sm text-gray-500">No records found.</td>
+                                        </tr>
+                                    @else
+                                        @foreach ($patientrecords as $patientrecord)
+                                        <tr data-record-id="{{ $patientrecord->id }}"
+                                            data-patient-name="{{ $patientrecord->patient_name }}"
+                                            data-barangay-id="{{ $patientrecord->barangay_id }}"
+                                            data-barangay="{{ $patientrecord->barangay->barangay_name ?? '' }}"
+                                            data-purok="{{ $patientrecord->purok }}"
+                                            data-category="{{ $patientrecord->category }}"
+                                            data-medications="{{ json_encode($patientrecord->dispensedMedications->map(function ($med) {
+                                                return [
+                                                    'batch' => $med->batch_number,
+                                                    'medication' => $med->generic_name,
+                                                    'brand' => $med->brand_name,
+                                                    'form' => $med->form,
+                                                    'strength' => $med->strength,
+                                                    'quantity' => $med->quantity,
+                                                ];
+                                            })->toArray()) }}">
+                                            <td class="p-3 text-sm text-gray-700 text-left">
+                                                {{ $loop->iteration + ($patientrecords->currentPage() - 1) * $patientrecords->perPage() }}
+                                            </td>
+                                            <td class="p-3 text-sm text-gray-700 text-left">
+                                                <div>
+                                                    <p class="font-semibold text-gray-700 capitalize">{{ $patientrecord->patient_name }}</p>
+                                                    <p class="italic text-gray-500 capitalize">{{ $patientrecord->barangay->barangay_name ?? '' }}, {{ $patientrecord->purok }}</p>
+                                                </div>
+                                            </td>
+                                            <td class="p-3 text-sm text-gray-700 text-center">{{ $patientrecord->category }}</td>
+                                            <td class="p-3 text-sm text-gray-700 text-center">
+                                                <p class="font-semibold">{{ $patientrecord->date_dispensed->format('F j, Y') }}</p>
+                                                <p class="italic text-gray-500">{{ $patientrecord->date_dispensed->format('h:mm A') }}</p>
+                                            </td>
+                                            <td class="p-3 flex items-center justify-center gap-2 font-semibold">
+                                                <button class="view-medications-btn bg-blue-100 text-blue-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
+                                                    <i class="fa-regular fa-eye mr-1"></i>View All
+                                                </button>
+                                                <button class="editrecordbtn bg-green-100 text-green-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
+                                                    <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
+                                                </button>
+                                                <button class="deleterecordbtn bg-red-100 text-red-700 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
+                                                    <i class="fa-regular fa-trash mr-1"></i>Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        @endforeach
+                                    @endif
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="p-4 border-t bg-white flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <p class="text-sm text-gray-600">
+                            Showing {{ $patientrecords->firstItem() ?? 0 }} to {{ $patientrecords->lastItem() ?? 0 }} of {{ $patientrecords->total() }} results
+                        </p>
+                        {{-- Added class="pagination-links" here for JavaScript --}}
+                        <div class="flex space-x-2 pagination-links">
+                            @if ($patientrecords->onFirstPage())
+                                <span class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Previous</span>
+                            @else
+                                <a href="{{ $patientrecords->previousPageUrl() }}" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100">Previous</a>
+                            @endif
+
+                            {{-- Pagination Elements --}}
+                            @foreach ($patientrecords->links()->elements as $element)
+                                {{-- "Three Dots" Separator --}}
+                                @if (is_string($element))
+                                    <span class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-400 cursor-default">{{ $element }}</span>
+                                @endif
+
+                                {{-- Array Of Links --}}
+                                @if (is_array($element))
+                                    @foreach ($element as $page => $url)
+                                        @if ($page == $patientrecords->currentPage())
+                                            <span class="px-3 py-2 text-sm bg-red-700 text-white rounded-lg">{{ $page }}</span>
+                                        @else
+                                            <a href="{{ $url }}" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100">{{ $page }}</a>
+                                        @endif
+                                    @endforeach
+                                @endif
+                            @endforeach
+
+                            @if ($patientrecords->hasMorePages())
+                                <a href="{{ $patientrecords->nextPageUrl() }}" class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-100">Next</a>
+                            @else
+                                <span class="px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg text-gray-400 cursor-not-allowed">Next</span>
+                            @endif
+                        </div>
                     </div>
                 </div>
                 {{-- Add Dispensation Modal --}}
@@ -140,9 +186,14 @@
                             </div>
                             <div class="flex gap-2 mt-3">
                                 <div class="w-1/2">
-                                    <label for="barangay" class="text-sm font-semibold text-gray-600">Barangay:</label>
-                                    <input type="text" name="barangay" id="barangay" placeholder="Enter Barangay" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500" value="{{ old('barangay') }}">
-                                    @error('barangay', 'adddispensation')
+                                    <label for="barangay_id" class="text-sm font-semibold text-gray-600">Barangay:</label>
+                                    <select name="barangay_id" id="barangay_id" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                                        <option value="" disabled {{ old('barangay_id') ? '' : 'selected' }}>Select Barangay</option>
+                                        @foreach ($barangays as $barangay)
+                                            <option value="{{ $barangay->id }}" {{ old('barangay_id') == $barangay->id ? 'selected' : '' }}>{{ $barangay->barangay_name }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('barangay_id', 'adddispensation')
                                         <p class="mt-1 text-sm text-red-600 error-message">{{ $message }}</p>
                                     @enderror
                                 </div>
@@ -221,7 +272,9 @@
                             </button>
                         </div>
                         <form id="edit-dispensation-form" action="#">
-                            <input type="hidden" id="edit-record-id">
+                            @csrf
+                            @method('PUT')
+                            <input type="hidden" id="edit-record-id" name="id">
                             <div class="flex gap-2 mb-3">
                                 <div class="flex-1">
                                     <label for="edit-patient-name" class="text-sm font-semibold text-gray-600">Patient Name:</label>
@@ -230,8 +283,13 @@
                             </div>
                             <div class="flex gap-2 mb-3">
                                 <div class="w-1/2">
-                                    <label for="edit-barangay" class="text-sm font-semibold text-gray-600">Barangay:</label>
-                                    <input type="text" name="barangay" id="edit-barangay" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                                    <label for="edit-barangay_id" class="text-sm font-semibold text-gray-600">Barangay:</label>
+                                    <select name="barangay_id" id="edit-barangay_id" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
+                                        <option value="" disabled>Select Barangay</option>
+                                        @foreach ($barangays as $barangay)
+                                            <option value="{{ $barangay->id }}">{{ $barangay->barangay_name }}</option>
+                                        @endforeach
+                                    </select>
                                 </div>
                                 <div class="w-1/2">
                                     <label for="edit-purok" class="text-sm font-semibold text-gray-600">Purok:</label>
@@ -241,9 +299,9 @@
                             <div class="mb-3">
                                 <label for="edit-category" class="text-sm font-semibold text-gray-600">Category:</label>
                                 <select name="category" id="edit-category" class="mt-1 p-2 w-full border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500">
-                                    <option value="Senior">Senior</option>
-                                    <option value="Child">Child</option>
                                     <option value="Adult">Adult</option>
+                                    <option value="Child">Child</option>
+                                    <option value="Senior">Senior</option>
                                 </select>
                             </div>
                             <button type="submit" class="bg-blue-500 text-white p-2 rounded-lg mt-5 hover:-translate-y-1 hover:shadow-md transition-all duration-200 w-fit">
@@ -274,6 +332,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="view-medications-tbody" class="divide-y divide-gray-200">
+                                    {{-- JavaScript will populate this table--}}
                                 </tbody>
                             </table>
                         </div>
@@ -285,77 +344,3 @@
     </body>
     <script src="{{ asset('js/patientrecords.js') }}"></script>
 </x-app-layout>
-<script src="{{asset('js/patientrecords.js')}}"></script>
-
-
-
-<script>
-    // Add Record
-    function addRecord() {
-        const adddispensationmodal = document.getElementById('adddispensationmodal');
-        const closedispensationmodal = document.getElementById('closeadddispensationmodal');
-        const adddispensationbtn = document.getElementById('adddispensationbtn');
-
-        adddispensationbtn.addEventListener('click', () => {
-            adddispensationmodal.classList.remove('hidden');
-        });
-
-        closedispensationmodal.addEventListener('click', () => {
-            adddispensationmodal.classList.add('hidden');
-        });
-    }
-
-    // Medication Actions
-    function setupMedicationActions() {
-        const medicationContainer = document.getElementById('medication-container');
-        const addMoreButton = document.getElementById('add-more-medication');
-        let medicationIndex = 1; 
-
-        addMoreButton.addEventListener('click', () => {
-            const newMedicationGroup = medicationContainer.cloneNode(true);
-            newMedicationGroup.querySelector('select').id = `medication-${medicationIndex}`;
-            newMedicationGroup.querySelector('select').name = `medications[${medicationIndex}][name]`;
-            newMedicationGroup.querySelector('input[type="number"]').id = `quantity-${medicationIndex}`;
-            newMedicationGroup.querySelector('input[type="number"]').name = `medications[${medicationIndex}][quantity]`;
-            
-            newMedicationGroup.querySelector('select').value = '';
-            newMedicationGroup.querySelector('input[type="number"]').value = '';
-
-            const removeButton = document.createElement('button');
-            removeButton.type = 'button';
-            removeButton.className = 'bg-red-500 text-white p-2 rounded-lg mt-2 hover:-translate-y-1 hover:shadow-md transition-all duration-200 w-fit';
-            removeButton.innerHTML = '<i class="fa-regular fa-trash"></i> <span>Remove</span>';
-            removeButton.addEventListener('click', () => {
-                newMedicationGroup.remove();
-            });
-
-            newMedicationGroup.appendChild(removeButton);
-            medicationContainer.parentNode.insertBefore(newMedicationGroup, medicationContainer.nextSibling);
-            medicationIndex++;
-        });
-    }
-
-    // Edit Record only get the patient name and barangay and purok
-    function editRecord() {
-        const editrecordmodal = document.getElementById('editrecordmodal');
-        const closerecordmodal = document.getElementById('closeeditrecordmodal');
-
-        document.querySelectorAll('.editrecordbtn').forEach(button => {
-            button.addEventListener('click', () => {
-                editrecordmodal.classList.remove('hidden');
-            }
-            );
-        });
-
-        closerecordmodal.addEventListener('click', () => {
-            editrecordmodal.classList.add('hidden');
-        });
-        
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        addRecord();
-        setupMedicationActions();
-        editRecord();
-    });
-</script>

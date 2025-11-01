@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('dispensedmedications', function (Blueprint $table) {
             $table->id();
             $table->foreignId('patientrecord_id')->constrained('patientrecords')->onDelete('cascade');
+            $table->foreignId('barangay_id')->index();
             $table->string('batch_number');
             $table->string('generic_name');
             $table->string('brand_name');
