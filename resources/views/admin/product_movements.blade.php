@@ -2,15 +2,15 @@
   use Carbon\Carbon;
 @endphp
 <x-app-layout>
-  <x-slot name="title">
+    <x-slot name="title">
       Product Movements - General Tinio
     </x-slot>
-<body class="bg-gray-50">
+{{-- this block of code is transferded to app layout --}}
+{{-- <body class="bg-gray-50"> --}}
+  {{-- <x-admin.sidebar/> --}}
 
-  <x-admin.sidebar/>
-
-  <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
-    <x-admin.header/>
+  {{-- <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
+    <x-admin.header/> --}}
     <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
       <div class="mb-6 pt-16">
         {{-- BREADCRUMB --}}

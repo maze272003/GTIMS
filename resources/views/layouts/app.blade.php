@@ -16,8 +16,12 @@
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
        
     </head>
-    <body class="font-sans antialiased">
+    <body class="bg-gray-50">
             <!-- Page Content -->
+            <x-admin.sidebar/>
+            <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
+            {{-- Header --}}
+            <x-admin.header/>
             <main>
                 {{ $slot }}
             </main>
