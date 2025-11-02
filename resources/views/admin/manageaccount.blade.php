@@ -1,24 +1,13 @@
 <x-app-layout>
-<head>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <style>
-        body, html, input, button, select, textarea {
-            font-family: 'Inter', sans-serif;
-        }
-    </style>
-</head>
-
-<body class="bg-gray-100">
     <x-slot name="title">
         Management Account - General Tinio
     </x-slot>
-    <x-admin.sidebar/>
+    {{-- this block of code is transferded to app layout --}}
+    {{-- <body class="bg-gray-50"> --}}
+    {{-- <x-admin.sidebar/> --}}
 
-    <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
-        <x-admin.header/>
+    {{-- <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
+        <x-admin.header/> --}}
         <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
             
             <div class="mb-6 pt-16">

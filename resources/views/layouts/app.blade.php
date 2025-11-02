@@ -17,10 +17,15 @@
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-       
+        {{-- ace fonts --}}
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     </head>
-    <body class="font-sans antialiased">
+    <body class="bg-gray-50">
             <!-- Page Content -->
+            <x-admin.sidebar/>
+            <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
+            {{-- Header --}}
+            <x-admin.header/>
             <main>
                 {{ $slot }}
             </main>
