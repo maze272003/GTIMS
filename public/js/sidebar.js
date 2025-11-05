@@ -57,26 +57,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Check if the link's href matches the current URL
             if (link.href === currentUrl) {
-                link.classList.add('bg-red-50', 'text-red-600');
-                link.classList.remove('hover:bg-gray-50', 'text-gray-700', 'md:text-gray-700');
+                // Active styles with dark mode support
+                link.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-600', 'dark:text-red-400');
+                link.classList.remove('hover:bg-gray-50', 'dark:hover:bg-gray-700', 'text-gray-700', 'dark:text-gray-300', 'md:text-gray-700', 'dark:md:text-gray-300');
                 if (icon) {
-                    icon.classList.add('text-red-600');
-                    icon.classList.remove('text-gray-600');
+                    icon.classList.add('text-red-600', 'dark:text-red-400');
+                    icon.classList.remove('text-gray-600', 'dark:text-gray-400');
                 }
                 if (span) {
-                    span.classList.add('text-red-600');
-                    span.classList.remove('text-gray-700');
+                    span.classList.add('text-red-600', 'dark:text-red-400');
+                    span.classList.remove('text-gray-700', 'dark:text-gray-300');
                 }
             } else {
-                link.classList.remove('bg-red-50', 'text-red-600');
-                link.classList.add('hover:bg-gray-50', 'text-gray-700', 'md:text-gray-700');
-                 if (icon) {
-                    icon.classList.remove('text-red-600');
-                    icon.classList.add('text-gray-600');
+                // Inactive styles with dark mode support
+                link.classList.remove('bg-red-50', 'dark:bg-red-900/20', 'text-red-600', 'dark:text-red-400');
+                link.classList.add('hover:bg-gray-50', 'dark:hover:bg-gray-700', 'text-gray-700', 'dark:text-gray-300', 'md:text-gray-700', 'dark:md:text-gray-300');
+                if (icon) {
+                    icon.classList.remove('text-red-600', 'dark:text-red-400');
+                    icon.classList.add('text-gray-600', 'dark:text-gray-400');
                 }
                 if (span) {
-                    span.classList.remove('text-red-600');
-                    span.classList.add('text-gray-700');
+                    span.classList.remove('text-red-600', 'dark:text-red-400');
+                    span.classList.add('text-gray-700', 'dark:text-gray-300');
                 }
             }
         });

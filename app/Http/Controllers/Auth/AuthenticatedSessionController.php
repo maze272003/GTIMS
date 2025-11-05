@@ -8,7 +8,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
-
+use Illuminate\Support\Facades\Mail;
+use App\Mail\NewLoginNotification;
 class AuthenticatedSessionController extends Controller
 {
     /**
@@ -31,15 +32,38 @@ class AuthenticatedSessionController extends Controller
         $user = Auth::user();
 
         // If user_level_id is null, $user->level will be null.
-        // Immediately log out the user and end their session.
         if (is_null($user->level)) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            // Redirect to the homepage with an error message.
             return redirect('/')->with('error', 'You are not authorized to access this application.');
         }
+
+        // ================================================
+        // === BAGONG "NEW LOGIN NOTIFICATION" LOGIC ===
+        // ================================================
+        $currentIp = $request->ip();
+
+        // Ipadala lang ang email kung ang IP ay bago
+        if ($user->last_login_ip !== $currentIp) {
+            try {
+                Mail::to($user->email)->send(new NewLoginNotification($currentIp));
+            } catch (\Exception $e) {
+                // Hayaan lang na magpatuloy ang login kahit mag-fail ang email
+                // Pwede kang mag-log ng error dito kung kailangan
+                \Log::error('Failed to send new login notification: ' . $e->getMessage());
+            }
+        }
+        
+        // I-update palagi ang login details
+        $user->last_login_at = now();
+        $user->last_login_ip = $currentIp;
+        $user->save();
+        // ================================================
+        // === KATAPUSAN NG BAGONG LOGIC ===
+        // ================================================
+
 
         if ($user->level->name == 'superadmin') {
             return redirect()->route('admin.dashboard');
@@ -48,14 +72,10 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('admin.dashboard');
 
         } elseif ($user->level->name == 'encoder') {
-            // Siguraduhin mong may route ka para sa 'encoder.dashboard'
-            // return redirect()->route('encoder.dashboard');
-            
-            // Kung wala pa, sa default dashboard muna
             return redirect()->route('admin.dashboard'); 
         }
 
-        // Fallback for any other roles. Log them out and redirect.
+        // Fallback for any other roles.
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

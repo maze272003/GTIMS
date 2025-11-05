@@ -22,16 +22,23 @@ class InventoryController extends Controller
         $inventoryQuery = Inventory::where('is_archived', 2);
 
         if (!empty($search)) {
-            $inventoryQuery->where(function ($query) use ($search) {
-                $query->where('batch_number', 'like', "%{$search}%")
-                    ->orWhereHas('product', function ($q) use ($search) {
-                        $q->where('generic_name', 'like', "%{$search}%")
-                            ->orWhere('brand_name', 'like', "%{$search}%")
-                            ->orWhere('form', 'like', "%{$search}%")
-                            ->orWhere('strength', 'like', "%{$search}%");
-                    });
-            });
-        }
+        // I-convert natin sa lowercase 'yung search input
+        $lowerSearch = strtolower($search);
+
+        $inventoryQuery->where(function ($query) use ($lowerSearch) {
+            
+            // Gamit ang whereRaw, i-LOWER() natin 'yung column
+            $query->whereRaw('LOWER(batch_number) LIKE ?', ["%{$lowerSearch}%"])
+                  ->orWhereHas('product', function ($q) use ($lowerSearch) {
+                      
+                      // Gawin din natin sa lahat ng columns ng product
+                      $q->whereRaw('LOWER(generic_name) LIKE ?', ["%{$lowerSearch}%"])
+                        ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$lowerSearch}%"])
+                        ->orWhereRaw('LOWER(form) LIKE ?', ["%{$lowerSearch}%"])
+                        ->orWhereRaw('LOWER(strength) LIKE ?', ["%{$lowerSearch}%"]);
+                  });
+        });
+    }
 
         $inventories = $inventoryQuery->paginate(20)->withQueryString();
 

@@ -1,3 +1,8 @@
+/* ace css for manage account */
+body, html, input, button, select, textarea {
+            font-family: 'Inter', sans-serif;
+        }
+
 .modal {
     animation: fadeInScale 0.3s ease-in-out;
 }

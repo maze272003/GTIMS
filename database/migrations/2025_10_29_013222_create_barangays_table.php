@@ -11,13 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('patientrecords', function (Blueprint $table) {
+        Schema::create('barangays', function (Blueprint $table) {
             $table->id();
-            $table->string('patient_name');
-            $table->foreignId('barangay_id')->index();
-            $table->string('purok');
-            $table->enum('category', ['Adult', 'Child', 'Senior']);
-            $table->date('date_dispensed');
+            $table->string('barangay_name');
             $table->timestamps();
         });
     }
@@ -27,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('patientrecords');
+        Schema::dropIfExists('barangays');
     }
 };

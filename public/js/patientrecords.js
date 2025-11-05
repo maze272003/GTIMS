@@ -62,7 +62,10 @@ function editRecord() {
     closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
     modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.add('hidden');
+        clearValidation(modal);
     });
+
+    const form = document.getElementById('edit-dispensation-form');
 
     document.querySelectorAll('.editrecordbtn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -71,20 +74,30 @@ function editRecord() {
 
             const id = row.dataset.recordId;
             const name = row.dataset.patientName;
-            const barangay = row.dataset.barangay;
+            const barangayId = row.dataset.barangayId;
             const purok = row.dataset.purok;
-            const category = row.cells[2].textContent.trim();
+            const category = row.dataset.category;
 
             document.getElementById('edit-record-id').value = id;
             document.getElementById('edit-patient-name').value = name;
-            document.getElementById('edit-barangay').value = barangay;
+            document.getElementById('edit-barangay_id').value = barangayId;
             document.getElementById('edit-purok').value = purok;
             document.getElementById('edit-category').value = category;
 
             document.getElementById('edit-record-title').textContent = `Edit #${id} – ${name}`;
 
+            // Set form action dynamically (assuming route name for update)
+            form.action = `/admin/patientrecords/${id}`; // Adjust to your update route, e.g., `{{ route('admin.patientrecords.update', '') }}/${id}` if using Blade
+
             modal.classList.remove('hidden');
         });
+    });
+
+    // Handle form submission (optional: add AJAX or let it submit normally)
+    form.addEventListener('submit', (e) => {
+        // If you want to handle via JS/AJAX, prevent default and submit here
+        // e.preventDefault();
+        // ... submit logic
     });
 }
 

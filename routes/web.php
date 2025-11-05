@@ -9,11 +9,14 @@ use App\Http\Controllers\AdminController\PatientRecordsController;
 use App\Http\Controllers\AdminController\HistorylogController;
 use App\Http\Controllers\AdminController\ManageaccountController;
 use Illuminate\Support\Facades\Auth; // <-- Siguraduhin na nandito ito
+use App\Http\Controllers\Auth\OtpLoginController;
 
 Route::get('/', function () {
     return view('auth.login');
 });
 
+Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])->name('otp.send');
+Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])->name('otp.verify');
 // Lahat ng routes sa loob nito ay kailangan naka-login (auth, verified)
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -60,7 +63,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware('level.admin') // <-- CHECK KUNG LEVEL 1 o 2
              ->group(function () {
             
-Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');            
+Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');    
+Route::post('/get-ai-analysis', [DashboardController::class, 'getAiAnalysis'])->name('ai.analysis');        
             // --- Inventory Routes ---
             Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
             Route::post('/inventory', [InventoryController::class, 'addProduct'])->name('inventory.addproduct');

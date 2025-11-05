@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Patientrecords extends Model
 {
@@ -11,15 +11,20 @@ class Patientrecords extends Model
 
     protected $fillable = [
         'patient_name',
-        'barangay',
+        'barangay_id',
         'purok',
         'category',
         'date_dispensed',
     ];
 
     protected $casts = [
-        'date_dispensed' => 'date',
+        'date_dispensed' => 'datetime',
     ];
+
+    public function barangay()
+    {
+        return $this->belongsTo(Barangay::class);
+    }
 
     public function dispensedMedications()
     {
