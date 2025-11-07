@@ -63,6 +63,7 @@ class PatientRecordsSeeder extends Seeder
                 // 1. Create the Dispensed Medication record
                 Dispensedmedication::factory()->create([
                     'patientrecord_id' => $record->id,
+                    'barangay_id' => $record->barangay_id,
                     'batch_number' => $inventory->batch_number,
                     'generic_name' => $product->generic_name,
                     'brand_name' => $product->brand_name,

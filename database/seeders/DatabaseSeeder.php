@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             ProductSeeder::class,
             InventorySeeder::class,
+            BarangaySeeder::class,
             PatientRecordsSeeder::class
         ]);
         

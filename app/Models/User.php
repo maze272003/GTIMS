@@ -21,6 +21,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'otp', // Idagdag ito
+        'otp_expires_at', // Idagdag ito
     ];
 
     /**

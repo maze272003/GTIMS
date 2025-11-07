@@ -21,6 +21,8 @@ class DashboardController extends Controller
 {
     /**
      * Show the admin dashboard with analytics or return AJAX data.
+     * Fixed: All queries referencing non-existent 'barangay' column now join with 'barangays' table
+     * to use 'barangays.barangay_name as barangay' for selection, grouping, ordering, and filtering.
      */
     public function showdashboard(Request $request): View | JsonResponse
     {
@@ -80,7 +82,7 @@ class DashboardController extends Controller
         if ($request->ajax() && $request->input('ajax_update') == 'forecast') {
             $forecast = $this->calculateStockForecast($forecast_days);
             // Ensure you have this partial view created
-            $forecastHtml = view('admin.partials._forecast_table_body', compact('forecast'))->render(); 
+            $forecastHtml = view('admin.partials._forecast_table_body', compact('forecast'))->render();
             return response()->json(['forecastHtml' => $forecastHtml]);
         }
 
@@ -89,27 +91,28 @@ class DashboardController extends Controller
             $seasonalData = $this->getSeasonalDataForAjax($seasonal_product_id, $compare_product_id);
             return response()->json(['seasonal' => $seasonalData]);
         }
-        
+
         // === 3. AJAX: Main Charts / Drilldown Update ===
         // This catches 'ajax_update' == 'main_charts' OR the original drilldown click (which is just request->ajax())
-        if ($request->ajax() || $request->wantsJson()) { 
-            
+        if ($request->ajax() || $request->wantsJson()) {
             // --- Calculate data needed for this JSON response ---
 
             // Consumption Trend Data
             [$consumptionLabels, $consumptionData] = $this->getConsumptionTrend(
                 $dateRange, $active_product_id, $filter_barangay, $grouping // <--- USED $active_product_id
             );
-            
+
             // Patient Visit Trend Data
             [$patientVisitLabels, $patientVisitData] = $this->getPatientVisitTrend(
                 $dateRange, $filter_barangay, $drilldownProduct, $grouping // Note: $drilldownProduct relies on $active_product_id indirectly
             );
 
             // Barangay Data for Stacked Chart
+            // Fixed: Added join with 'barangays' to access 'barangay_name as barangay'
             $barangayCategoryData = Patientrecords::whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
+                ->join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
                 ->when($filter_barangay, function ($q) use ($filter_barangay) {
-                    return $q->where('barangay', $filter_barangay);
+                    return $q->where('barangays.barangay_name', $filter_barangay);
                 })
                 // <--- CHECK FOR ACTIVE PRODUCT FILTERING
                 ->when($drilldownProduct, function ($query) use ($drilldownProduct) { // $drilldownProduct uses $active_product_id
@@ -120,9 +123,9 @@ class DashboardController extends Controller
                           ->where('form', $drilldownProduct->form);
                     });
                 })
-                ->groupBy('barangay', 'category')
-                ->select('barangay', 'category', DB::raw('COUNT(DISTINCT patientrecords.id) as total'))
-                ->orderBy('barangay')
+                ->groupBy('barangays.barangay_name', 'patientrecords.category')
+                ->select('barangays.barangay_name as barangay', 'patientrecords.category', DB::raw('COUNT(DISTINCT patientrecords.id) as total'))
+                ->orderBy('barangays.barangay_name')
                 ->get();
 
             $barangays = $barangayCategoryData->pluck('barangay')->unique()->values()->toArray();
@@ -141,9 +144,11 @@ class DashboardController extends Controller
             }
 
             // Hotspots Data
+            // Fixed: Added join with 'barangays' to access 'barangay_name as barangay'
             $patientHotspots = Patientrecords::whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
+                ->join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
                 ->when($filter_barangay, function ($q) use ($filter_barangay) {
-                    return $q->where('barangay', $filter_barangay);
+                    return $q->where('barangays.barangay_name', $filter_barangay);
                 })
                 // <--- CHECK FOR ACTIVE PRODUCT FILTERING
                 ->when($drilldownProduct, function ($query) use ($drilldownProduct) { // $drilldownProduct uses $active_product_id
@@ -155,9 +160,9 @@ class DashboardController extends Controller
                     });
                 })
                 ->join('dispensedmedications', 'patientrecords.id', '=', 'dispensedmedications.patientrecord_id')
-                ->groupBy('patientrecords.barangay', 'patientrecords.category')
+                ->groupBy('barangays.barangay_name', 'patientrecords.category')
                 ->select(
-                    'patientrecords.barangay',
+                    'barangays.barangay_name as barangay',
                     'patientrecords.category',
                     DB::raw('COUNT(DISTINCT patientrecords.id) as total_patients'),
                     DB::raw('SUM(dispensedmedications.quantity) as total_items')
@@ -193,7 +198,7 @@ class DashboardController extends Controller
                 ->select('product_movements.product_id', 'products.generic_name', DB::raw('SUM(product_movements.quantity) as total_dispensed'))
                 ->orderBy('total_dispensed', 'desc')
                 ->take(10);
-            
+
             $topProductsData = $topProductsQuery->get();
             $topProducts = $topProductsData->pluck('total_dispensed', 'generic_name');
 
@@ -231,7 +236,7 @@ class DashboardController extends Controller
                 ]
             ]);
         }
-        
+
         // === 4. FULL PAGE LOAD DATA (Only calculate if not an AJAX request) ===
         // These are the calculations needed for the *initial* page load.
 
@@ -245,8 +250,9 @@ class DashboardController extends Controller
         
         // Barangay Data for Stacked Chart
         $barangayCategoryData = Patientrecords::whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
+            ->join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
             ->when($filter_barangay, function ($q) use ($filter_barangay) {
-                return $q->where('barangay', $filter_barangay);
+                return $q->where('barangays.barangay_name', $filter_barangay);
             })
             // <--- CHECK FOR ACTIVE PRODUCT FILTERING
             ->when($drilldownProduct, function ($query) use ($drilldownProduct) {
@@ -257,9 +263,9 @@ class DashboardController extends Controller
                       ->where('form', $drilldownProduct->form);
                 });
             })
-            ->groupBy('barangay', 'category')
-            ->select('barangay', 'category', DB::raw('COUNT(DISTINCT patientrecords.id) as total'))
-            ->orderBy('barangay')
+            ->groupBy('barangays.barangay_name', 'patientrecords.category')
+            ->select('barangays.barangay_name as barangay', 'patientrecords.category', DB::raw('COUNT(DISTINCT patientrecords.id) as total'))
+            ->orderBy('barangays.barangay_name')
             ->get();
 
         $barangays = $barangayCategoryData->pluck('barangay')->unique()->values()->toArray();
@@ -279,8 +285,9 @@ class DashboardController extends Controller
 
         // Hotspots Data
         $patientHotspots = Patientrecords::whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
+            ->join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
             ->when($filter_barangay, function ($q) use ($filter_barangay) {
-                return $q->where('barangay', $filter_barangay);
+                return $q->where('barangays.barangay_name', $filter_barangay);
             })
             // <--- CHECK FOR ACTIVE PRODUCT FILTERING
             ->when($drilldownProduct, function ($query) use ($drilldownProduct) {
@@ -292,9 +299,9 @@ class DashboardController extends Controller
                 });
             })
             ->join('dispensedmedications', 'patientrecords.id', '=', 'dispensedmedications.patientrecord_id')
-            ->groupBy('patientrecords.barangay', 'patientrecords.category')
+            ->groupBy('barangays.barangay_name', 'patientrecords.category')
             ->select(
-                'patientrecords.barangay',
+                'barangays.barangay_name as barangay',
                 'patientrecords.category',
                 DB::raw('COUNT(DISTINCT patientrecords.id) as total_patients'),
                 DB::raw('SUM(dispensedmedications.quantity) as total_items')
@@ -360,13 +367,18 @@ class DashboardController extends Controller
             ->select('product_movements.product_id', 'products.generic_name', DB::raw('SUM(product_movements.quantity) as total_dispensed'))
             ->orderBy('total_dispensed', 'desc')
             ->take(10);
-            
+
         $topProductsData = $topProductsQuery->get();
         $topProducts = $topProductsData->pluck('total_dispensed', 'generic_name');
 
         // Data for Filters
+        // Fixed: Added join with 'barangays' to access 'barangay_name as barangay'
         $filter_products = Product::where('is_archived', 2)->orderBy('generic_name')->get(['id', 'generic_name', 'brand_name']);
-        $filter_barangays = Patientrecords::select('barangay')->distinct()->orderBy('barangay')->pluck('barangay');
+        $filter_barangays = Patientrecords::join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
+            ->select('barangays.barangay_name as barangay')
+            ->distinct()
+            ->orderBy('barangays.barangay_name')
+            ->pluck('barangay');
 
         // Seasonal Data
         $selectedSeasonalProduct = null;
@@ -375,16 +387,16 @@ class DashboardController extends Controller
         $seasonalData = [];
         $compareData = [];
         if ($seasonal_product_id) {
-             $selectedSeasonalProduct = Product::find($seasonal_product_id);
+            $selectedSeasonalProduct = Product::find($seasonal_product_id);
             if ($selectedSeasonalProduct) {
                 [$seasonalLabels, $seasonalData] = $this->getProductTrend($seasonal_product_id);
             }
         }
         if ($compare_product_id) {
             $compareSeasonalProduct = Product::find($compare_product_id);
-             if ($compareSeasonalProduct) {
+            if ($compareSeasonalProduct) {
                 [$seasonalLabels, $compareData] = $this->getProductTrend($compare_product_id, $seasonalLabels);
-             }
+            }
         }
 
         // === RENDER FULL VIEW ===
@@ -443,18 +455,18 @@ class DashboardController extends Controller
             $dateRange->start = Carbon::now()->subYear()->addDay()->startOfDay();
         } elseif ($timespan == 'all') {
             $minDate = ProductMovement::min('created_at');
-             if ($minDate) {
-                 $dateRange->start = Carbon::parse($minDate)->startOfDay();
-             } else {
-                 $dateRange->start = Carbon::now()->startOfDay();
-             }
+            if ($minDate) {
+                $dateRange->start = Carbon::parse($minDate)->startOfDay();
+            } else {
+                $dateRange->start = Carbon::now()->startOfDay();
+            }
         } else { // Default to 30d
             $dateRange->start = Carbon::now()->subDays(29)->startOfDay();
         }
 
         // Ensure start is never after end
         if ($dateRange->start->gt($dateRange->end)) {
-             $dateRange->start = $dateRange->end->copy()->startOfDay();
+            $dateRange->start = $dateRange->end->copy()->startOfDay();
         }
 
         return $dateRange;
@@ -471,6 +483,7 @@ class DashboardController extends Controller
             ->whereBetween('product_movements.created_at', [$dateRange->start, $dateRange->end])
              // <--- Apply product filter if any product ID is active (drilldown or main filter)
             ->when($product_id, function ($query) use ($product_id) {
+                return $query->where('product_movements.product_id', $product_id);
                 return $query->where('product_movements.product_id', $product_id);
             });
 
@@ -494,27 +507,43 @@ class DashboardController extends Controller
             });
         }
 
-
         // Period and Grouping Logic (remains the same)
         $periodStartDate = $dateRange->start->copy();
-         if ($grouping == 'week') $periodStartDate->startOfWeek(Carbon::MONDAY);
-         if ($grouping == 'month') $periodStartDate->startOfMonth();
-         if ($periodStartDate->gt($dateRange->end)) {
-             $periodStartDate = $dateRange->end->copy();
-             if ($grouping == 'week') $periodStartDate->startOfWeek(Carbon::MONDAY);
-             if ($grouping == 'month') $periodStartDate->startOfMonth();
-         }
+        if ($grouping == 'week') $periodStartDate->startOfWeek(Carbon::MONDAY);
+        if ($grouping == 'month') $periodStartDate->startOfMonth();
+        if ($periodStartDate->gt($dateRange->end)) {
+            $periodStartDate = $dateRange->end->copy();
+            if ($grouping == 'week') $periodStartDate->startOfWeek(Carbon::MONDAY);
+            if ($grouping == 'month') $periodStartDate->startOfMonth();
+        }
 
-         $period = null;
-         if ($grouping == 'week') { $period = CarbonPeriod::create($periodStartDate, '1 week', $dateRange->end->copy()->endOfWeek(Carbon::SUNDAY)); }
-         elseif ($grouping == 'month') { $period = CarbonPeriod::create($periodStartDate, '1 month', $dateRange->end->copy()->startOfMonth()); }
-         else { $period = CarbonPeriod::create($periodStartDate, '1 day', $dateRange->end); }
+        $period = null;
+        if ($grouping == 'week') {
+            $period = CarbonPeriod::create($periodStartDate, '1 week', $dateRange->end->copy()->endOfWeek(Carbon::SUNDAY));
+        } elseif ($grouping == 'month') {
+            $period = CarbonPeriod::create($periodStartDate, '1 month', $dateRange->end->copy()->startOfMonth());
+        } else {
+            $period = CarbonPeriod::create($periodStartDate, '1 day', $dateRange->end);
+        }
 
-        $dbFormat = 'Y-m-d'; $labelFormat = 'M d'; $orderByColumn = 'date_group'; $groupByColumn = 'date_group';
+        $dbFormat = 'Y-m-d';
+        $labelFormat = 'M d';
+        $orderByColumn = 'date_group';
+        $groupByColumn = 'date_group';
         switch ($grouping) {
-            case 'week': $dbFormat = 'o-W'; $labelFormat = '\WW Y (M d)'; $selectRaw = "DATE_FORMAT(product_movements.created_at, '%x-%v') as date_group"; break;
-            case 'month': $dbFormat = 'Y-m'; $labelFormat = 'M Y'; $selectRaw = "DATE_FORMAT(product_movements.created_at, '%Y-%m') as date_group"; break;
-            default: $selectRaw = "DATE(product_movements.created_at) as date_group"; break;
+            case 'week':
+                $dbFormat = 'o-W';
+                $labelFormat = '\WW Y (M d)';
+                $selectRaw = "DATE_FORMAT(product_movements.created_at, '%x-%v') as date_group";
+                break;
+            case 'month':
+                $dbFormat = 'Y-m';
+                $labelFormat = 'M Y';
+                $selectRaw = "DATE_FORMAT(product_movements.created_at, '%Y-%m') as date_group";
+                break;
+            default:
+                $selectRaw = "DATE(product_movements.created_at) as date_group";
+                break;
         }
 
         $dispensationTrend = $query
@@ -525,11 +554,19 @@ class DashboardController extends Controller
             ->pluck('total_quantity', $orderByColumn);
 
         // Fill in missing (remains the same)
-        $labels = []; $data = [];
-         if ($period) { foreach ($period as $date) { $key = $date->format($dbFormat); $label = $date->format($labelFormat); $labels[] = $label; $data[] = $dispensationTrend[$key] ?? 0; } }
+        $labels = [];
+        $data = [];
+        if ($period) {
+            foreach ($period as $date) {
+                $key = $date->format($dbFormat);
+                $label = $date->format($labelFormat);
+                $labels[] = $label;
+                $data[] = $dispensationTrend[$key] ?? 0;
+            }
+        }
         return [$labels, $data];
     }
-    
+
     /**
      * Helper to get Patient Visit trend data for the new line chart.
      * Uses $drilldownProduct for filtering patient records by dispensed product.
@@ -538,58 +575,83 @@ class DashboardController extends Controller
     {
         // 1. Define Period and Grouping (copied from getConsumptionTrend)
         $periodStartDate = $dateRange->start->copy();
-         if ($grouping == 'week') $periodStartDate->startOfWeek(Carbon::MONDAY);
-         if ($grouping == 'month') $periodStartDate->startOfMonth();
-         if ($periodStartDate->gt($dateRange->end)) {
-             $periodStartDate = $dateRange->end->copy();
-             if ($grouping == 'week') $periodStartDate->startOfWeek(Carbon::MONDAY);
-             if ($grouping == 'month') $periodStartDate->startOfMonth();
-         }
-
-         $period = null;
-         if ($grouping == 'week') { $period = CarbonPeriod::create($periodStartDate, '1 week', $dateRange->end->copy()->endOfWeek(Carbon::SUNDAY)); }
-         elseif ($grouping == 'month') { $period = CarbonPeriod::create($periodStartDate, '1 month', $dateRange->end->copy()->startOfMonth()); }
-         else { $period = CarbonPeriod::create($periodStartDate, '1 day', $dateRange->end); }
-
-        $dbFormat = 'Y-m-d'; $labelFormat = 'M d'; $orderByColumn = 'date_group'; $groupByColumn = 'date_group';
-        switch ($grouping) {
-            case 'week': $dbFormat = 'o-W'; $labelFormat = '\WW Y (M d)'; $selectRaw = "DATE_FORMAT(date_dispensed, '%x-%v') as date_group"; break;
-            case 'month': $dbFormat = 'Y-m'; $labelFormat = 'M Y'; $selectRaw = "DATE_FORMAT(date_dispensed, '%Y-%m') as date_group"; break;
-            default: $selectRaw = "DATE(date_dispensed) as date_group"; break;
+        if ($grouping == 'week') $periodStartDate->startOfWeek(Carbon::MONDAY);
+        if ($grouping == 'month') $periodStartDate->startOfMonth();
+        if ($periodStartDate->gt($dateRange->end)) {
+            $periodStartDate = $dateRange->end->copy();
+            if ($grouping == 'week') $periodStartDate->startOfWeek(Carbon::MONDAY);
+            if ($grouping == 'month') $periodStartDate->startOfMonth();
         }
-        
+
+        $period = null;
+        if ($grouping == 'week') {
+            $period = CarbonPeriod::create($periodStartDate, '1 week', $dateRange->end->copy()->endOfWeek(Carbon::SUNDAY));
+        } elseif ($grouping == 'month') {
+            $period = CarbonPeriod::create($periodStartDate, '1 month', $dateRange->end->copy()->startOfMonth());
+        } else {
+            $period = CarbonPeriod::create($periodStartDate, '1 day', $dateRange->end);
+        }
+
+        $dbFormat = 'Y-m-d';
+        $labelFormat = 'M d';
+        $orderByColumn = 'date_group';
+        $groupByColumn = 'date_group';
+        switch ($grouping) {
+            case 'week':
+                $dbFormat = 'o-W';
+                $labelFormat = '\WW Y (M d)';
+                $selectRaw = "DATE_FORMAT(date_dispensed, '%x-%v') as date_group";
+                break;
+            case 'month':
+                $dbFormat = 'Y-m';
+                $labelFormat = 'M Y';
+                $selectRaw = "DATE_FORMAT(date_dispensed, '%Y-%m') as date_group";
+                break;
+            default:
+                $selectRaw = "DATE(date_dispensed) as date_group";
+                break;
+        }
+
         // 2. Get Patient Visits
-        $patientVisits = Patientrecords::whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
+        $patientVisitsQuery = Patientrecords::whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
             ->when($barangay, function ($q) use ($barangay) {
-                 return $q->where('barangay', $barangay);
-             })
+                // Fixed: Added join with 'barangays' to filter by 'barangay_name'
+                $q->join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
+                  ->where('barangays.barangay_name', $barangay);
+            })
             ->when($drilldownProduct, function ($query) use ($drilldownProduct) {
-                 return $query->whereHas('dispensedMedications', function ($q) use ($drilldownProduct) {
-                     $q->where('generic_name', $drilldownProduct->generic_name)
-                       ->where('brand_name', $drilldownProduct->brand_name)
-                       ->where('strength', $drilldownProduct->strength)
-                       ->where('form', $drilldownProduct->form);
-                 });
-             })
+                return $query->whereHas('dispensedMedications', function ($q) use ($drilldownProduct) {
+                    $q->where('generic_name', $drilldownProduct->generic_name)
+                      ->where('brand_name', $drilldownProduct->brand_name)
+                      ->where('strength', $drilldownProduct->strength)
+                      ->where('form', $drilldownProduct->form);
+                });
+            })
             ->select(DB::raw($selectRaw), DB::raw('COUNT(DISTINCT patientrecords.id) as total_patients'))
             ->groupBy($groupByColumn)
-            ->orderBy($orderByColumn, 'asc')
-            ->get()
+            ->orderBy($orderByColumn, 'asc');
+
+        // If barangay filter is applied, ensure join is present for the whole query
+        if ($barangay) {
+            $patientVisitsQuery->select('patientrecords.*'); // Ensure patientrecords fields are available
+        }
+
+        $patientVisits = $patientVisitsQuery->get()
             ->pluck('total_patients', $orderByColumn);
-            
+
         // 3. Combine data using the generated period
-        $labels = []; $data = [];
-         if ($period) { 
-             foreach ($period as $date) { 
-                 $key = $date->format($dbFormat); 
-                 $label = $date->format($labelFormat); 
-                 $labels[] = $label; 
-                 $data[] = $patientVisits[$key] ?? 0;
-             }
-         }
+        $labels = [];
+        $data = [];
+        if ($period) {
+            foreach ($period as $date) {
+                $key = $date->format($dbFormat);
+                $label = $date->format($labelFormat);
+                $labels[] = $label;
+                $data[] = $patientVisits[$key] ?? 0;
+            }
+        }
         return [$labels, $data];
     }
-
 
     // --- getProductTrend, calculateStockForecast, getSeasonalDataForAjax, getAiAnalysis remain unchanged ---
     
@@ -598,23 +660,23 @@ class DashboardController extends Controller
      */
     private function getProductTrend($product_id, $alignLabels = null)
     {
-         // Ensure start date is at least 3 years ago or the first movement, whichever is later
-         $threeYearsAgo = Carbon::now()->subYears(3)->startOfMonth();
-         $firstMovementDate = ProductMovement::where('product_id', $product_id)
-                                             ->where('type', 'OUT')
-                                             ->min('created_at');
+        // Ensure start date is at least 3 years ago or the first movement, whichever is later
+        $threeYearsAgo = Carbon::now()->subYears(3)->startOfMonth();
+        $firstMovementDate = ProductMovement::where('product_id', $product_id)
+                                            ->where('type', 'OUT')
+                                            ->min('created_at');
 
-         $startDate = $threeYearsAgo;
-         if ($firstMovementDate) {
-             $firstMovementMonthStart = Carbon::parse($firstMovementDate)->startOfMonth();
-             if ($firstMovementMonthStart->gt($startDate)) {
-                 $startDate = $firstMovementMonthStart;
-             }
-         }
-         // Ensure start date is not in the future
-         if ($startDate->gt(Carbon::now())) {
-             $startDate = Carbon::now()->startOfMonth();
-         }
+        $startDate = $threeYearsAgo;
+        if ($firstMovementDate) {
+            $firstMovementMonthStart = Carbon::parse($firstMovementDate)->startOfMonth();
+            if ($firstMovementMonthStart->gt($startDate)) {
+                $startDate = $firstMovementMonthStart;
+            }
+        }
+        // Ensure start date is not in the future
+        if ($startDate->gt(Carbon::now())) {
+            $startDate = Carbon::now()->startOfMonth();
+        }
 
          $query = ProductMovement::where('type', 'OUT')
              ->where('product_id', $product_id)
@@ -638,35 +700,39 @@ class DashboardController extends Controller
 
         // Determine the period based on alignment or query results
         if ($alignLabels) {
-             $period = collect($alignLabels)->map(function($l) {
-                 // Try parsing different formats just in case
-                 try { return Carbon::parse($l)->startOfMonth(); } catch (\Exception $e) { return null; }
-             })->filter()->unique(); // Filter out nulls and ensure uniqueness
+            $period = collect($alignLabels)->map(function($l) {
+                // Try parsing different formats just in case
+                try {
+                    return Carbon::parse($l)->startOfMonth();
+                } catch (\Exception $e) {
+                    return null;
+                }
+            })->filter()->unique(); // Filter out nulls and ensure uniqueness
 
-             // Fallback if alignment labels are invalid or empty
-             if ($period->isEmpty()) {
-                 if ($query->isEmpty()) return [[],[]]; // No data, no alignment possible
-                 $periodStartDate = Carbon::parse($query->keys()->first() . '-01');
-                 if ($periodStartDate->gt($endDate)) $periodStartDate = $endDate->copy(); // Prevent start > end
-                 $period = CarbonPeriod::create($periodStartDate, '1 month', $endDate);
-                 $alignLabels = null; // Disable alignment
-             } else {
-                 // Use the min/max of parsed labels for the period if aligning
-                 $period = CarbonPeriod::create($period->min(), '1 month', $period->max());
-             }
+            // Fallback if alignment labels are invalid or empty
+            if ($period->isEmpty()) {
+                if ($query->isEmpty()) return [[],[]]; // No data, no alignment possible
+                $periodStartDate = Carbon::parse($query->keys()->first() . '-01');
+                if ($periodStartDate->gt($endDate)) $periodStartDate = $endDate->copy(); // Prevent start > end
+                $period = CarbonPeriod::create($periodStartDate, '1 month', $endDate);
+                $alignLabels = null; // Disable alignment
+            } else {
+                // Use the min/max of parsed labels for the period if aligning
+                $period = CarbonPeriod::create($period->min(), '1 month', $period->max());
+            }
 
         } else { // Not aligning
-             if ($query->isEmpty()) return [[],[]]; // No data, return empty
-             $periodStartDate = Carbon::parse($query->keys()->first() . '-01');
-             // Ensure start date respects the 3-year limit
-             if ($periodStartDate->lt($threeYearsAgo)) {
-                 $periodStartDate = $threeYearsAgo;
-             }
-             // Ensure start date is not after end date
-             if ($periodStartDate->gt($endDate)) {
-                  $periodStartDate = $endDate->copy();
-             }
-             $period = CarbonPeriod::create($periodStartDate, '1 month', $endDate);
+            if ($query->isEmpty()) return [[],[]]; // No data, return empty
+            $periodStartDate = Carbon::parse($query->keys()->first() . '-01');
+            // Ensure start date respects the 3-year limit
+            if ($periodStartDate->lt($threeYearsAgo)) {
+                $periodStartDate = $threeYearsAgo;
+            }
+            // Ensure start date is not after end date
+            if ($periodStartDate->gt($endDate)) {
+                $periodStartDate = $endDate->copy();
+            }
+            $period = CarbonPeriod::create($periodStartDate, '1 month', $endDate);
         }
 
         // Populate labels and data
@@ -688,13 +754,11 @@ class DashboardController extends Controller
                 $labels[] = $date->format('M Y');
             }
         } elseif ($alignLabels) { // If aligning but period failed, return original labels
-             $labels = $alignLabels;
+            $labels = $alignLabels;
         }
-
 
         return [$labels, $data];
     }
-
 
     /**
      * Calculates the "Days of Stock Remaining".
@@ -729,9 +793,8 @@ class DashboardController extends Controller
             $totalConsumed = $consumption[$product_id] ?? 0;
             $avgDailyUsage = ($daysOfHistory > 0) ? $totalConsumed / $daysOfHistory : 0; // Avoid division by zero
 
-
             if ($avgDailyUsage > 0) {
-                 // Use max(0.01, ...) to avoid division by zero errors with tiny usage rates
+                // Use max(0.01, ...) to avoid division by zero errors with tiny usage rates
                 $daysRemaining = floor($stock / max(0.01, $avgDailyUsage));
             } else {
                 $daysRemaining = INF;
@@ -748,7 +811,7 @@ class DashboardController extends Controller
 
         // Sort by most urgent
         usort($forecast, function ($a, $b) {
-             // Treat INF as very large number for sorting
+            // Treat INF as very large number for sorting
             $aDays = ($a['days_remaining'] === INF) ? PHP_INT_MAX : $a['days_remaining'];
             $bDays = ($b['days_remaining'] === INF) ? PHP_INT_MAX : $b['days_remaining'];
             return $aDays <=> $bDays;

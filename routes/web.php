@@ -9,11 +9,14 @@ use App\Http\Controllers\AdminController\PatientRecordsController;
 use App\Http\Controllers\AdminController\HistorylogController;
 use App\Http\Controllers\AdminController\ManageaccountController;
 use Illuminate\Support\Facades\Auth; // <-- Siguraduhin na nandito ito
+use App\Http\Controllers\Auth\OtpLoginController;
 
 Route::get('/', function () {
     return view('auth.login');
 });
 
+Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])->name('otp.send');
+Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])->name('otp.verify');
 // Lahat ng routes sa loob nito ay kailangan naka-login (auth, verified)
 Route::middleware(['auth', 'verified'])->group(function () {
 

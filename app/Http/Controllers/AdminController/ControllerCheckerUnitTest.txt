@@ -1,0 +1,140 @@
+Perform a line-by-line audit of all Laravel controller files to ensure they meet enterprise-grade standards for correctness, security, performance, and maintainability.
+Your goal is to guarantee that every controller is bug-free, secure, and fully production-ready, with 99.99% accuracy and zero critical issues.
+
+🔍 Laravel-Specific Review Tasks
+1. Query and Eloquent Validation
+
+Verify that all database interactions use Eloquent ORM or Query Builder properly.
+
+Ensure no unoptimized queries, redundant calls, or N+1 query problems exist.
+
+Confirm use of lazy vs. eager loading is appropriate (e.g., with(), load()).
+
+Check for correct use of transactions (DB::transaction) where multiple dependent queries occur.
+
+Ensure no raw SQL queries are used unless absolutely necessary — and if so, properly sanitized.
+
+Validate query performance, indexes, and pagination (paginate(), not get() for large sets).
+
+2. Error Handling & Response Consistency
+
+Ensure all methods are wrapped in proper try–catch blocks or use Laravel exception handling conventions.
+
+Confirm custom exceptions (e.g., ModelNotFoundException, ValidationException) are handled correctly.
+
+Check return formats — ensure JSON API responses use a consistent structure:
+
+return response()->json(['success' => true, 'data' => $data], 200);
+
+
+Validate HTTP status codes are correctly used (200, 201, 400, 404, 422, 500, etc.).
+
+Confirm no raw dd() or dump() calls exist in production code.
+
+3. Data Security & Privacy
+
+Verify sensitive data (passwords, tokens, secrets, IDs) are never returned in responses.
+
+Ensure mass assignment protection using $fillable or $guarded in models.
+
+Confirm no unvalidated or unsanitized user input reaches the database — all must use Form Request validation or Validator::make().
+
+Ensure authorization is enforced using:
+
+Policies ($this->authorize())
+
+Gates
+
+Middleware (auth, can, role)
+
+Check for CSRF, XSS, SQL injection, and mass assignment protections.
+
+Verify all environment variables are properly accessed via env() or config(), never hardcoded.
+
+Confirm files and uploads are validated (mimes, max, etc.) and stored securely (storage_path(), public_path() rules).
+
+4. Code Quality & Maintainability
+
+Ensure each controller follows Single Responsibility Principle (SRP) — no business logic directly inside controllers.
+
+Verify heavy logic is moved to Service classes, Repositories, or Jobs.
+
+Confirm consistent naming conventions for methods (index, store, show, update, destroy).
+
+Check PSR-12 coding standards (indentation, naming, spacing).
+
+Validate that route model binding is used instead of manual ID lookups.
+
+Ensure Form Requests are used for validation instead of inline $request->validate() (for larger controllers).
+
+Confirm use of Resource classes (Http\Resources) for response formatting, not raw model dumps.
+
+5. Performance & Optimization
+
+Ensure use of pagination (paginate(), simplePaginate()) for list endpoints.
+
+Check for caching (Cache::remember(), rememberForever()) where applicable.
+
+Verify queues or events are used for long-running tasks (emails, imports, notifications).
+
+Confirm index usage and eager loading for performance-critical queries.
+
+Check for no blocking operations in controller methods (use of dispatch(), queue() where needed).
+
+6. Security & Compliance
+
+Ensure authentication middleware protects private routes (auth:sanctum, auth:api, etc.).
+
+Verify authorization per user roles/permissions (Gate, Policy, Spatie\Permission).
+
+Confirm JWT, Passport, or Sanctum tokens are validated securely.
+
+Check for rate limiting via ThrottleRequests middleware for sensitive endpoints.
+
+Confirm CORS settings are restrictive and secure.
+
+Ensure HTTPS enforcement (\App\Http\Middleware\ForceHttps or server-level).
+
+7. Testing, Logging & Monitoring
+
+Verify each controller has unit or feature tests covering success, validation failure, and permission cases.
+
+Confirm use of Laravel’s logging (Log::error(), info()) — not print_r() or var_dump().
+
+Check that logs exclude sensitive data.
+
+Ensure exception reporting is configured in App\Exceptions\Handler.
+
+Confirm error tracking integration (e.g., Sentry, Bugsnag) if in production.
+
+8. Documentation & Code Readability
+
+Ensure each controller and method includes PHPDoc annotations for:
+
+Method purpose
+
+Parameters and types
+
+Return type
+
+Confirm clear naming conventions for clarity and maintainability.
+
+Check that routes are RESTful and consistent (GET /users, POST /users, etc.).
+
+Ensure comments explain complex logic clearly.
+
+🧩 Deliverables
+
+The reviewing agent must provide:
+
+Line-by-line annotated review (✅ pass, ⚠️ warning, ❌ fail).
+
+A summary report including:
+
+✅ Passed checks
+
+⚠️ Areas for improvement
+
+❌ Errors or vulnerabilities
+
+💡 Suggested refactors (code structure, query optimization, security hardening)
