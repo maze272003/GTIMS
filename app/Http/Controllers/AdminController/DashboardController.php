@@ -118,9 +118,9 @@ class DashboardController extends Controller
                 ->when($drilldownProduct, function ($query) use ($drilldownProduct) { // $drilldownProduct uses $active_product_id
                     return $query->whereHas('dispensedMedications', function ($q) use ($drilldownProduct) {
                         $q->where('generic_name', $drilldownProduct->generic_name)
-                          ->where('brand_name', $drilldownProduct->brand_name)
-                          ->where('strength', $drilldownProduct->strength)
-                          ->where('form', $drilldownProduct->form);
+                            ->where('brand_name', $drilldownProduct->brand_name)
+                            ->where('strength', $drilldownProduct->strength)
+                            ->where('form', $drilldownProduct->form);
                     });
                 })
                 ->groupBy('barangays.barangay_name', 'patientrecords.category')
@@ -154,9 +154,9 @@ class DashboardController extends Controller
                 ->when($drilldownProduct, function ($query) use ($drilldownProduct) { // $drilldownProduct uses $active_product_id
                     return $query->whereHas('dispensedMedications', function ($q) use ($drilldownProduct) {
                         $q->where('generic_name', $drilldownProduct->generic_name)
-                          ->where('brand_name', $drilldownProduct->brand_name)
-                          ->where('strength', $drilldownProduct->strength)
-                          ->where('form', $drilldownProduct->form);
+                            ->where('brand_name', $drilldownProduct->brand_name)
+                            ->where('strength', $drilldownProduct->strength)
+                            ->where('form', $drilldownProduct->form);
                     });
                 })
                 ->join('dispensedmedications', 'patientrecords.id', '=', 'dispensedmedications.patientrecord_id')
@@ -180,9 +180,11 @@ class DashboardController extends Controller
                 })
                 // <--- END ADDED FILTER
                 ->when($filter_barangay, function ($query) use ($filter_barangay, $dateRange) {
-                    $patientRecordIds = Patientrecords::where('barangay', $filter_barangay)
-                                                     ->whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
-                                                     ->pluck('id');
+                    // <-- FIX (1/3): JOIN ADDED
+                    $patientRecordIds = Patientrecords::join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
+                                          ->where('barangays.barangay_name', $filter_barangay)
+                                          ->whereBetween('patientrecords.date_dispensed', [$dateRange->start, $dateRange->end])
+                                          ->pluck('patientrecords.id');
                     return $query->where(function($q) use ($patientRecordIds) {
                         if ($patientRecordIds->isEmpty()) {
                             $q->whereRaw('1 = 0');
@@ -258,9 +260,9 @@ class DashboardController extends Controller
             ->when($drilldownProduct, function ($query) use ($drilldownProduct) {
                 return $query->whereHas('dispensedMedications', function ($q) use ($drilldownProduct) {
                     $q->where('generic_name', $drilldownProduct->generic_name)
-                      ->where('brand_name', $drilldownProduct->brand_name)
-                      ->where('strength', $drilldownProduct->strength)
-                      ->where('form', $drilldownProduct->form);
+                        ->where('brand_name', $drilldownProduct->brand_name)
+                        ->where('strength', $drilldownProduct->strength)
+                        ->where('form', $drilldownProduct->form);
                 });
             })
             ->groupBy('barangays.barangay_name', 'patientrecords.category')
@@ -293,9 +295,9 @@ class DashboardController extends Controller
             ->when($drilldownProduct, function ($query) use ($drilldownProduct) {
                 return $query->whereHas('dispensedMedications', function ($q) use ($drilldownProduct) {
                     $q->where('generic_name', $drilldownProduct->generic_name)
-                      ->where('brand_name', $drilldownProduct->brand_name)
-                      ->where('strength', $drilldownProduct->strength)
-                      ->where('form', $drilldownProduct->form);
+                        ->where('brand_name', $drilldownProduct->brand_name)
+                        ->where('strength', $drilldownProduct->strength)
+                        ->where('form', $drilldownProduct->form);
                 });
             })
             ->join('dispensedmedications', 'patientrecords.id', '=', 'dispensedmedications.patientrecord_id')
@@ -349,9 +351,11 @@ class DashboardController extends Controller
             })
             // <--- END ADDED FILTER
             ->when($filter_barangay, function ($query) use ($filter_barangay, $dateRange) {
-                $patientRecordIds = Patientrecords::where('barangay', $filter_barangay)
-                                                 ->whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
-                                                 ->pluck('id');
+                // <-- FIX (2/3): JOIN ADDED
+                $patientRecordIds = Patientrecords::join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
+                                      ->where('barangays.barangay_name', $filter_barangay)
+                                      ->whereBetween('patientrecords.date_dispensed', [$dateRange->start, $dateRange->end])
+                                      ->pluck('patientrecords.id');
                 return $query->where(function($q) use ($patientRecordIds) {
                     if ($patientRecordIds->isEmpty()) {
                         $q->whereRaw('1 = 0');
@@ -484,15 +488,16 @@ class DashboardController extends Controller
              // <--- Apply product filter if any product ID is active (drilldown or main filter)
             ->when($product_id, function ($query) use ($product_id) {
                 return $query->where('product_movements.product_id', $product_id);
-                return $query->where('product_movements.product_id', $product_id);
             });
 
         // Filter by Barangay if provided (complex logic for linking movements to patient records)
         if ($barangay) {
             // Get patient record IDs for the specified barangay within the date range
-            $patientRecordIds = Patientrecords::where('barangay', $barangay)
-                                             ->whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
-                                             ->pluck('id');
+            // <-- FIX (3/3): JOIN ADDED
+            $patientRecordIds = Patientrecords::join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
+                                  ->where('barangays.barangay_name', $barangay)
+                                  ->whereBetween('patientrecords.date_dispensed', [$dateRange->start, $dateRange->end])
+                                  ->pluck('patientrecords.id');
 
             // Filter movements associated with these patient records based on description
             $query->where(function($q) use ($patientRecordIds) {
@@ -571,6 +576,10 @@ class DashboardController extends Controller
      * Helper to get Patient Visit trend data for the new line chart.
      * Uses $drilldownProduct for filtering patient records by dispensed product.
      */
+    /**
+     * Helper to get Patient Visit trend data for the new line chart.
+     * Uses $drilldownProduct for filtering patient records by dispensed product.
+     */
     private function getPatientVisitTrend($dateRange, $barangay, $drilldownProduct, $grouping)
     {
         // 1. Define Period and Grouping (copied from getConsumptionTrend)
@@ -617,24 +626,21 @@ class DashboardController extends Controller
             ->when($barangay, function ($q) use ($barangay) {
                 // Fixed: Added join with 'barangays' to filter by 'barangay_name'
                 $q->join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
-                  ->where('barangays.barangay_name', $barangay);
+                    ->where('barangays.barangay_name', $barangay);
             })
             ->when($drilldownProduct, function ($query) use ($drilldownProduct) {
                 return $query->whereHas('dispensedMedications', function ($q) use ($drilldownProduct) {
                     $q->where('generic_name', $drilldownProduct->generic_name)
-                      ->where('brand_name', $drilldownProduct->brand_name)
-                      ->where('strength', $drilldownProduct->strength)
-                      ->where('form', $drilldownProduct->form);
+                        ->where('brand_name', $drilldownProduct->brand_name)
+                        ->where('strength', $drilldownProduct->strength)
+                        ->where('form', $drilldownProduct->form);
                 });
             })
             ->select(DB::raw($selectRaw), DB::raw('COUNT(DISTINCT patientrecords.id) as total_patients'))
             ->groupBy($groupByColumn)
             ->orderBy($orderByColumn, 'asc');
 
-        // If barangay filter is applied, ensure join is present for the whole query
-        if ($barangay) {
-            $patientVisitsQuery->select('patientrecords.*'); // Ensure patientrecords fields are available
-        }
+        // <-- THE BUGGY `if ($barangay)` BLOCK WAS HERE. IT IS NOW DELETED.
 
         $patientVisits = $patientVisitsQuery->get()
             ->pluck('total_patients', $orderByColumn);
@@ -858,7 +864,7 @@ class DashboardController extends Controller
     /**
      * Handle the secure, server-side request for AI trend analysis using OpenAI.
      */
-  // Inside App\Http\Controllers\AdminController\DashboardController
+// Inside App\Http\Controllers\AdminController\DashboardController
 
 // ... other code ...
 
@@ -881,7 +887,7 @@ public function getAiAnalysis(Request $request): JsonResponse
     ]);
 
     // --- 2. API Key Check ---
-    $apiKey = env('GEMINI_API_KEY');
+    $apiKey = "AIzaSyBgq8Fl29xbuqPShS9-r35LRMhZVybklrU" ;
     if (!$apiKey) {
         Log::error('GEMINI_API_KEY is not set in .env file.');
         return response()->json(['error' => 'AI analysis is not configured on the server. (Missing GEMINI_API_KEY)'], 500);
@@ -935,7 +941,7 @@ Provide a <div> block with HTML paragraphs containing a separate, clear, predict
     }
 
     // --- 4. API Endpoint and Payload ---
-    $model = 'gemini-2.5-flash';
+    $model = 'gemini-2.5-pro';
     $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
 
     $payload = [

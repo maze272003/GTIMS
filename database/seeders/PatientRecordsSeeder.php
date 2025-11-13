@@ -38,7 +38,7 @@ class PatientRecordsSeeder extends Seeder
         $this->command->info('Starting to seed 500 patient records. This may take a moment...');
 
         // Create 500 patient records
-        Patientrecords::factory()->count(1000)->create()->each(function ($record) use ($users, $inventories) {
+        Patientrecords::factory()->count(10)->create()->each(function ($record) use ($users, $inventories) {
             
             // Each patient gets 1 to 3 medications
             $medicationCount = rand(1, 3);

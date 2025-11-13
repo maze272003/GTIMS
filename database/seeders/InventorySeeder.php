@@ -17,7 +17,7 @@ class InventorySeeder extends Seeder
 
         $products = Product::all();
 
-        foreach (range(1, 20000) as $index) {
+        foreach (range(1, 20) as $index) {
             Inventory::create([
                 'product_id' => $products->random()->id,
                 'batch_number' => 'BATCH-' . str_pad($index, 4, '0', STR_PAD_LEFT),
