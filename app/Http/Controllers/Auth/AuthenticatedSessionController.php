@@ -74,6 +74,9 @@ class AuthenticatedSessionController extends Controller
         } elseif ($user->level->name == 'encoder') {
             return redirect()->route('admin.dashboard'); 
         }
+        elseif ($user->level->name == 'doctor') {
+            return redirect()->route('admin.dashboard'); 
+        }
 
         // Fallback for any other roles.
         Auth::guard('web')->logout();

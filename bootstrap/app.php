@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'level.superadmin' => \App\Http\Middleware\CheckSuperAdminAccess::class,
             'level.admin'      => \App\Http\Middleware\CheckAdminAccess::class,
             'level.all'        => \App\Http\Middleware\CheckUserLevelAccess::class,
+            'level.doctor'     => \App\Http\Middleware\CheckDoctorAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

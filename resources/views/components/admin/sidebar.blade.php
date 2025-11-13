@@ -10,7 +10,7 @@
     {{-- Main Navigation Links --}}
     <ul class="flex flex-col flex-1 mt-6 space-y-2">
         @auth
-            @if(in_array(auth()->user()->user_level_id, [1, 2, 3]))
+            @if(in_array(auth()->user()->user_level_id, [1, 2, 3, 4]))
             <li>
                 <a href="{{ route('admin.dashboard') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <i class="fa-regular fa-house-chimney nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
