@@ -1,4 +1,4 @@
-<meta name="user-level" content="{{ auth()->user()->user_level_id }}">
+
 <x-app-layout>
     <x-admin.sidebar/>
     <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
@@ -325,7 +325,6 @@
                                     <th class="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Medication Details</th>
                                     <th class="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Form & Strength</th>
                                     <th class="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">Quantity</th>
-                                    @
                                     <th class="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">Action</th>
                                 </tr>
                             </thead>
@@ -340,8 +339,5 @@
         </main>
     </div>
     <script src="{{ asset('js/patientrecords.js') }}"></script>
-    <script>
-        // Global variable na accessible sa lahat ng JS files
-        window.currentUserLevel = {{ auth()->user()->user_level_id }};
-    </script>
+    
 </x-app-layout>

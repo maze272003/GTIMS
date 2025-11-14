@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
+        <meta name="user-level" content="{{ auth()->user()->user_level_id }}">
         <title>{{ $title ?? 'General Tinio - Inventory System' }}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <script>
@@ -29,4 +30,8 @@
     <body class="font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         {{ $slot }}
     </body>
+    <script>
+        // Global variable na accessible sa lahat ng JS files
+        window.currentUserLevel = {{ auth()->user()->user_level_id }};
+    </script>
 </html>
