@@ -8,25 +8,14 @@ use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\Patientrecords;
 use App\Models\Dispensedmedication;
-use App\Models\ProductMovement; 
+use App\Models\ProductMovement; // <-- ADD THIS
 use App\Models\Barangay;
-use Illuminate\Support\Facades\Auth; 
-use Illuminate\Support\Facades\Gate; // Import Gate for clean authorization
+use Illuminate\Support\Facades\Auth; // <-- ADD THIS
 
 class PatientRecordsController extends Controller
 {
-    // ===============================================
-    // ACCESS: LEVEL 1 (Superadmin), 2 (Admin), 4 (Doctor)
-    // ===============================================
     public function showpatientrecords(Request $request)
     {
-        $userLevel = Auth::user()->user_level_id;
-        
-        // CHECK 1: Only allow Level 1, 2, or 4 to access this view.
-        if (!in_array($userLevel, [1, 2, 4])) {
-            abort(403, 'Unauthorized access to Patient Records.');
-        }
-
         $products = Inventory::with('product')->where('is_archived', 2)->get(); 
         $barangays = Barangay::all();
         $patientrecords = Patientrecords::with(['dispensedMedications', 'barangay'])->paginate(20);
@@ -49,17 +38,7 @@ class PatientRecordsController extends Controller
         ]);
     }
 
-    // ===============================================
-    // ACCESS: LEVEL 1 (Superadmin), 2 (Admin) ONLY
-    // ===============================================
     public function adddispensation(Request $request) {
-        $userLevel = Auth::user()->user_level_id;
-
-        // CHECK 2: Only allow Level 1 or 2 to perform dispensation (write access).
-        if (!in_array($userLevel, [1, 2])) {
-            abort(403, 'Unauthorized action: Only Admins can dispense medication.');
-        }
-
         $validated = $request->validateWithBag('adddispensation', [
             'patient-name' => 'required|string|max:255',
             'barangay_id' => 'required|exists:barangays,id',
@@ -79,7 +58,6 @@ class PatientRecordsController extends Controller
             'medications.*.name.required' => 'Medicine selection is required.',
             'medications.*.quantity.required' => 'Quantity is required.',
         ]);
-        
         $medicationsDetails = [];
         $user_id = Auth::id(); 
 

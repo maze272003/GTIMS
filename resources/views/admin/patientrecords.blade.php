@@ -1,3 +1,4 @@
+
 <x-app-layout>
     <x-admin.sidebar/>
     <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
@@ -64,9 +65,7 @@
                                     <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Resident Details</th>
                                     <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-center tracking-wide">Resident Category</th>
                                     <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Date Dispensed</th>
-                                    @if (auth()->user()->user_level_id != 4)
                                     <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-center tracking-wide">Actions</th>
-                                    @endif
                                 </tr>
                             </thead>
                             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -109,10 +108,11 @@
                                         {{-- hide this actions to doctos --}}
                                         
                                         <td class="p-3 flex items-center justify-center gap-2 font-semibold">
-                                            @if (auth()->user()->user_level_id != 4)
+                                            
                                             <button class="view-medications-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
                                                 <i class="fa-regular fa-eye mr-1"></i>View All
                                             </button>
+                                            @if (auth()->user()->user_level_id != 4)
                                             <button class="editrecordbtn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
                                                 <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
                                             </button>
