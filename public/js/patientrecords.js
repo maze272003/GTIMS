@@ -102,7 +102,7 @@ function editRecord() {
 }
 
 /* ========================================
-   4. VIEW MEDICATIONS MODAL
+   4. VIEW MEDICATIONS MODAL - UPDATED
    ======================================== */
 function viewMedications() {
     const modal = document.getElementById('viewmedicationsmodal');
@@ -124,9 +124,15 @@ function viewMedications() {
             title.innerHTML = `Medications for <span class="text-red-700 capitalize italic">${name}</span>`;
             tbody.innerHTML = '';
 
+            // GET USER LEVEL - ITO ANG IMPORTANTE
+            const userLevel = window.currentUserLevel; // Kunin mula sa global variable
+            console.log('Current User Level:', userLevel); // Para ma-debug
+
             medications.forEach(med => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
+                
+                // BUILD THE ROW - HIDE BUTTON FOR LEVEL 4
+                let rowHTML = `
                     <td class="p-3 text-sm text-gray-700">${med.batch || 'N/A'}</td>
                     <td class="p-3 text-sm text-gray-700 font-medium">
                         <div>
@@ -136,13 +142,22 @@ function viewMedications() {
                     </td>
                     <td class="p-3 text-sm text-gray-700">${med.form}, ${med.strength}</td>
                     <td class="p-3 text-sm text-gray-700 text-center font-semibold">${med.quantity}</td>
-                    
+                `;
+
+                // ADD BUTTON COLUMN ONLY IF NOT LEVEL 4
+                if (userLevel != 4) {
+                    rowHTML += `
                     <td class="p-3 text-center">
                         <button class="edit-med-item bg-green-100 text-green-700 p-1.5 rounded hover:bg-green-600 hover:text-white transition-all text-xs">
                             <i class="fa-regular fa-pen-to-square"></i> Edit
                         </button>
                     </td>
-                `;
+                    `;
+                } else {
+                    rowHTML += `<td class="p-3 text-center">-</td>`;
+                }
+
+                tr.innerHTML = rowHTML;
                 tbody.appendChild(tr);
             });
 
