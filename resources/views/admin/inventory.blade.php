@@ -82,17 +82,20 @@
       {{-- end card --}}
 
       {{-- buttons --}}
-      <div class="mt-6 flex flex-col sm:flex-row gap-3 w-full justify-end">
-        <button id="addnewproductbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
-          <i class="fa-regular fa-plus mr-2"></i> Register New Product
-        </button>
-        <button id="viewallproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
-          <i class="fa-regular fa-eye mr-2"></i> View All Products
-        </button>
-        <button id="viewarchiveproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
-          <i class="fa-regular fa-box-archive mr-2"></i> View Archive Products
-        </button>
+      <div class="mt-6 flex flex-wrap gap-3 w-full justify-end">
+          @if (auth()->user()->user_level_id != 4)
+          <button id="addnewproductbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
+              <i class="fa-regular fa-plus mr-2"></i> Register New Product
+          </button>
+          @endif
+          <button id="viewallproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
+              <i class="fa-regular fa-eye mr-2"></i> View All Products
+          </button>
+          <button id="viewarchiveproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
+              <i class="fa-regular fa-box-archive mr-2"></i> View Archive Products
+          </button>
       </div>
+      
       {{-- end buttons --}}
 
       {{-- table --}}

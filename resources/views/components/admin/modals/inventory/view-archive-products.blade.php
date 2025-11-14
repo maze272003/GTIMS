@@ -12,7 +12,9 @@
               <tr>
                 <th class="p-3">#</th>
                 <th class="p-3">Product Details</th>
+                @if (auth()->user()->user_level_id != 4)
                 <th class="p-3 text-center">Actions</th>
+                @endif
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -41,6 +43,7 @@
                     </div>
                   </div>
                 </td>
+                @if (auth()->user()->user_level_id != 4)
                 <td class="p-3 flex items-center justify-center gap-2 font-semibold">
                   <button class="view-archivestock-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 duration-300 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white transition-all mr-2" data-product-id="{{ $product->id }}">
                     <i class="fa-regular fa-eye mr-1"></i>View Archived Stock
@@ -54,6 +57,7 @@
                     </button>
                   </form>
                 </td>
+                @endif
               </tr>
               @endforeach
             </tbody>
