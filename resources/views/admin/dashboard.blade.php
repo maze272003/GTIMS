@@ -620,12 +620,24 @@
 
 
     // --- HELPER FUNCTION: TOGGLE CHART TYPE ---
-    function toggleChartType(chartId, newType) {
+   function toggleChartType(chartId, newType) {
         const chart = window.myCharts[chartId];
         const originalConfig = window.originalChartConfigs[chartId];
         if (!chart || !originalConfig) { console.error('Chart or config not found for', chartId); return; }
 
+        // --- START FIX ---
+        // 1. Get the CURRENT data from the live chart instance
+        // This data was updated by your AJAX calls
+        const currentData = chart.config.data;
+        
+        // 2. Clone the ORIGINAL config (this preserves scales, plugins, onClick handlers, etc.)
         const newConfig = JSON.parse(JSON.stringify(originalConfig)); 
+
+        // 3. Inject the CURRENT, up-to-date data into the new config
+        // We must clone currentData to avoid any weird reference issues
+        newConfig.data = JSON.parse(JSON.stringify(currentData));
+        // --- END FIX ---
+
         newConfig.type = newType;
         newConfig.options.onClick = originalConfig.options.onClick; // Reset click handler
 
@@ -636,14 +648,14 @@
             newConfig.options.onClick = null; // Disable click for pie
 
             if (newConfig.data.datasets && newConfig.data.datasets.length > 0) {
-                 // Use consistent pie colors
-                 const numLabels = newConfig.data.labels.length;
-                 newConfig.data.datasets[0].backgroundColor = Array.from({ length: numLabels }, (_, i) => pieColors[i % pieColors.length]);
-                 newConfig.data.datasets[0].borderColor = '#ffffff';
-                 newConfig.data.datasets[0].borderWidth = 1;
-                 newConfig.data.datasets[0].hoverOffset = 4;
-                 delete newConfig.data.datasets[0].tension; 
-                 delete newConfig.data.datasets[0].fill; 
+                // Use consistent pie colors
+                const numLabels = newConfig.data.labels.length;
+                newConfig.data.datasets[0].backgroundColor = Array.from({ length: numLabels }, (_, i) => pieColors[i % pieColors.length]);
+                newConfig.data.datasets[0].borderColor = '#ffffff';
+                newConfig.data.datasets[0].borderWidth = 1;
+                newConfig.data.datasets[0].hoverOffset = 4;
+                delete newConfig.data.datasets[0].tension; 
+                delete newConfig.data.datasets[0].fill; 
             }
         } else { // Adjustments for bar/line
             newConfig.options.indexAxis = originalConfig.options.indexAxis || 'x'; 
@@ -651,38 +663,38 @@
             newConfig.options.plugins.legend.display = false; 
 
             if (newConfig.data.datasets && newConfig.data.datasets.length > 0) {
-                 const dataset = newConfig.data.datasets[0];
-                 
-                 // UPDATED: Handle colors for multiple charts
-                 let lineColor, barColor, barBgColor;
-                 if (chartId === 'consumptionChart') {
-                     lineColor = consumptionLineColor;
-                     barColor = 'rgba(34, 197, 94, 0.7)'; // green-600 alpha
-                     barBgColor = 'rgba(34, 197, 94, 0.1)';
-                 } else if (chartId === 'patientVisitChart') {
-                     lineColor = patientVisitColor;
-                     barColor = 'rgba(234, 179, 8, 0.7)'; // yellow-500 alpha
-                     barBgColor = 'rgba(234, 179, 8, 0.1)';
-                 } else { // Default for topProducts, etc.
-                     lineColor = 'rgb(59, 130, 246)';
-                     barColor = topProductsBarColor;
-                     barBgColor = 'rgba(59, 130, 246, 0.1)';
-                 }
-                 // END UPDATE
+                const dataset = newConfig.data.datasets[0];
+                
+                // UPDATED: Handle colors for multiple charts
+                let lineColor, barColor, barBgColor;
+                if (chartId === 'consumptionChart') {
+                    lineColor = consumptionLineColor;
+                    barColor = 'rgba(34, 197, 94, 0.7)'; // green-600 alpha
+                    barBgColor = 'rgba(34, 197, 94, 0.1)';
+                } else if (chartId === 'patientVisitChart') {
+                    lineColor = patientVisitColor;
+                    barColor = 'rgba(234, 179, 8, 0.7)'; // yellow-500 alpha
+                    barBgColor = 'rgba(234, 179, 8, 0.1)';
+                } else { // Default for topProducts, etc.
+                    lineColor = 'rgb(59, 130, 246)';
+                    barColor = topProductsBarColor;
+                    barBgColor = 'rgba(59, 130, 246, 0.1)';
+                }
+                // END UPDATE
 
-                 dataset.borderWidth = 1;
-                 if (newType === 'line') {
-                     dataset.tension = 0.3;
-                     dataset.fill = true;
-                     dataset.borderColor = lineColor;
-                     dataset.backgroundColor = barBgColor;
-                 } else { // 'bar'
-                     dataset.tension = 0;
-                     dataset.fill = false;
-                     dataset.borderColor = lineColor; // Use line color for border
-                     dataset.backgroundColor = barColor; // Use bar color for fill
-                 }
-                 delete dataset.hoverOffset;
+                dataset.borderWidth = 3;
+                if (newType === 'line') {
+                    dataset.tension = 0.3;
+                    dataset.fill = true;
+                    dataset.borderColor = lineColor;
+                    dataset.backgroundColor = barBgColor;
+                } else { // 'bar'
+                    dataset.tension = 0;
+                    dataset.fill = false;
+                    dataset.borderColor = lineColor; // Use line color for border
+                    dataset.backgroundColor = barColor; // Use bar color for fill
+                }
+                delete dataset.hoverOffset;
             }
         }
 
@@ -1170,18 +1182,69 @@
     document.addEventListener('DOMContentLoaded', function () {
     
       // Filter toggle logic for custom dates
-      const timespanSelect = document.getElementById('filter_timespan');
-      const customDates = document.getElementById('custom_dates_container');
-      timespanSelect.addEventListener('change', function() {
-        if (this.value === 'custom') {
-          customDates.classList.remove('hidden');
-        } else {
-          customDates.classList.add('hidden');
-        }
-      });
+     // --- START: New Timespan & Grouping Logic ---
+        // Get all the elements we need
+        const timespanSelect = document.getElementById('filter_timespan');
+        const customDates = document.getElementById('custom_dates_container');
+        const groupingSelect = document.getElementById('grouping');
+        const weekOption = groupingSelect.querySelector('option[value="week"]');
+        const monthOption = groupingSelect.querySelector('option[value="month"]');
+
+        // This function will run on change and on page load
+        function updateGroupingOptions() {
+            // Safety check in case elements aren't found
+            if (!timespanSelect || !groupingSelect || !weekOption || !monthOption) return;
+
+            const selectedTimespan = timespanSelect.value;
+            const currentGrouping = groupingSelect.value;
+
+            // 1. By default, enable all grouping options
+            weekOption.disabled = false;
+            monthOption.disabled = false;
+
+            // 2. Apply rules to disable options
+            if (selectedTimespan === '7d') {
+                // Disable both week and month
+                weekOption.disabled = true;
+                monthOption.disabled = true;
+                // If one was selected, reset to 'day'
+                if (currentGrouping === 'week' || currentGrouping === 'month') {
+                    groupingSelect.value = 'day';
+                }
+            } else if (selectedTimespan === '30d') {
+                // Disable only month
+                monthOption.disabled = true;
+                // If 'month' was selected, reset to 'day'
+                if (currentGrouping === 'month') {
+                    groupingSelect.value = 'day';
+                }
+            }
+            // For '90d', '1y', 'all', and 'custom', all options remain enabled.
+            // You could add more complex logic for 'custom' by comparing dates,
+            // but this handles the main dropdowns.
+
+            // 3. Handle the custom dates visibility (your existing logic)
+            if (customDates) {
+                if (selectedTimespan === 'custom') {
+                    customDates.classList.remove('hidden');
+                } else {
+                    customDates.classList.add('hidden');
+                }
+            }
+        }
+
+        // Add the listener to the timespan select
+        if (timespanSelect) {
+            timespanSelect.addEventListener('change', updateGroupingOptions);
+            
+            // IMPORTANT: Run it once on page load to set the initial state
+            updateGroupingOptions();
+        }
+        // --- END: New Timespan & Grouping Logic ---
+
+      // Set initial chart data
       
-      
-      // --- CHART INITIALIZATION ---
+      // --- CHART INITIALIZ});ATION ---
       
       // 1. Consumption Chart (Line)
       const consumptionCtx = document.getElementById('consumptionChart').getContext('2d');
