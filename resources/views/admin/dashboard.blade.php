@@ -4,9 +4,6 @@
   $filterInputs = $inputs ?? []; 
 @endphp
 <x-app-layout>
-  <x-slot name="title">
-      Analytics Dashboard - General Tinio
-    </x-slot>
 <body class="bg-gray-50">
 
   {{-- Sidebar --}}
