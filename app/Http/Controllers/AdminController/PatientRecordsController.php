@@ -11,6 +11,8 @@ use App\Models\Dispensedmedication;
 use App\Models\ProductMovement; // <-- ADD THIS
 use App\Models\Barangay;
 use Illuminate\Support\Facades\Auth; // <-- ADD THIS
+use App\Models\HistoryLog; // <-- ADDED
+use Carbon\Carbon;
 
 class PatientRecordsController extends Controller
 {
@@ -20,7 +22,6 @@ class PatientRecordsController extends Controller
         $barangays = Barangay::all();
         $patientrecords = Patientrecords::with(['dispensedMedications', 'barangay'])->latest()->paginate(20);
         $patientrecordscard = Patientrecords::with(['dispensedMedications', 'barangay'])->latest()->get();
-
 
         // count all dispensed medications
         $totalPeopleServed = $patientrecordscard->count();
@@ -77,6 +78,18 @@ class PatientRecordsController extends Controller
             'date_dispensed' => $validated['date-dispensed'],
         ]);
 
+        // === HISTORY LOG: PATIENT RECORD CREATED ===
+        $user = Auth::user();
+        HistoryLog::create([
+            'action' => 'RECORD ADDED',
+            'description' => "Recorded medication dispensation for patient {$newRecord->patient_name} (Record #: {$newRecord->id}).",
+            'user_id' => $user?->id,
+            'user_name' => $user?->name ?? 'System',
+            'metadata' => [
+                'patientrecord_id' => $newRecord->id,
+            ],
+        ]);
+
         $medicationsDetails = [];
         // Create dispensed medications and deduct inventory
         foreach ($validated['medications'] as $med) {
@@ -88,7 +101,7 @@ class PatientRecordsController extends Controller
             // === END: CAPTURE QUANTITIES ===
 
             // Deduct inventory
-            $inventory->quantity = $quantity_after; // Use the calculated new quantity
+            $inventory->quantity = $quantity_after;
             $inventory->save();
 
             // === START: LOG TO PRODUCT MOVEMENT TABLE ===
@@ -97,7 +110,7 @@ class PatientRecordsController extends Controller
                 'inventory_id'    => $inventory->id,
                 'user_id'         => $user_id,
                 'type'            => 'OUT',
-                'quantity'        => $quantity_to_deduct, // The amount that moved
+                'quantity'        => $quantity_to_deduct,
                 'quantity_before' => $quantity_before,
                 'quantity_after'  => $quantity_after,
                 'description'     => "Dispensed to Patient: {$newRecord->patient_name} (Record: #{$newRecord->id})",
@@ -143,7 +156,12 @@ class PatientRecordsController extends Controller
             'date-dispensed.required' => 'Date dispensed is required.',
         ]);
 
-        $record = Patientrecords::findOrFail($id);
+        $record = Patientrecords::with('barangay')->findOrFail($id);
+
+        // capture old values before updating
+        $old = $record->only(['patient_name', 'barangay_id', 'purok', 'category', 'date_dispensed']);
+
+        $old["barangay_name"] = $record->barangay->barangay_name;
 
         // Update the patient record
         $record->update([
@@ -154,7 +172,31 @@ class PatientRecordsController extends Controller
             'date_dispensed' => $validated['date-dispensed'],
         ]);
 
-        // Optionally, update barangay_id in related dispensed medications if changed
+        // HISTORY LOG: UPDATE
+        $user = Auth::user();
+        $oldDate = Carbon::parse($old["date_dispensed"])->format('F d, Y');
+
+        $newDate = Carbon::parse($record->date_dispensed)->format('F d, Y');    
+        $time = Carbon::parse($record->created_at)->format('h:i A');
+
+        HistoryLog::create([
+            'action' => 'RECORD UPDATED',
+            'description' => "Updated patient record #{$record->id} for {$record->patient_name}. 
+            
+            CHANGES: 
+            - Patient Name: {$old['patient_name']} to {$record->patient_name}. 
+            - Baragay: {$old['barangay_name']} to {$record->barangay->barangay_name}. 
+            - Purok: {$old['purok']} to {$record->purok}. 
+            - Category: {$old['category']} to {$record->category}. 
+            - Date Dispensed: {$oldDate} ({$time}) to {$newDate} ({$time}).",
+            'user_id' => $user?->id,
+            'user_name' => $user?->name ?? 'System',
+            'metadata' => [
+                'patientrecord_id' => $record->id,
+            ],
+        ]);
+
+        // update barangay_id in related dispensed medications if changed
         if ($record->barangay_id != $validated['barangay_id']) {
             Dispensedmedication::where('patientrecord_id', $id)->update(['barangay_id' => $validated['barangay_id']]);
         }
