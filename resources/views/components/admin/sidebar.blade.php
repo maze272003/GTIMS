@@ -71,7 +71,7 @@
         <li>
             <a href="#" class="w-full flex items-center px-3 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300">
                 <i class="fa-regular fa-circle-question nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Help & Tour</span>
+                <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Help & Tours</span>
             </a>
         </li>
         <li>
