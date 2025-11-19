@@ -17,6 +17,13 @@ class AuthenticatedSessionController extends Controller
      */
     public function create(): View
     {
+        // if the session is not expired and user is authenticated, redirect to dashboard
+        if (Auth::check()) {
+            // Optional: Pwede mo ring icheck ang role dito kung gusto mo iba-iba ang redirect
+            // Pero base sa logic mo, lahat naman pumupunta sa admin.dashboard
+            return redirect()->route('admin.dashboard');
+        }
+
         return view('auth.login');
     }
 
