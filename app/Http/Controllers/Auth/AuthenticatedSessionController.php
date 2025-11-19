@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\NewLoginNotification;
+
 class AuthenticatedSessionController extends Controller
 {
     /**
@@ -19,8 +20,8 @@ class AuthenticatedSessionController extends Controller
     {
         // if the session is not expired and user is authenticated, redirect to dashboard
         if (Auth::check()) {
-            // Optional: Pwede mo ring icheck ang role dito kung gusto mo iba-iba ang redirect
-            // Pero base sa logic mo, lahat naman pumupunta sa admin.dashboard
+            // Optional: Pwede mo ring kopyahin ang logic sa store() dito kung gusto mo
+            // na pati yung already-logged-in users ay ma-redirect base sa branch.
             return redirect()->route('admin.dashboard');
         }
 
@@ -58,7 +59,6 @@ class AuthenticatedSessionController extends Controller
                 Mail::to($user->email)->send(new NewLoginNotification($currentIp));
             } catch (\Exception $e) {
                 // Hayaan lang na magpatuloy ang login kahit mag-fail ang email
-                // Pwede kang mag-log ng error dito kung kailangan
                 \Log::error('Failed to send new login notification: ' . $e->getMessage());
             }
         }
@@ -76,7 +76,14 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('admin.dashboard');
 
         } elseif ($user->level->name == 'admin') {
+            // --- BRANCH REDIRECTION LOGIC START ---
+            if ($user->branch_id == 2) {
+                return redirect()->route('admin.inventory');
+            }
+            
+            // Default for branch_id == 1 (or others)
             return redirect()->route('admin.dashboard');
+            // --- BRANCH REDIRECTION LOGIC END ---
 
         } elseif ($user->level->name == 'encoder') {
             return redirect()->route('admin.dashboard'); 

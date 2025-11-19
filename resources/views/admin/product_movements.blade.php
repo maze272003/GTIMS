@@ -11,6 +11,7 @@
 
   <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
     <x-admin.header/>
+    @if(in_array(auth()->user()->user_level_id, [1, 2, 3, 4]) && auth()->user()->branch_id != 2)
     <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
       <div class="mb-6 pt-16">
         {{-- BREADCRUMB --}}
@@ -181,6 +182,17 @@
       </div>
       {{-- end table--}}
     </main>
+     @else
+            {{-- UNAUTHORIZED VIEW (Added this else block) --}}
+            <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen flex flex-col items-center justify-center">
+                <i class="fa-regular fa-lock text-6xl text-gray-400 mb-4"></i>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">Unauthorized Access</h1>
+                <p class="text-gray-600">You do not have permission to view this page.</p>
+                <a href="{{ route('admin.inventory') }}" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    Go to Inventory
+                </a>
+            </main>
+        @endif
   </div>
 
   {{-- Modals and scripts from inventory page are not needed here --}}
