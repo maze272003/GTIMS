@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link rel="icon" type="image/png" href="{{ asset('images/gtlogo.png') }}">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script src="https://unpkg.com/sweetalert2@11"></script>
 </head>
 <body class="bg-gradient-to-r from-black/50 to-black flex items-center justify-center min-h-screen p-4">
     <div id="logincontainer" class="flex flex-col lg:flex-row rounded-lg bg-white w-full max-w-4xl overflow-hidden shadow-2xl">
@@ -71,7 +72,7 @@
                         <label for="email" class="text-sm text-black/80 font-medium">Email Address:</label>
                         <input id="email" type="email" name="email" value="{{ old('email') }}" 
                                class="border border-gray-300 bg-white w-full p-3 rounded-lg outline-none mt-2 text-sm focus:border-red-800 focus:ring-2 focus:ring-red-800/50 transition-all duration-200" 
-                               placeholder="Enter Your Email" required autofocus autocomplete="username">
+                               placeholder="Enter Your Email" autofocus autocomplete="username">
                         @error('email')
                             <p class="text-red-500 text-sm mt-1 font-medium">{{ $message }}</p>
                         @enderror
@@ -86,7 +87,7 @@
                         <div class="relative">
                             <input id="password" type="password" name="password" 
                                    class="border border-gray-300 bg-white w-full p-3 rounded-lg outline-none mt-2 text-sm focus:border-red-800 focus:ring-2 focus:ring-red-800/50 transition-all duration-200" 
-                                   placeholder="Enter Your Password" required autocomplete="current-password">
+                                   placeholder="Enter Your Password" autocomplete="current-password">
                             <button type="button" onclick="showpassword()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-800 transition-colors duration-200">
                                 <i id="eye" class="fa-solid fa-eye mt-2"></i>
                             </button>
@@ -356,7 +357,44 @@
                 otpTimerInterval = setInterval(handleTimerTick, 1000);
             }
         });
-    </script>
+
+        // SWEET ALERT SECTION
+        document.getElementById('password-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const form = document.getElementById('password-form');
+
+            const inputs = [
+                form.querySelector('#email').value,
+                form.querySelector('#password').value,
+                document.querySelector('#g-recaptcha-response').value,
+            ];
+
+            // Check if ANY required field is empty
+            const hasEmpty = inputs.some(inp => inp.trim() === '');
+
+            if (hasEmpty) {
+                Swal.fire({
+                    title: 'Missing Inputs!',
+                    icon: 'warning',
+                    text: "Please fill out all required inputs, including the reCAPTCHA.",
+                    confirmButtonText: 'Okay',
+                    allowOutsideClick: false,
+                    customClass: {
+                        container: 'swal-container',
+                        popup: 'swal-popup',
+                        title: 'swal-title',
+                        htmlContainer: 'swal-content',
+                        confirmButton: 'swal-confirm-button',
+                        icon: 'swal-warn'
+                    }
+                });
+                return; // stop here
+            }
+
+            // Everything valid → submit
+            form.submit();
+        });
+        </script>
     @endguest
 </body>
 </html>
