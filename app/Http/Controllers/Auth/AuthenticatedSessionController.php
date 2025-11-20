@@ -33,6 +33,10 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
+        $request->validate([
+            'g-recaptcha-response' => 'required|captcha',
+        ]);
+
         $request->authenticate();
         $request->session()->regenerate();
 
@@ -70,7 +74,6 @@ class AuthenticatedSessionController extends Controller
         // ================================================
         // === KATAPUSAN NG BAGONG LOGIC ===
         // ================================================
-
 
         if ($user->level->name == 'superadmin') {
             return redirect()->route('admin.dashboard');
