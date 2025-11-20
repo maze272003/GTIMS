@@ -1,0 +1,30 @@
+---
+deployment:
+  tasks:
+    # 1. I-define ang iyong public path
+    - export PUBLIC_PATH=/home/u602345745/domains/gtims.arisof.online/public_html/
+    
+    # 2. Kopyahin ang files mula sa "public" folder ng repo
+    #    papunta sa "public_html" ng server.
+    #    Ang '.' ay tumutukoy sa repo root (ang 'laravel' folder mo)
+    - /bin/cp -R ./public/* $PUBLIC_PATH
+    
+    # 3. Kopyahin ang .htaccess file (madalas makalimutan ito)
+    - /bin/cp ./public/.htaccess $PUBLIC_PATH/
+        
+    # 4. Kopyahin ang production .env file
+    #    (Siguraduhin na may '.env.production' ka sa repo mo)
+    - /bin/cp ./.env.production ./.env
+        
+    # 5. I-run ang Composer
+    #    PALITAN ang 'ea-php81' sa PHP version na gamit mo
+    - /usr/local/bin/ea-php81 composer.phar install --no-dev --optimize-autoloader
+        
+    # 6. I-clear ang Caches
+    - /usr/local/bin/ea-php81 artisan config:cache
+    - /usr/local/bin/ea-php81 artisan route:cache
+    - /usr/local/bin/ea-php81 artisan view:cache
+        
+    # 7. I-RUN ANG LIGTAS NA MIGRATION
+    #    HINDI 'migrate:fresh'
+    - /usr/local/bin/ea-php81 artisan migrate:fresh --force

@@ -65,5 +65,12 @@ class UserSeeder extends Seeder
             'email_verified_at' => now(),
             'user_level_id' => 3, // ID para sa 'encoder'
         ]);
+        User::create([
+            'name' => 'Doctor User',
+            'email' => 'doctor@example.com', // Palitan ito ng totoong email
+            'password' => Hash::make('password'),
+            'email_verified_at' => now(),
+            'user_level_id' => 4, // ID para sa 'doctor'
+        ]);
     }
 }

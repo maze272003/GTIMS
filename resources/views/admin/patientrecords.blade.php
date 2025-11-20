@@ -1,3 +1,4 @@
+
 <x-app-layout>
     <x-admin.sidebar/>
     <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
@@ -105,16 +106,21 @@
                                             <p class="font-semibold">{{ $patientrecord->date_dispensed->format('F j, Y') }}</p>
                                             <p class="italic text-gray-500 dark:text-gray-400">{{ $patientrecord->created_at->format('g:i A') }}</p>
                                         </td>
+                                        {{-- hide this actions to doctos --}}
+                                        
                                         <td class="p-3 flex items-center justify-center gap-2 font-semibold">
+                                            
                                             <button class="view-medications-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
                                                 <i class="fa-regular fa-eye mr-1"></i>View All
                                             </button>
+                                            @if (auth()->user()->user_level_id != 4)
                                             <button class="editrecordbtn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
                                                 <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
                                             </button>
                                             <button class="deleterecordbtn bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 dark:hover:bg-red-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
                                                 <i class="fa-regular fa-trash mr-1"></i>Delete
                                             </button>
+                                            @endif
                                         </td>
                                     </tr>
                                     @endforeach
@@ -355,7 +361,7 @@
                                     <th class="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Medication Details</th>
                                     <th class="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Form & Strength</th>
                                     <th class="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">Quantity</th>
-                                    {{-- <th class="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">Action</th> --}}
+                                    <th class="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">Action</th>
                                 </tr>
                             </thead>
                             <tbody id="view-medications-tbody" class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -369,4 +375,5 @@
         </main>
     </div>
     <script src="{{ asset('js/patientrecords.js') }}"></script>
+    
 </x-app-layout>

@@ -7,7 +7,9 @@
             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Quantity</th>
             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Status</th>
             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Expiry Date</th>
+            @if (auth()->user()->user_level_id != 4)
             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Actions</th>
+            @endif
         </tr>
     </thead>
     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -56,13 +58,16 @@
                 <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-center font-semibold">
                     {{ \Carbon\Carbon::parse($inventory->expiry_date)->format('M d, Y') }}
                 </td>
+                @if (auth()->user()->user_level_id != 4)
                 <td class="p-3">
                     <button class="edit-stock-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white font-semibold text-sm">
                         <i class="fa-regular fa-pen-to-square mr-1"></i>
                         Edit Stock
                     </button>
                 </td>
+                @else
             </tr> 
+            @endif
             @endforeach
         @endif
     </tbody>

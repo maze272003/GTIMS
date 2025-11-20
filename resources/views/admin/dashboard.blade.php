@@ -4,16 +4,10 @@
   $filterInputs = $inputs ?? []; 
 @endphp
 <x-app-layout>
-  <x-slot name="title">
-      Analytics Dashboard - General Tinio
-    </x-slot>
 <body class="bg-gray-50">
 
   {{-- Sidebar --}}
   <x-admin.sidebar/>
- 
-  {{-- CSRF TOKEN META TAG --}}
-  <meta name="csrf-token" content="{{ csrf_token() }}">
 
   <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
     {{-- Header --}}

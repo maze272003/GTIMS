@@ -235,7 +235,7 @@ function editRecord() {
     });
 }
 /* ========================================
-   5. VIEW MEDICATIONS MODAL
+   4. VIEW MEDICATIONS MODAL - UPDATED
    ======================================== */
 function viewMedications() {
     const modal = document.getElementById('viewmedicationsmodal');
@@ -257,9 +257,15 @@ function viewMedications() {
             title.innerHTML = `Medications for <span class="text-red-700 capitalize italic">${name}</span>`;
             tbody.innerHTML = '';
 
+            // GET USER LEVEL - ITO ANG IMPORTANTE
+            const userLevel = window.currentUserLevel; // Kunin mula sa global variable
+            console.log('Current User Level:', userLevel); // Para ma-debug
+
             medications.forEach(med => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
+                
+                // BUILD THE ROW - HIDE BUTTON FOR LEVEL 4
+                let rowHTML = `
                     <td class="p-3 text-sm text-gray-700">${med.batch || 'N/A'}</td>
                     <td class="p-3 text-sm text-gray-700 font-medium">
                         <div>
@@ -270,6 +276,37 @@ function viewMedications() {
                     <td class="p-3 text-sm text-gray-700">${med.form}, ${med.strength}</td>
                     <td class="p-3 text-sm text-gray-700 text-center font-semibold">${med.quantity}</td>
                 `;
+
+                // ADD BUTTON COLUMN ONLY IF NOT LEVEL 4
+                if (userLevel != 4) {
+                    rowHTML += `
+                    <td class="p-3 text-center">
+                        <button class="edit-med-item bg-green-100 text-green-700 p-1.5 rounded hover:bg-green-600 hover:text-white transition-all text-xs">
+                            <i class="fa-regular fa-pen-to-square"></i> Edit
+                        </button>
+                    </td>
+                    `;
+                } else {
+                rowHTML += `
+                <td class="p-3 text-center">
+                    <div class="relative inline-flex justify-center group">
+                        <span class="text-gray-400 cursor-help transition-colors duration-200 hover:text-gray-600">
+                            <i class="fa-regular fa-lock text-sm"></i>
+                        </span>
+                        
+                        <!-- Tooltip - positioned to left -->
+                        <div class="absolute right-full top-1/2 transform -translate-y-1/2 mr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
+                            <div class="bg-gray-800 text-white text-xs rounded py-1.5 px-3 whitespace-nowrap shadow-lg">
+                                Only admins can use this action
+                                <div class="absolute top-1/2 left-full transform -translate-y-1/2 border-4 border-transparent border-l-gray-800"></div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                `;
+            }
+
+                tr.innerHTML = rowHTML;
                 tbody.appendChild(tr);
             });
 

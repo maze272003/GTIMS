@@ -52,21 +52,39 @@ Route::middleware(['auth', 'verified'])->group(function () {
     //
     Route::prefix('admin')
           ->name('admin.')
-          ->middleware('level.all') // <-- CHECK MUNA KUNG LEVEL 1, 2, o 3
+          ->middleware('level.all') // L1, L2, L3, L4 CAN ENTER THIS BLOCK
           ->group(function () {
         
-        // == ROUTE PARA SA LAHAT (Level 1, 2, 3) ==
-        // (Automatic pwede na sila dito)
+        // == A. BASE ACCESS ROUTES (Para sa lahat ng nakapasa sa level.all) ==
+        // L1, L2, L3, L4: Dashboard.
         Route::get('/dashboard', [DashboardController::class, 'showdashboard'])->name('dashboard');
         
-        // == ROUTES PARA SA ADMIN at SUPERADMIN (Level 1, 2) ==
-        Route::middleware('level.admin') // <-- CHECK KUNG LEVEL 1 o 2
+        // L1, L2, L4: Patient Records READ access. 
+        // Ang access check para dito ay nasa loob ng PatientRecordsController (L1, L2, L4 allowed, L3 blocked).
+        Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
+        // --- Iba pang Admin Routes ---
+            Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
+            Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
+            Route::put('/patientrecords', [PatientRecordsController::class, 'updatePatientRecord'])->name('patientrecords.update');
+
+        Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
+        
+        
+        // == B. ADMIN/SUPERADMIN ROUTES (Level 1, 2 ONLY) ==
+        // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.admin (L1, L2)
+        // Ito ang pumipigil sa Doctor (L4) na i-access ang mga paths na ito, kahit manual niyang i-edit ang URL.
+        Route::middleware('level.admin') 
              ->group(function () {
             
-Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');    
-Route::post('/get-ai-analysis', [DashboardController::class, 'getAiAnalysis'])->name('ai.analysis');        
-            // --- Inventory Routes ---
-            Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
+            // L1, L2: Patient Records WRITE access (Add Dispensation)
+            Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
+            
+            // L1, L2: Product Movements (Protected)
+            Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');    
+            Route::post('/get-ai-analysis', [DashboardController::class, 'getAiAnalysis'])->name('ai.analysis');        
+            
+            // --- Inventory Routes (Protected) ---
+            // Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
             Route::post('/inventory', [InventoryController::class, 'addProduct'])->name('inventory.addproduct');
             Route::put('/inventory/update', [InventoryController::class, 'updateProduct'])->name('inventory.updateproduct');
             Route::post('/inventory/addstock', [InventoryController::class, 'addStock'])->name('inventory.addstock');
@@ -74,24 +92,24 @@ Route::post('/get-ai-analysis', [DashboardController::class, 'getAiAnalysis'])->
             Route::put('/inventory/archive', [InventoryController::class, 'archiveProduct'])->name('inventory.archiveproduct');
             Route::put('/inventory/unarchive', [InventoryController::class, 'unarchiveProduct'])->name('inventory.unarchiveproduct');
             Route::get('/inventory/archived-stocks', [InventoryController::class, 'fetchArchivedStocks'])
-             ->name('admin.inventory.fetchArchivedStocks');
-            
-            // --- Iba pang Admin Routes ---
-            Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
-            Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
-            Route::put('/patientrecords', [PatientRecordsController::class, 'updatePatientRecord'])->name('patientrecords.update');
+                 ->name('admin.inventory.fetchArchivedStocks');
 
+                 
+
+            // L1, L2: History Logs (Protected)
             Route::get('/historylog', [HistorylogController::class, 'showhistorylog'])->name('historylog');
         });
 
-        // == ROUTE PARA SA SUPERADMIN LANG (Level 1) ==
-        Route::middleware('level.superadmin') // <-- CHECK KUNG LEVEL 1 LANG
+        // == C. SUPERADMIN ONLY ROUTES (Level 1) ==
+        // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.superadmin (L1)
+        Route::middleware('level.superadmin') 
              ->group(function () {
-
+            
+            // L1: Manage Account (Protected)
             Route::get('/manageaccount' , [ManageaccountController::class, 'showManageaccount'])
                   ->name('manageaccount');
         });
-    
+        
     }); // <-- End ng buong /admin group
 
 }); // <-- End ng buong auth middleware group

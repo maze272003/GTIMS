@@ -14,11 +14,11 @@ class CheckUserLevelAccess
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
-{
-    // Dapat level 1, 2, O 3
-    if (auth()->check() && in_array(auth()->user()->user_level_id, [1, 2, 3])) {
-        return $next($request);
+    {
+        // Dapat level 1, 2, 3, O 4
+        if (auth()->check() && in_array(auth()->user()->user_level_id, [1, 2, 3, 4])) {
+            return $next($request);
+        }
+        abort(403, 'Access Denied. You do not have permission.');
     }
-    abort(403, 'Access Denied. You do not have permission.');
-}
 }

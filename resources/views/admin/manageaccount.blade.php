@@ -1,16 +1,4 @@
 <x-app-layout>
-<head>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-    <style>
-        body, html, input, button, select, textarea {
-            font-family: 'Inter', sans-serif;
-        }
-    </style>
-</head>
-
 <body class="bg-gray-50 dark:bg-gray-900">
     <x-admin.sidebar/>
 
