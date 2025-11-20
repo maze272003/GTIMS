@@ -23,6 +23,7 @@ class User extends Authenticatable
         'password',
         'otp', // Idagdag ito
         'otp_expires_at', // Idagdag ito
+        'branch_id',
     ];
 
     /**
@@ -58,5 +59,9 @@ class User extends Authenticatable
     public function productMovements()
     {
         return $this->hasMany(ProductMovement::class);
+    }
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
     }
 }

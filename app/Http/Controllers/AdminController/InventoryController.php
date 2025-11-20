@@ -18,43 +18,49 @@ class InventoryController extends Controller
     // show inventory
     public function showinventory(Request $request)
     {
-        $search = $request->input('search', '');
-        $inventoryQuery = Inventory::where('is_archived', 2);
-
-        if (!empty($search)) {
-        // I-convert natin sa lowercase 'yung search input
-        $lowerSearch = strtolower($search);
-
-        $inventoryQuery->where(function ($query) use ($lowerSearch) {
-            
-            // Gamit ang whereRaw, i-LOWER() natin 'yung column
-            $query->whereRaw('LOWER(batch_number) LIKE ?', ["%{$lowerSearch}%"])
-                  ->orWhereHas('product', function ($q) use ($lowerSearch) {
-                      
-                      // Gawin din natin sa lahat ng columns ng product
-                      $q->whereRaw('LOWER(generic_name) LIKE ?', ["%{$lowerSearch}%"])
-                        ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$lowerSearch}%"])
-                        ->orWhereRaw('LOWER(form) LIKE ?', ["%{$lowerSearch}%"])
-                        ->orWhereRaw('LOWER(strength) LIKE ?', ["%{$lowerSearch}%"]);
-                  });
-        });
-    }
-
-        $inventories = $inventoryQuery->paginate(20)->withQueryString();
-
-        if ($request->ajax()) {
-            return view('admin.partials._inventory_table', ['inventories' => $inventories])->render();
-        }
-
-        $products = Product::where('is_archived', 2)->get();
+        $products = Product::where('is_archived', 1)->get();
         $archiveproducts = Product::where('is_archived', 1)->get();
+
+        // Combined count for cards
         $inventorycount = Inventory::where('is_archived', 2)->get();
 
+        // RHU 1
+        $query1 = Inventory::where('branch_id', 1)->where('is_archived', 2);
+        if ($request->filled('search_rhu1')) {
+            $search = strtolower($request->search_rhu1);
+            $query1->where(function ($q) use ($search) {
+                $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
+                ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
+            });
+        }
+        $inventories_rhu1 = $query1->with('product')->paginate(20, ['*'], 'page_rhu1');
+
+        // RHU 2
+        $query2 = Inventory::where('branch_id', 2)->where('is_archived', 2);
+        if ($request->filled('search_rhu2')) {
+            $search = strtolower($request->search_rhu2);
+            $query2->where(function ($q) use ($search) {
+                $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
+                ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
+            });
+        }
+        $inventories_rhu2 = $query2->with('product')->paginate(20, ['*'], 'page_rhu2');
+
+        if ($request->ajax()) {
+            $branch = $request->input('branch', 1);
+            $inventories = $branch == 1 ? $inventories_rhu1 : $inventories_rhu2;
+            return view('admin.partials._inventory_table', [
+                'inventories' => $inventories, 
+                'branch' => $branch
+                ])->render();
+            }
+
         return view('admin.inventory', [
-            'products' => $products, 
-            'inventories' => $inventories,
+            'products' => $products,
             'archiveproducts' => $archiveproducts,
             'inventorycount' => $inventorycount,
+            'inventories_rhu1' => $inventories_rhu1,
+            'inventories_rhu2' => $inventories_rhu2
         ]);
     }
 

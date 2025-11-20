@@ -20,6 +20,7 @@ class InventorySeeder extends Seeder
         foreach (range(1, 20) as $index) {
             Inventory::create([
                 'product_id' => $products->random()->id,
+                'branch_id' => rand(1, 2),
                 'batch_number' => 'BATCH-' . str_pad($index, 4, '0', STR_PAD_LEFT),
                 'quantity' => rand(10, 1000),
                 'expiry_date' => now()->addMonths(rand(1, 24))->format('Y-m-d'),

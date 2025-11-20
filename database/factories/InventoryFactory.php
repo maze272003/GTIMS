@@ -2,26 +2,24 @@
 
 namespace Database\Factories;
 
-use App\Models\Inventory;
+use App\Models\Branch;
 use App\Models\Product;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-/**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Inventory>
- */
 class InventoryFactory extends Factory
 {
-    protected $model = Inventory::class;
-
-
     public function definition(): array
     {
+        // Randomly pick RHU 1 or RHU 2
+        $branch = Branch::whereIn('name', ['RHU 1', 'RHU 2'])->inRandomOrder()->first();
+
         return [
-            'product_id' => Product::factory(),
-            'batch_number' => $this->faker->unique()->bothify('BATCH-####'),
-            // 'quantity' => $this->faker->numberBetween(1, 500),
-            'quantity' => rand(1, 500),
-            'expiry_date' => $this->faker->dateTimeBetween('now', '+1 month', '+2 years,')->format('Y-m-d'),
+            'product_id'    => Product::inRandomOrder()->first()->id ?? Product::factory(),
+            'branch_id'     => $branch?->id,
+            'batch_number'  => 'BATCH-' . $this->faker->unique()->numerify('####'),
+            'quantity'      => $this->faker->numberBetween(10, 1000),
+            'expiry_date'   => $this->faker->dateTimeBetween('+1 month', '+5 years')->format('Y-m-d'),
+            'is_archived'   => false, // better to use boolean, not 2
         ];
     }
 }

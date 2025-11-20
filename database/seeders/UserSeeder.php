@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\User; // Import ang User model
+use App\Models\Branch;
 use Illuminate\Support\Facades\Hash; // Import ang Hash para sa password
 
 class UserSeeder extends Seeder
@@ -17,6 +18,7 @@ class UserSeeder extends Seeder
         User::create([
             'name' => 'Super Admin',
             'email' => 'jmjonatas4@gmail.com',
+            'branch_id' => 3,
             'password' => Hash::make('password'), // Awtomatikong na-hash
             'email_verified_at' => now(), // Set as verified na
             'user_level_id' => 1, // ID para sa 'superadmin'
@@ -26,6 +28,7 @@ class UserSeeder extends Seeder
         User::create([
             'name' => 'Super Admin',
             'email' => 'pescojohnanthony@gmail.com',
+            'branch_id' => 3,
             'password' => Hash::make('password'), // Awtomatikong na-hash
             'email_verified_at' => now(), // Set as verified na
             'user_level_id' => 1, // ID para sa 'superadmin'
@@ -35,6 +38,7 @@ class UserSeeder extends Seeder
         User::create([
             'name' => 'Sigrae Super Duper',
             'email' => 'sde.gabriel.77@gmail.com',
+            'branch_id' => 3,
             'password' => Hash::make('12345678'), // Awtomatikong na-hash
             'email_verified_at' => now(), // Set as verified na
             'user_level_id' => 1, // ID para sa 'superadmin'
@@ -43,6 +47,7 @@ class UserSeeder extends Seeder
         User::create([
             'name' => 'Ace',
             'email' => 'acepadillaace@gmail.com',
+            'branch_id' => 3,
             'password' => Hash::make('12345678'), // Awtomatikong na-hash
             'email_verified_at' => now(), // Set as verified na
             'user_level_id' => 1, // ID para sa 'superadmin'
@@ -50,8 +55,17 @@ class UserSeeder extends Seeder
 
         // 2. Admin
         User::create([
-            'name' => 'Admin User',
+            'name' => 'HRU1 Admin',
+            'email' => 'johnmichaeljonatas71@gmail.com',
+            'branch_id' => 1,
+            'password' => Hash::make('password'),
+            'email_verified_at' => now(),
+            'user_level_id' => 2, // ID para sa 'admin'
+        ]);
+        User::create([
+            'name' => 'HRU2 Admin',
             'email' => 'johnmichaeljonatas72@gmail.com',
+            'branch_id' => 2,
             'password' => Hash::make('password'),
             'email_verified_at' => now(),
             'user_level_id' => 2, // ID para sa 'admin'

@@ -22,6 +22,13 @@ class BranchSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
+            // nag add ako neto para sa superadmin baka kaylanganin nyo kung sakali..
+            [
+                'id' => 3,
+                'name' => 'Multi-Branchs',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ]);
     }
 }

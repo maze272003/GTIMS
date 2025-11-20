@@ -7,11 +7,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Inventory extends Model
 {
-    //
     use HasFactory;
 
     protected $fillable = [
         'product_id',
+        'branch_id',
         'batch_number',
         'quantity',
         'expiry_date',
@@ -23,7 +23,10 @@ class Inventory extends Model
         return $this->belongsTo(Product::class);
     }
 
-    // ... existing functions ...
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     public function movements()
     {

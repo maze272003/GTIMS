@@ -15,12 +15,14 @@ class DatabaseSeeder extends Seeder
         // Tawagin muna ang UserLevelSeeder para may laman
         // ang user_levels table bago ang UserSeeder.
         $this->call([
+             BranchSeeder::class,
             UserLevelSeeder::class,
             UserSeeder::class,
             ProductSeeder::class,
             InventorySeeder::class,
             BarangaySeeder::class,
-            PatientRecordsSeeder::class
+            PatientRecordsSeeder::class,
+           
         ]);
         
         // \App\Models\User::factory(10)->create();

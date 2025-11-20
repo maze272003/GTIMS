@@ -6,25 +6,22 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('inventories', function (Blueprint $table) {
             $table->id();
             $table->foreignId('product_id')->index();
-            $table->string('batch_number');
-            $table->integer('quantity');
+            $table->foreignId('branch_id')->index();
+            $table->string('batch_number')->unique();
+            $table->integer('quantity')->default(0);
             $table->date('expiry_date');
-            $table->boolean('is_archived')->default(2);
+            $table->boolean('is_archived')->default(false);
             $table->timestamps();
+
+            $table->index(['product_id', 'branch_id']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('inventories');
