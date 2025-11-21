@@ -33,12 +33,106 @@
         body, html, input, button, select, textarea {
             font-family: 'Inter', sans-serif;
         }
+        /* Fade effect para sa sleep mode */
+        #sleep-overlay {
+            transition: opacity 0.5s ease-in-out;
+        }
     </style>
     <body class="font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         {{ $slot }}
-    </body>
+
+        <div id="sleep-overlay" class="fixed inset-0 z-[9999] bg-black/95 hidden flex-col items-center justify-center text-white backdrop-blur-sm">
+            <div class="text-center animate-pulse">
+                {{-- Logo --}}
+                <img src="{{ asset('images/gtlogo.png') }}" alt="Logo" class="w-32 h-32 mx-auto mb-6 opacity-80">
+                
+                {{-- Time --}}
+                <div id="sleep-clock" class="text-6xl font-bold tracking-widest mb-4 font-mono">00:00</div>
+                
+                {{-- Date --}}
+                <div id="sleep-date" class="text-xl text-gray-400 mb-12 font-light">Loading date...</div>
+
+                <p class="text-gray-500 text-sm uppercase tracking-[0.3em]">System Sleeping</p>
+                <p class="text-gray-600 text-xs mt-2">Move mouse or press any key to wake up</p>
+            </div>
+        </div>
+        </body>
+
     <script>
         // Global variable na accessible sa lahat ng JS files
         window.currentUserLevel = {{ auth()->user()->user_level_id }};
+
+        // ================= SLEEP MODE SCRIPT ================= //
+        document.addEventListener('DOMContentLoaded', function() {
+            let idleTime = 0;
+            const sleepOverlay = document.getElementById('sleep-overlay');
+            
+            // CONFIGURATION: Ilang minuto bago mag sleep? (Example: 5 minutes)
+            // 1 minute = 60000 ms
+            const idleLimit = 5; // 5 Minutes setup
+
+            // Increment the idle time counter every minute.
+            const idleInterval = setInterval(timerIncrement, 60000); // Check every 1 minute
+
+            // Zero the idle timer on mouse movement or key press.
+            window.onload = resetTimer;
+            window.onmousemove = resetTimer;
+            window.onmousedown = resetTimer; // Clicks
+            window.ontouchstart = resetTimer; // Touchscreen
+            window.onclick = resetTimer;     // Touchpad clicks
+            window.onkeydown = resetTimer;   // Keyboard
+            window.onscroll = resetTimer;    // Scrolling
+
+            function timerIncrement() {
+                idleTime = idleTime + 1;
+                if (idleTime >= idleLimit) { 
+                    // Activate Sleep Mode
+                    showSleepMode();
+                }
+            }
+
+            function resetTimer() {
+                idleTime = 0;
+                // Kung naka-show ang sleep mode, itago ito pag gumalaw ang user
+                if (!sleepOverlay.classList.contains('hidden')) {
+                    hideSleepMode();
+                }
+            }
+
+            function showSleepMode() {
+                sleepOverlay.classList.remove('hidden');
+                sleepOverlay.classList.add('flex');
+                // Simulan ang orasan sa sleep screen
+                startSleepClock();
+            }
+
+            function hideSleepMode() {
+                sleepOverlay.classList.add('hidden');
+                sleepOverlay.classList.remove('flex');
+            }
+
+            // --- Clock Logic for Sleep Screen ---
+            function startSleepClock() {
+                const updateClock = () => {
+                    const now = new Date();
+                    
+                    // Format Time (12-hour format)
+                    let hours = now.getHours();
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    const ampm = hours >= 12 ? 'PM' : 'AM';
+                    hours = hours % 12;
+                    hours = hours ? hours : 12; 
+                    
+                    document.getElementById('sleep-clock').innerText = `${hours}:${minutes} ${ampm}`;
+                    
+                    // Format Date
+                    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                    document.getElementById('sleep-date').innerText = now.toLocaleDateString(undefined, options);
+                };
+
+                updateClock(); // Run immediately
+                setInterval(updateClock, 1000); // Update every second
+            }
+        });
     </script>
 </html>
