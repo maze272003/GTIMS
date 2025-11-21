@@ -127,3 +127,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
 }); // <-- End ng buong auth middleware group
 
 require __DIR__.'/auth.php';
+require __DIR__.'/db.php';

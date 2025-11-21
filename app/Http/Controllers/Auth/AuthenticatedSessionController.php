@@ -33,8 +33,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
+        $isTesting = app()->runningInConsole() || app()->env === 'testing';
+
         $request->validate([
-        'g-recaptcha-response' => 'required|captcha',
+            // Kapag testing: 'nullable', Kapag tunay na tao: 'required|captcha'
+            'g-recaptcha-response' => $isTesting ? 'nullable' : 'required|captcha',
         ], [
             'g-recaptcha-response.required' => 'Please complete the captcha verification.',
             'g-recaptcha-response.captcha' => 'Captcha verification failed, please try again.',
