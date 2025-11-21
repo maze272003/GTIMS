@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\NewUserCredentials;
+use Illuminate\Support\Facades\URL;
+use Carbon\Carbon;
 
 class ManageaccountController extends Controller
 {
@@ -34,42 +38,61 @@ class ManageaccountController extends Controller
     }
 
     public function store(Request $request)
-    {
-        $currentUser = Auth::user();
+{
+    $currentUser = Auth::user();
 
-        $request->validate([
+    // 1. Validation
+    $request->validate([
         'name' => 'required|string|max:255',
         'email' => 'required|email|unique:users,email',
         'user_level_id' => 'required|exists:user_levels,id',
         'branch_id' => 'nullable|exists:branches,id', 
-        
-        // DITO ANG PAGBABAGO:
         'password' => [
             'required',
             'string',
-            'min:8',               // Minimum 8 characters
-            'regex:/[0-9]/',       // Must contain at least one number
-            'regex:/[@$!%*#?&]/',  // Must contain at least one special character
+            'min:8',
+            'regex:/[0-9]/',      
+            'regex:/[@$!%*#?&]/', 
         ],
-    ], [
-        // Custom Error Messages (Optional para mas malinaw sa user)
-        'password.regex' => 'Password must contain at least one number and one special character (@$!%*#?&).',
     ]);
-        $targetLevel = UserLevel::find($request->user_level_id);
-        if ($currentUser->level->name !== 'superadmin' && $targetLevel->name === 'superadmin') {
-             abort(403, 'You are not allowed to create a Superadmin account.');
-        }
 
-        User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'user_level_id' => $request->user_level_id,
-            'branch_id' => $request->branch_id,
-        ]);
-
-        return redirect()->back()->with('success', 'User created successfully.');
+    // 2. Check Privileges
+    $targetLevel = UserLevel::find($request->user_level_id);
+    if ($currentUser->level->name !== 'superadmin' && $targetLevel->name === 'superadmin') {
+            abort(403, 'You are not allowed to create a Superadmin account.');
     }
+
+    // 3. CAPTURE RAW PASSWORD BEFORE HASHING
+    // Importante ito kasi hindi natin madi-decrypt ang password pag na-hash na
+    $rawPassword = $request->password;
+    
+    $user = User::create([
+        'name' => $request->name,
+        'email' => $request->email,
+        'password' => Hash::make($rawPassword),
+        'user_level_id' => $request->user_level_id,
+        'branch_id' => $request->branch_id,
+        // 'email_verified_at' => null // Default naman ito, pero sureball tayo
+    ]);
+
+    // 2. GENERATE SIGNED VERIFICATION URL
+    // Ito ay gagawa ng unique link na valid lang para sa user na ito
+    $verificationUrl = URL::signedRoute(
+        'account.verify', 
+        ['id' => $user->id]
+    );
+
+    // 3. SEND EMAIL with the URL
+    $user->load(['level', 'branch']);
+    try {
+        // Ipasa ang $verificationUrl sa Mailable
+        Mail::to($user->email)->send(new NewUserCredentials($user, $rawPassword, $verificationUrl));
+    } catch (\Exception $e) {
+        \Log::error('Mail Error: ' . $e->getMessage());
+    }
+
+    return redirect()->back()->with('success', 'Account created! Verification email sent.');
+}
     public function update(Request $request, $id)
     {
         $user = User::findOrFail($id);
@@ -99,4 +122,21 @@ class ManageaccountController extends Controller
 
         return redirect()->back()->with('success', 'User updated successfully.');
     }
+    public function verifyAccount($id)
+{
+    // Hanapin ang user
+    $user = User::findOrFail($id);
+
+    // Kung verified na, wag na galawin
+    if (!is_null($user->email_verified_at)) {
+        return redirect('/login')->with('success', 'Account is already verified. Please login.');
+    }
+
+    // I-set ang verification time
+    $user->email_verified_at = Carbon::now();
+    $user->save();
+
+    // Redirect sa login page
+    return redirect('/login')->with('success', 'Account successfully verified! You can now login.');
+}
 }   

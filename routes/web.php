@@ -17,6 +17,9 @@ Route::get('/', function () {
 
 Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])->name('otp.send');
 Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])->name('otp.verify');
+Route::get('/verify-account/{id}', [ManageaccountController::class, 'verifyAccount'])
+    ->name('account.verify')
+    ->middleware('signed');
 // Lahat ng routes sa loob nito ay kailangan naka-login (auth, verified)
 Route::middleware(['auth', 'verified'])->group(function () {
 

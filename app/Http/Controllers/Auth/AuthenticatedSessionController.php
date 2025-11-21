@@ -45,6 +45,16 @@ class AuthenticatedSessionController extends Controller
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
+        if (is_null($user->email_verified_at)) {
+        
+        // Logout agad
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        // Ibalik sa login page may error message
+        return redirect('/login')->with('error', 'Your account is not verified yet. Please check your email or contact support.');
+    }
 
         // If user_level_id is null, $user->level will be null.
         if (is_null($user->level)) {
