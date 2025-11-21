@@ -1,426 +1,377 @@
 <x-app-layout>
-<body class="bg-gray-50 dark:bg-gray-900">
+<body class="bg-gray-50 dark:bg-gray-900 antialiased selection:bg-blue-500 selection:text-white">
     <x-admin.sidebar/>
 
-    <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
+    <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20 min-h-screen flex flex-col">
         <x-admin.header/>
-        <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
+        
+        <main id="main-content" class="flex-1 pt-24 px-4 lg:px-8 pb-8">
 
-            {{-- ================= TOAST CONTAINER ================= --}}
-            {{-- This is where notifications will pop up --}}
-            <div id="toast-container" class="fixed top-24 right-5 z-50 flex flex-col gap-2"></div>
+            <div id="toast-container" class="fixed top-24 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
-            {{-- Trigger Toasts based on Session --}}
             @if(session('success'))
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        showToast("{{ session('success') }}", 'success');
-                    });
-                </script>
+                <script>document.addEventListener('DOMContentLoaded', () => showToast("{{ session('success') }}", 'success'));</script>
             @endif
-
             @if($errors->any())
-                <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        showToast("Please check the form for errors.", 'error');
-                    });
-                </script>
+                <script>document.addEventListener('DOMContentLoaded', () => showToast("Please check the form for errors.", 'error'));</script>
             @endif
 
-            {{-- Breadcrumbs --}}
-            <div class="mb-6 pt-4">
-                <p class="text-sm text-gray-500 dark:text-gray-400">Home / <span class="text-red-700 dark:text-red-200 font-medium">Manage Account</span></p>
-            </div>
+            <nav class="flex mb-6" aria-label="Breadcrumb">
+                <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                    <li class="inline-flex items-center">
+                        <a href="{{ route('admin.dashboard') }}" class="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-white text-sm font-medium transition-colors">
+                            <i class="fa-solid fa-home mr-2"></i>Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-chevron-right text-gray-400 mx-2 text-xs"></i>
+                            <span class="text-blue-600 dark:text-blue-400 text-sm font-medium">Manage Accounts</span>
+                        </div>
+                    </li>
+                </ol>
+            </nav>
 
-            <div>
-                {{-- Header & Add Button --}}
-                <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
-                    <div>
-                        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                            User Accounts
-                        </h1>
-                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                            Manage all accounts based on your privileges.
-                        </p>
-                    </div>
-                    
-                    <button onclick="openUserModal('add')"
-                        class="w-full sm:w-auto bg-blue-600 dark:bg-blue-700 text-white font-medium py-2.5 px-5 rounded-lg shadow-md hover:bg-blue-700 dark:hover:bg-blue-800 transition duration-300 flex items-center justify-center cursor-pointer">
-                        <i class="fa-solid fa-plus mr-2"></i> Add New User
-                    </button>
-                </div>
-
-                {{-- ================= TABLE SECTION ================= --}}
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead class="bg-white dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700">
-                                <tr>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Branch</th>
-                                    <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date Added</th>
-                                    <th class="px-6 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
-                                @foreach($users as $user)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div class="flex-shrink-0 h-10 w-10">
-                                                <img class="h-10 w-10 rounded-full object-cover" 
-                                                     src="https://ui-avatars.com/api/?name={{ urlencode($user->name) }}&background=random&color=fff&bold=true" 
-                                                     alt="{{ $user->name }}">
-                                            </div>
-                                            <div class="ml-4">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $user->name }}</div>
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">{{ $user->email }}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                            {{ ucfirst($user->level->name ?? 'N/A') }}
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                        {{ $user->branch->name ?? 'N/A' }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                        {{ $user->created_at->format('M d, Y') }}
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                        <button onclick='openUserModal("edit", @json($user))'
-                                            class="text-gray-400 hover:text-blue-600 transition duration-150 mx-2 cursor-pointer" title="Edit">
-                                            <i class="fa-solid fa-pencil fa-lg"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="p-5 border-t border-gray-200 dark:border-gray-700">
-                        {{ $users->links() }}
-                    </div>
+            <div class="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">User Management</h1>
+                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-xl">
+                        Create, update, and manage system access for all users across branches.
+                    </p>
                 </div>
                 
-                {{-- ================= CUSTOM MODAL (Add/Edit) ================= --}}
-                <div id="userModal" class="fixed inset-0 z-40 hidden items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <button onclick="openUserModal('add')" class="group relative w-full md:w-auto bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-medium py-2.5 px-6 rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-center cursor-pointer">
+                    <i class="fa-solid fa-plus mr-2 transition-transform group-hover:rotate-90"></i> 
+                    <span>Add New User</span>
+                </button>
+            </div>
+
+            <div class="mb-6">
+                <div class="relative w-full md:w-96 group">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-search text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
+                    </div>
+                    <input type="text" id="searchInput" class="block w-full pl-10 pr-10 py-3 border border-gray-200 dark:border-gray-700 rounded-xl leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm transition-all duration-200" placeholder="Search by name, email, or role...">
+                    <div id="search-spinner" class="absolute inset-y-0 right-0 pr-3 flex items-center hidden">
+                        <i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div id="table-container" class="min-h-[400px] transition-all duration-300 relative">
+                @include('admin.partials.users-table')
+            </div>
+
+        </main>
+    </div>
+
+    <div id="userModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="modalBackdrop"></div>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" id="modalPanel">
                     
-                    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg border border-gray-200 dark:border-gray-700 transform transition-all">
-                        
-                        {{-- Modal Header --}}
-                        <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-                            <h2 id="modalTitle" class="text-xl font-semibold text-gray-900 dark:text-gray-100">Add New User</h2>
-                            <button onclick="closeUserModal()" class="text-gray-400 hover:text-gray-600 cursor-pointer">
-                                <i class="fa-solid fa-times fa-lg"></i>
-                            </button>
-                        </div>
-                        
-                        {{-- FORM --}}
-                        <form id="userForm" method="POST" action="{{ route('admin.manageaccount.store') }}">
-                            @csrf
-                            <div id="methodField"></div>
+                    <div class="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="text-lg font-semibold leading-6 text-gray-900 dark:text-white" id="modalTitle">Create Account</h3>
+                        <button type="button" onclick="closeUserModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none transition-colors cursor-pointer">
+                            <i class="fa-solid fa-xmark fa-lg"></i>
+                        </button>
+                    </div>
 
-                            <div class="p-6 space-y-5">
-                                {{-- Name --}}
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
-                                    <input type="text" name="name" id="inputName" required
-                                           class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 bg-white dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500">
-                                    @error('name') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                                </div>
-                                
-                                {{-- Email --}}
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-                                    <input type="email" name="email" id="inputEmail" required
-                                           class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 bg-white dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500">
-                                    @error('email') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                                </div>
+                    <form id="userForm" method="POST" action="{{ route('admin.manageaccount.store') }}">
+                        @csrf
+                        <div id="methodField"></div>
 
-                                {{-- Role --}}
+                        <div class="px-6 py-6 space-y-5">
+                            <div class="group">
+                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Full Name</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fa-regular fa-user text-gray-400"></i>
+                                    </div>
+                                    <input type="text" name="name" id="inputName" required class="pl-10 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow p-2.5">
+                                </div>
+                                @error('name') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                            </div>
+                            
+                            <div class="group">
+                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Email Address</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fa-regular fa-envelope text-gray-400"></i>
+                                    </div>
+                                    <input type="email" name="email" id="inputEmail" required class="pl-10 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow p-2.5">
+                                </div>
+                                @error('email') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
-                                    <select name="user_level_id" id="inputRole" required
-                                            class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 bg-white dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500">
-                                        <option value="" disabled selected>Select a Role</option>
+                                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Role Access</label>
+                                    <select name="user_level_id" id="inputRole" required class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
+                                        <option value="" disabled selected>Select Role</option>
                                         @foreach($levels as $level)
                                             <option value="{{ $level->id }}">{{ ucfirst($level->name) }}</option>
                                         @endforeach
                                     </select>
-                                    @error('user_level_id') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                                    @error('user_level_id') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                                 </div>
 
-                                {{-- Branch --}}
                                 <div>
-                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Branch</label>
+                                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Assigned Branch</label>
                                     @if(Auth::user()->level->name === 'superadmin')
-                                        <select name="branch_id" id="inputBranch" required
-                                                class="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 bg-white dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500">
-                                            <option value="" disabled selected>Select a Branch</option>
+                                        <select name="branch_id" id="inputBranch" required class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
+                                            <option value="" disabled selected>Select Branch</option>
                                             @foreach($branches as $branch)
                                                 <option value="{{ $branch->id }}">{{ $branch->name }}</option>
                                             @endforeach
                                         </select>
                                     @else
-                                        <input type="text" value="{{ Auth::user()->branch->name }}" disabled class="mt-1 block w-full bg-gray-100 border border-gray-300 rounded-lg py-2 px-3 text-gray-500 cursor-not-allowed">
+                                        <input type="text" value="{{ Auth::user()->branch->name }}" disabled class="block w-full rounded-lg border-gray-200 bg-gray-100 text-gray-500 sm:text-sm p-2.5 cursor-not-allowed">
                                         <input type="hidden" name="branch_id" value="{{ Auth::user()->branch_id }}">
                                     @endif
                                 </div>
-                                
-                                {{-- Password With Smart Generator & Real-time Validation --}}
-                                <div>
-                                    <div class="flex justify-between items-center mb-1">
-                                        <label id="passwordLabel" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
-                                        
-                                        <button type="button" onclick="generateStrongPassword()" 
-                                            class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-semibold focus:outline-none cursor-pointer transition-colors">
-                                            <i class="fa-solid fa-shuffle mr-1"></i> Generate Strong Password
-                                        </button>
-                                    </div>
-
-                                    <div class="relative">
-                                        {{-- oninput triggers the validation check --}}
-                                        <input type="password" name="password" id="inputPassword" oninput="checkPasswordStrength(this.value)"
-                                               class="block w-full border border-gray-300 rounded-lg shadow-sm py-2 pl-3 pr-10 bg-white dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                                               placeholder="*********">
-                                        
-                                        <button type="button" onclick="togglePasswordVisibility()"
-                                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-gray-700 cursor-pointer focus:outline-none">
-                                            <i id="eyeIcon" class="fa-solid fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    
-                                    {{-- Validation Checklist --}}
-                                    <div id="passwordRequirements" class="mt-2 text-xs space-y-1">
-                                        <p class="text-gray-500 dark:text-gray-400 font-medium mb-1">Password must contain:</p>
-                                        <div id="req-len" class="flex items-center text-gray-400 transition-colors duration-200">
-                                            <i class="fa-solid fa-circle-check mr-2 text-[10px]"></i> 8+ Characters
-                                        </div>
-                                        <div id="req-num" class="flex items-center text-gray-400 transition-colors duration-200">
-                                            <i class="fa-solid fa-circle-check mr-2 text-[10px]"></i> At least 1 Number
-                                        </div>
-                                        <div id="req-sym" class="flex items-center text-gray-400 transition-colors duration-200">
-                                            <i class="fa-solid fa-circle-check mr-2 text-[10px]"></i> At least 1 Special Char (@$!%*#?&)
-                                        </div>
-                                    </div>
-                                    
-                                    @error('password') <span class="text-xs text-red-500 mt-1 block">{{ $message }}</span> @enderror
-                                </div>
                             </div>
                             
-                            <div class="flex justify-end items-center p-6 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 space-x-3">
-                                <button type="button" onclick="closeUserModal()" class="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors">Cancel</button>
-                                <button type="submit" class="bg-blue-600 dark:bg-blue-700 py-2 px-4 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-800 cursor-pointer transition-colors">Save User</button>
+                            <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+                                <div class="flex justify-between items-center mb-1.5">
+                                    <label id="passwordLabel" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</label>
+                                    <button type="button" onclick="generateStrongPassword()" class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium hover:underline focus:outline-none transition-colors cursor-pointer">
+                                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Auto-Generate
+                                    </button>
+                                </div>
+
+                                <div class="relative group">
+                                    <input type="password" name="password" id="inputPassword" oninput="checkPasswordStrength(this.value)" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm pr-10 p-2.5 transition-all" placeholder="••••••••">
+                                    <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none">
+                                        <i id="eyeIcon" class="fa-regular fa-eye"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="mt-3 grid grid-cols-3 gap-2">
+                                    <div id="bar-len" class="h-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full transition-colors duration-300"></div>
+                                    <div id="bar-num" class="h-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full transition-colors duration-300"></div>
+                                    <div id="bar-sym" class="h-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full transition-colors duration-300"></div>
+                                </div>
+                                <div class="mt-2 flex justify-between text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                                    <span id="txt-len">8+ Chars</span>
+                                    <span id="txt-num">Number</span>
+                                    <span id="txt-sym">Symbol</span>
+                                </div>
+                                @error('password') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
                             </div>
-                        </form>
-                    </div>
-                </div>
-
-            </div>
-            
-            {{-- ================= JAVASCRIPT LOGIC ================= --}}
-            <script>
-                // --- 1. TOAST NOTIFICATION LOGIC ---
-                function showToast(message, type = 'success') {
-                    const container = document.getElementById('toast-container');
-                    
-                    // Create toast element
-                    const toast = document.createElement('div');
-                    toast.className = `flex items-center w-full max-w-xs p-4 mb-4 text-gray-500 bg-white rounded-lg shadow dark:text-gray-400 dark:bg-gray-800 transform transition-all duration-300 translate-x-full opacity-0 border-l-4 ${type === 'success' ? 'border-green-500' : 'border-red-500'}`;
-                    
-                    // Icon
-                    const iconColor = type === 'success' ? 'text-green-500 bg-green-100 dark:bg-green-800 dark:text-green-200' : 'text-red-500 bg-red-100 dark:bg-red-800 dark:text-red-200';
-                    const iconClass = type === 'success' ? 'fa-check' : 'fa-exclamation';
-                    
-                    toast.innerHTML = `
-                        <div class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 ${iconColor} rounded-lg">
-                            <i class="fa-solid ${iconClass}"></i>
                         </div>
-                        <div class="ml-3 text-sm font-normal text-gray-800 dark:text-gray-200">${message}</div>
-                        <button type="button" class="ml-auto -mx-1.5 -my-1.5 bg-white text-gray-400 hover:text-gray-900 rounded-lg focus:ring-2 focus:ring-gray-300 p-1.5 hover:bg-gray-100 inline-flex h-8 w-8 dark:text-gray-500 dark:hover:text-white dark:bg-gray-800 dark:hover:bg-gray-700" onclick="this.parentElement.remove()">
-                            <i class="fa-solid fa-times"></i>
-                        </button>
-                    `;
 
-                    container.appendChild(toast);
-
-                    // Animate In
-                    setTimeout(() => {
-                        toast.classList.remove('translate-x-full', 'opacity-0');
-                    }, 100);
-
-                    // Auto Dismiss
-                    setTimeout(() => {
-                        toast.classList.add('translate-x-full', 'opacity-0');
-                        setTimeout(() => toast.remove(), 300);
-                    }, 5000);
-                }
-
-                // --- 2. PASSWORD REAL-TIME VALIDATION ---
-                function checkPasswordStrength(password) {
-                    const reqLen = document.getElementById('req-len');
-                    const reqNum = document.getElementById('req-num');
-                    const reqSym = document.getElementById('req-sym');
-                    const input = document.getElementById('inputPassword');
-
-                    const hasLength = password.length >= 8;
-                    const hasNumber = /[0-9]/.test(password);
-                    const hasSymbol = /[@$!%*#?&]/.test(password);
-
-                    const updateUI = (element, isValid) => {
-                        if (isValid) {
-                            element.classList.remove('text-gray-400');
-                            element.classList.add('text-green-600', 'dark:text-green-400', 'font-bold');
-                            element.querySelector('i').classList.replace('fa-circle-check', 'fa-check-circle');
-                        } else {
-                            element.classList.remove('text-green-600', 'dark:text-green-400', 'font-bold');
-                            element.classList.add('text-gray-400');
-                            element.querySelector('i').classList.replace('fa-check-circle', 'fa-circle-check');
-                        }
-                    };
-
-                    updateUI(reqLen, hasLength);
-                    updateUI(reqNum, hasNumber);
-                    updateUI(reqSym, hasSymbol);
-
-                    // Input Border Logic
-                    if (hasLength && hasNumber && hasSymbol) {
-                        input.classList.remove('border-gray-300', 'border-red-300', 'focus:border-blue-500', 'focus:ring-blue-500');
-                        input.classList.add('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
-                    } else if (password.length > 0) {
-                        input.classList.remove('border-gray-300', 'border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
-                        input.classList.add('border-red-300', 'focus:border-red-500', 'focus:ring-red-500');
-                    } else {
-                        input.classList.remove('border-green-500', 'border-red-300', 'focus:border-green-500', 'focus:ring-green-500', 'focus:border-red-500', 'focus:ring-red-500');
-                        input.classList.add('border-gray-300');
-                    }
-                }
-
-                // --- 3. SMART PASSWORD GENERATOR (Guaranteed Requirements) ---
-                function generateStrongPassword() {
-                    const length = 12;
-                    const numbers = "0123456789";
-                    const symbols = "@$!%*#?&";
-                    const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-                    const allChars = letters + numbers + symbols;
-                    
-                    let password = "";
-                    
-                    // FORCE REQUIREMENTS
-                    password += numbers.charAt(Math.floor(Math.random() * numbers.length));
-                    password += symbols.charAt(Math.floor(Math.random() * symbols.length));
-                    password += letters.charAt(Math.floor(Math.random() * letters.length));
-
-                    // Fill the rest
-                    for (let i = 3; i < length; i++) {
-                        const array = new Uint32Array(1);
-                        window.crypto.getRandomValues(array);
-                        password += allChars[array[0] % allChars.length];
-                    }
-
-                    // Shuffle
-                    password = password.split('').sort(() => 0.5 - Math.random()).join('');
-
-                    const passwordInput = document.getElementById('inputPassword');
-                    passwordInput.value = password;
-
-                    // Show password
-                    passwordInput.type = "text"; 
-                    document.getElementById('eyeIcon').classList.remove('fa-eye');
-                    document.getElementById('eyeIcon').classList.add('fa-eye-slash');
-
-                    // Trigger Validation
-                    checkPasswordStrength(password);
-                }
-
-                // --- 4. TOGGLE VISIBILITY ---
-                function togglePasswordVisibility() {
-                    const passwordInput = document.getElementById('inputPassword');
-                    const eyeIcon = document.getElementById('eyeIcon');
-                    
-                    if (passwordInput.type === "password") {
-                        passwordInput.type = "text";
-                        eyeIcon.classList.remove('fa-eye');
-                        eyeIcon.classList.add('fa-eye-slash');
-                    } else {
-                        passwordInput.type = "password";
-                        eyeIcon.classList.remove('fa-eye-slash');
-                        eyeIcon.classList.add('fa-eye');
-                    }
-                }
-
-                // --- 5. MODAL LOGIC ---
-                function openUserModal(mode, user = null) {
-                    const modal = document.getElementById('userModal');
-                    const form = document.getElementById('userForm');
-                    const modalTitle = document.getElementById('modalTitle');
-                    const methodField = document.getElementById('methodField');
-                    
-                    // Inputs
-                    const nameInput = document.getElementById('inputName');
-                    const emailInput = document.getElementById('inputEmail');
-                    const roleInput = document.getElementById('inputRole');
-                    const passwordInput = document.getElementById('inputPassword');
-                    const branchInput = document.getElementById('inputBranch');
-                    const eyeIcon = document.getElementById('eyeIcon');
-
-                    modal.classList.remove('hidden');
-                    modal.classList.add('flex');
-                    
-                    // Reset Password Visibility & Styles
-                    passwordInput.type = "password";
-                    eyeIcon.classList.remove('fa-eye-slash');
-                    eyeIcon.classList.add('fa-eye');
-                    checkPasswordStrength(''); // Reset checklist
-
-                    if (mode === 'add') {
-                        modalTitle.innerText = 'Add New User';
-                        form.action = "{{ route('admin.manageaccount.store') }}";
-                        methodField.innerHTML = '';
-                        
-                        nameInput.value = '';
-                        emailInput.value = '';
-                        roleInput.value = '';
-                        passwordInput.value = '';
-                        passwordInput.required = true;
-                        document.getElementById('passwordLabel').innerText = 'Password';
-                        
-                        if(branchInput) branchInput.value = '';
-
-                    } else if (mode === 'edit' && user) {
-                        modalTitle.innerText = 'Edit User Account';
-                        form.action = '/admin/manageaccount/' + user.id; 
-                        methodField.innerHTML = '<input type="hidden" name="_method" value="PUT">';
-
-                        nameInput.value = user.name;
-                        emailInput.value = user.email;
-                        roleInput.value = user.user_level_id;
-                        
-                        passwordInput.value = '';
-                        passwordInput.required = false;
-                        document.getElementById('passwordLabel').innerText = 'New Password (Leave blank to keep)';
-
-                        if(branchInput) branchInput.value = user.branch_id;
-                    }
-                }
-
-                function closeUserModal() {
-                    const modal = document.getElementById('userModal');
-                    modal.classList.add('hidden');
-                    modal.classList.remove('flex');
-                }
-
-                // Close on click outside
-                document.getElementById('userModal').addEventListener('click', function(e) {
-                    if (e.target === this) closeUserModal();
-                });
-            </script>
-            
-        </main>
+                        <div class="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex flex-row-reverse gap-3 rounded-b-2xl">
+                            <button type="submit" class="inline-flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto transition-colors cursor-pointer">Save User</button>
+                            <button type="button" onclick="closeUserModal()" class="mt-3 inline-flex w-full justify-center rounded-lg bg-white dark:bg-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-500 hover:bg-gray-50 dark:hover:bg-gray-500 sm:mt-0 sm:w-auto transition-colors cursor-pointer">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchInput = document.getElementById('searchInput');
+            const tableContainer = document.getElementById('table-container');
+            const searchSpinner = document.getElementById('search-spinner');
+            let searchTimer;
+
+            searchInput.addEventListener('keyup', function () {
+                clearTimeout(searchTimer);
+                searchSpinner.classList.remove('hidden'); 
+                searchTimer = setTimeout(() => {
+                    fetchUsers(1, this.value);
+                }, 400);
+            });
+
+            tableContainer.addEventListener('click', function (e) {
+                const link = e.target.closest('a');
+                if (link && link.href && link.href.includes('page=')) {
+                    e.preventDefault();
+                    const url = new URL(link.href);
+                    fetchUsers(url.searchParams.get('page'), searchInput.value);
+                }
+            });
+
+            function fetchUsers(page, query) {
+                const loader = document.getElementById('table-loader');
+                if(loader) {
+                    loader.classList.remove('hidden');
+                    loader.classList.add('flex');
+                }
+
+                let url = `{{ route('admin.manageaccount') }}?page=${page}&search=${query}`;
+
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(res => res.text())
+                .then(html => {
+                    tableContainer.innerHTML = html;
+                    searchSpinner.classList.add('hidden');
+                })
+                .catch(err => {
+                    console.error(err);
+                    searchSpinner.classList.add('hidden');
+                    showToast("Failed to load data.", 'error');
+                });
+            }
+        });
+
+        function checkPasswordStrength(password) {
+            const hasLength = password.length >= 8;
+            const hasNumber = /[0-9]/.test(password);
+            const hasSymbol = /[@$!%*#?&]/.test(password);
+
+            const updateBar = (barId, txtId, valid) => {
+                const bar = document.getElementById(barId);
+                const txt = document.getElementById(txtId);
+                if (valid) {
+                    bar.classList.remove('bg-gray-200', 'dark:bg-gray-600');
+                    bar.classList.add('bg-green-500');
+                    txt.classList.add('text-green-600', 'font-bold', 'dark:text-green-400');
+                } else {
+                    bar.classList.add('bg-gray-200', 'dark:bg-gray-600');
+                    bar.classList.remove('bg-green-500');
+                    txt.classList.remove('text-green-600', 'font-bold', 'dark:text-green-400');
+                }
+            };
+
+            updateBar('bar-len', 'txt-len', hasLength);
+            updateBar('bar-num', 'txt-num', hasNumber);
+            updateBar('bar-sym', 'txt-sym', hasSymbol);
+
+            const input = document.getElementById('inputPassword');
+            if (hasLength && hasNumber && hasSymbol) {
+                input.classList.add('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
+                input.classList.remove('border-gray-300');
+            } else {
+                input.classList.remove('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
+                input.classList.add('border-gray-300');
+            }
+        }
+
+        function openUserModal(mode, user = null) {
+            const modal = document.getElementById('userModal');
+            const backdrop = document.getElementById('modalBackdrop');
+            const panel = document.getElementById('modalPanel');
+            const form = document.getElementById('userForm');
+            const methodField = document.getElementById('methodField');
+
+            document.getElementById('inputName').value = '';
+            document.getElementById('inputEmail').value = '';
+            document.getElementById('inputRole').value = '';
+            document.getElementById('inputPassword').value = '';
+            document.getElementById('passwordLabel').innerText = 'Password';
+            checkPasswordStrength('');
+
+            if (mode === 'edit' && user) {
+                document.getElementById('modalTitle').innerText = 'Edit User Account';
+                form.action = `/admin/manageaccount/${user.id}`;
+                methodField.innerHTML = '<input type="hidden" name="_method" value="PUT">';
+                document.getElementById('inputName').value = user.name;
+                document.getElementById('inputEmail').value = user.email;
+                document.getElementById('inputRole').value = user.user_level_id;
+                if(document.getElementById('inputBranch')) document.getElementById('inputBranch').value = user.branch_id;
+                document.getElementById('passwordLabel').innerText = 'New Password (Optional)';
+            } else {
+                document.getElementById('modalTitle').innerText = 'Create Account';
+                form.action = "{{ route('admin.manageaccount.store') }}";
+                methodField.innerHTML = '';
+                if(document.getElementById('inputBranch')) document.getElementById('inputBranch').value = '';
+            }
+
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; 
+            backdrop.classList.remove('opacity-0');
+            panel.classList.remove('opacity-0', 'translate-y-4', 'sm:scale-95');
+            panel.classList.add('opacity-100', 'translate-y-0', 'sm:scale-100');
+        }
+
+        function closeUserModal() {
+            const modal = document.getElementById('userModal');
+            const backdrop = document.getElementById('modalBackdrop');
+            const panel = document.getElementById('modalPanel');
+
+            backdrop.classList.add('opacity-0');
+            panel.classList.remove('opacity-100', 'translate-y-0', 'sm:scale-100');
+            panel.classList.add('opacity-0', 'translate-y-4', 'sm:scale-95');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        document.getElementById('userModal').addEventListener('click', function(e) {
+            if (e.target.id === 'modalBackdrop') closeUserModal();
+        });
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('inputPassword');
+            const icon = document.getElementById('eyeIcon');
+            if(input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye');
+            }
+        }
+
+        function generateStrongPassword() {
+            const length = 12;
+            const numbers = "0123456789";
+            const symbols = "@$!%*#?&";
+            const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            
+            let pass = "";
+            pass += numbers.charAt(Math.floor(Math.random() * numbers.length));
+            pass += symbols.charAt(Math.floor(Math.random() * symbols.length));
+            pass += letters.charAt(Math.floor(Math.random() * letters.length));
+            
+            const allChars = letters + numbers + symbols;
+            for (let i = 3; i < length; i++) {
+                 const array = new Uint32Array(1);
+                 window.crypto.getRandomValues(array);
+                 pass += allChars[array[0] % allChars.length];
+            }
+            
+            pass = pass.split('').sort(() => 0.5 - Math.random()).join('');
+            
+            const input = document.getElementById('inputPassword');
+            input.value = pass;
+            input.type = 'text';
+            document.getElementById('eyeIcon').classList.remove('fa-eye');
+            document.getElementById('eyeIcon').classList.add('fa-eye-slash');
+            checkPasswordStrength(pass);
+        }
+
+        function showToast(msg, type) {
+            const container = document.getElementById('toast-container');
+            const div = document.createElement('div');
+            const borderColor = type === 'success' ? 'border-green-500' : 'border-red-500';
+            const iconClass = type === 'success' ? 'fa-circle-check text-green-500' : 'fa-circle-exclamation text-red-500';
+            
+            div.className = `bg-white dark:bg-gray-800 shadow-xl rounded-lg p-4 border-l-4 ${borderColor} pointer-events-auto flex items-center gap-3 transform transition-all duration-300 translate-x-full opacity-0 mb-3 w-80`;
+            
+            div.innerHTML = `
+                <i class="fa-solid ${iconClass} text-xl"></i>
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-200">${msg}</p>
+            `;
+            
+            container.appendChild(div);
+
+            requestAnimationFrame(() => {
+                div.classList.remove('translate-x-full', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                div.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => div.remove(), 300);
+            }, 4000);
+        }
+    </script>
 </body>
 </x-app-layout>

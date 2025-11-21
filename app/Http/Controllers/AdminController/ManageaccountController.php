@@ -18,24 +18,31 @@ use Carbon\Carbon;
 
 class ManageaccountController extends Controller
 {
-    // FIX: Pinalitan natin from 'index' to 'showManageaccount' para mag match sa web.php mo
-    public function showManageaccount()
-    {
-        $currentUser = Auth::user();
+    public function showManageaccount(Request $request)
+{
+    $currentUser = Auth::user();
 
-    // Fetch Users
-    $users = User::with(['level', 'branch'])->paginate(10);
+    $query = User::with(['level', 'branch']);
 
-    // --- BAGUHIN MO ANG PART NA ITO ---
-    // Kukunin lang natin ang specific na roles: 'admin', 'doctor', 'encoder'
-    // Siguraduhin na match ang spelling nito sa database mo (lowercase vs uppercase)
+    if ($request->has('search') && !empty($request->search)) {
+        $searchTerm = $request->search;
+        $query->where(function($q) use ($searchTerm) {
+            $q->where('name', 'like', '%' . $searchTerm . '%')
+              ->orWhere('email', 'like', '%' . $searchTerm . '%');
+        });
+    }
+
+    $users = $query->orderBy('created_at', 'desc')->paginate(10);
+
+    if ($request->ajax()) {
+        return view('admin.partials.users-table', compact('users'))->render();
+    }
+
     $levels = UserLevel::whereIn('name', ['admin', 'doctor', 'encoder'])->get();
-
     $branches = Branch::all();
 
-        // Siguraduhin na tama ang spelling ng blade file mo dito (admin.manage-account o admin.manageaccount?)
-        return view('admin.manageaccount', compact('users', 'levels', 'branches'));
-    }
+    return view('admin.manageaccount', compact('users', 'levels', 'branches'));
+}
 
     public function store(Request $request)
 {
