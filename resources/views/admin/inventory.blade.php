@@ -113,6 +113,9 @@
                         <i class="fa-regular fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm"></i>
                         <input type="text" id="search-rhu1" placeholder="Search by product name or batch number..." class="w-full pl-10 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ request('search_rhu1') }}">
                     </div>
+
+                    {{-- di pwede mag export RHU2 ng table sa RHU 1 --}}
+                    @if (auth()->user()->branch_id != 2)
                     <form action="{{ route('admin.inventory.export') }}" method="POST">
                         @csrf
 
@@ -123,6 +126,7 @@
                             <span class="ml-2">Export to XLSX</span>
                         </button>
                     </form>
+                    @endif
                 </div>
                 <div class="overflow-x-auto" id="rhu1-container">
                     @include('admin.partials._inventory_table', ['inventories' => $inventories_rhu1, 'branch' => 1])
