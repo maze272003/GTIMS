@@ -19,62 +19,85 @@ class PatientRecordsController extends Controller
 {
     public function showpatientrecords(Request $request)
     {
-        // 1. Get Products (Inventory) - You might want to filter this by branch too in the future, 
-        // but for now we keep it as is to show available medicines.
-        $products = Inventory::with('product')->where('is_archived', 2)->latest()->get();
-        
-        $barangays = Barangay::all();
-        $branches = Branch::all(); // Get all branches for the Admin dropdown
-
         $user = Auth::user();
+        $products = Inventory::with('product')->where('is_archived', 2)->latest()->get();
+        $barangays = Barangay::all();
+        $branches = Branch::all();
 
-        // 2. Initialize the Query
+        // Base query
         $query = Patientrecords::with(['dispensedMedications', 'barangay', 'branch']);
 
-        // 3. Apply Authorization/Filtering Logic
+        // === BRANCH FILTERING (Admin vs Regular User) ===
         if (in_array($user->user_level_id, [1, 2])) {
-            // === ADMIN (Level 1 & 2) ===
-            // Admin can see everything, but if they selected a filter, apply it.
-            if ($request->has('branch_filter') && $request->branch_filter != 'all') {
+            // Admin: optional branch filter
+            if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
                 $query->where('branch_id', $request->branch_filter);
             }
         } else {
-            // === ENCODER / DOCTOR (Level 3 & 4) ===
-            // Can ONLY see records from their own branch
+            // Encoder/Doctor: only own branch
             $query->where('branch_id', $user->branch_id);
         }
 
-        // 4. Fetch Paginated Results
-        $patientrecords = $query->latest()->paginate(20);
+        // === APPLY OTHER FILTERS ===
+        if ($request->filled('from_date')) {
+            $query->whereDate('created_at', '>=', $request->from_date);
+        }
 
-        // 5. Calculate Stats (Using the same filter logic for accuracy)
-        $cardQuery = Patientrecords::with(['dispensedMedications']);
-        
+        if ($request->filled('to_date')) {
+            $query->whereDate('created_at', '<=', $request->to_date);
+        }
+
+        if ($request->filled('category') && $request->category !== '') {
+            $query->where('category', $request->category);
+        }
+
+        if ($request->filled('barangay_id') && $request->barangay_id !== '') {
+            $query->where('barangay_id', $request->barangay_id);
+        }
+
+        // Paginated results
+        $patientrecords = $query->latest()->paginate(20)->withQueryString(); // Important: preserves filters in pagination
+
+        // === Stats Calculation (Same filters applied) ===
+        $statsQuery = Patientrecords::query();
+
         if (in_array($user->user_level_id, [1, 2])) {
-            if ($request->has('branch_filter') && $request->branch_filter != 'all') {
-                $cardQuery->where('branch_id', $request->branch_filter);
+            if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
+                $statsQuery->where('branch_id', $request->branch_filter);
             }
         } else {
-            $cardQuery->where('branch_id', $user->branch_id);
+            $statsQuery->where('branch_id', $user->branch_id);
         }
-        
-        $patientrecordscard = $cardQuery->get();
+
+        if ($request->filled('from_date')) {
+            $statsQuery->whereDate('created_at', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $statsQuery->whereDate('created_at', '<=', $request->to_date);
+        }
+        if ($request->filled('category') && $request->category !== '') {
+            $statsQuery->where('category', $request->category);
+        }
+        if ($request->filled('barangay_id') && $request->barangay_id !== '') {
+            $statsQuery->where('barangay_id', $request->barangay_id);
+        }
+
+        $patientrecordscard = $statsQuery->with('dispensedMedications')->get();
 
         $totalPeopleServed = $patientrecordscard->count();
-        $totalProductsDispensed = $patientrecordscard->sum(function ($patientrecord) {
-            return $patientrecord->dispensedMedications->count();
+        $totalProductsDispensed = $patientrecordscard->sum(function ($record) {
+            return $record->dispensedMedications->count();
         });
 
-        return view('admin.patientrecords', [
-            'products' => $products,
-            'barangays' => $barangays,
-            'patientrecords' => $patientrecords,
-            'totalPeopleServed' => $totalPeopleServed,
-            'totalProductsDispensed' => $totalProductsDispensed,
-            'patientrecordscard' => $patientrecordscard,
-            'branches' => $branches, // Pass branches to view
-            'currentFilter' => $request->branch_filter ?? 'all' // Pass current filter selection
-        ]);
+        return view('admin.patientrecords', compact(
+            'products',
+            'barangays',
+            'branches',
+            'patientrecords',
+            'patientrecordscard',
+            'totalPeopleServed',
+            'totalProductsDispensed'
+        ))->with('currentFilter', $request->branch_filter ?? 'all');
     }
 
     public function adddispensation(Request $request) 

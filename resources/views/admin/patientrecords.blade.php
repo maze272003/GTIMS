@@ -71,7 +71,7 @@
                 <div id="patientrecords-data-container">
                     <div class="mt-5 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                         
-                        {{-- Header: Search, Filter, Export --}}
+                        {{-- Header: Search, Filter Button, Export --}}
                         <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3">
                             
                             {{-- Search Bar --}}
@@ -98,6 +98,12 @@
                                     </form>
                                 @endif
 
+                                {{-- NEW FILTER MODAL BUTTON - SAME DESIGN --}}
+                                <button type="button" id="openFilterModal" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                    <i class="fa-regular fa-sliders-up text-lg mr-2"></i>
+                                    <span class="hidden sm:inline">Filter</span>
+                                </button>
+
                                 <button class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
                                     <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
                                     <span class="ml-2 hidden sm:inline">Export CSV</span>
@@ -111,7 +117,6 @@
                                     <tr>
                                         <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">#</th>
                                         
-                                        {{-- Show Branch Column for Admins --}}
                                         @if(in_array(auth()->user()->user_level_id, [1, 2]))
                                             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Branch</th>
                                         @endif
@@ -125,7 +130,6 @@
                                 <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                                     @if ($patientrecords->isEmpty())
                                         <tr>
-                                            {{-- Adjust colspan based on whether admin column is shown --}}
                                             <td colspan="{{ in_array(auth()->user()->user_level_id, [1, 2]) ? 6 : 5 }}" class="p-3 text-center text-sm text-gray-500 dark:text-gray-400">No records found.</td>
                                         </tr>
                                     @else
@@ -152,7 +156,6 @@
                                                 {{ $loop->iteration + ($patientrecords->currentPage() - 1) * $patientrecords->perPage() }}
                                             </td>
 
-                                            {{-- Show Branch Name for Admins --}}
                                             @if(in_array(auth()->user()->user_level_id, [1, 2]))
                                                 <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-left">
                                                     <span class="px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded text-xs font-semibold">
@@ -178,7 +181,6 @@
                                                     <i class="fa-regular fa-eye mr-1"></i>View All
                                                 </button>
                                                 @if (auth()->user()->user_level_id != 4)
-                                                    {{-- Only allow edit/delete if user is Admin OR if user is Encoder for the SAME branch --}}
                                                     @if(in_array(auth()->user()->user_level_id, [1, 2]) || auth()->user()->branch_id == $patientrecord->branch_id)
                                                         <button class="editrecordbtn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
                                                             <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
@@ -201,9 +203,74 @@
                             </p>
                             <div class="flex flex-wrap justify-center sm:justify-end gap-2 pagination-links order-1 sm:order-2 w-full sm:w-auto">
                                 {{ $patientrecords->links('pagination::tailwind') }} 
-                                {{-- Simplified pagination call if you are using standard Laravel pagination, otherwise paste your custom pagination code back here --}}
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {{-- ==================== FILTER MODAL ==================== --}}
+                <div id="filterModal" class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden overflow-y-auto">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+                        <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-5">
+                            <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                                <i class="fa-regular fa-sliders-up mr-2 text-blue-600"></i> Filter Records
+                            </h3>
+                            <button type="button" id="closeFilterModal" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                                <i class="fa-regular fa-xmark text-gray-600 dark:text-gray-400 text-xl"></i>
+                            </button>
+                        </div>
+
+                        <form id="filterForm" method="GET" action="{{ route('admin.patientrecords') }}" class="space-y-5">
+
+                            {{-- Preserve branch filter for Admin --}}
+                            @if(auth()->user()->user_level_id <= 2)
+                                <input type="hidden" name="branch_filter" value="{{ request('branch_filter', 'all') }}">
+                            @endif
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Date</label>
+                                    <input type="date" name="from_date" value="{{ request('from_date') }}"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To Date</label>
+                                    <input type="date" name="to_date" value="{{ request('to_date') }}"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                                <select name="category" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                    <option value="">All Categories</option>
+                                    <option value="Adult" {{ request('category') == 'Adult' ? 'selected' : '' }}>Adult</option>
+                                    <option value="Child" {{ request('category') == 'Child' ? 'selected' : '' }}>Child</option>
+                                    <option value="Senior" {{ request('category') == 'Senior' ? 'selected' : '' }}>Senior</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Barangay</label>
+                                <select name="barangay_id" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                    <option value="">All Barangays</option>
+                                    @foreach($barangays as $barangay)
+                                        <option value="{{ $barangay->id }}" {{ request('barangay_id') == $barangay->id ? 'selected' : '' }}>
+                                            {{ $barangay->barangay_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <button type="button" id="clearFilters" class="px-5 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition font-medium">
+                                    Clear All Filters
+                                </button>
+                                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                                    Apply Filters
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
 
@@ -320,7 +387,6 @@
                         </form>
                     </div>
                 </div>
-                {{-- End Add Modal --}}
 
                 {{-- Edit Dispensation Modal --}}
                 <div id="editrecordmodal" class="fixed w-full h-screen top-0 left-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
@@ -390,7 +456,6 @@
                         </form>
                     </div>
                 </div>
-                {{-- End Edit Modal --}}
 
                 {{-- View Medications Modal --}}
                 <div id="viewmedicationsmodal" class="fixed w-full h-screen top-0 left-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
@@ -419,7 +484,6 @@
                         </div>
                     </div>
                 </div>
-                {{-- End View Medications Modal --}}
 
             </main>
         @else
@@ -434,5 +498,6 @@
             </main>
         @endif
     </div>
+
     <script src="{{ asset('js/patientrecords.js') }}"></script>
 </x-app-layout>

@@ -49,7 +49,7 @@ class PatientRecordsSeeder extends Seeder
         $this->command->info('Starting to seed 500 patient records...');
 
         // 4. Create 500 Patient Records
-        Patientrecords::factory()->count(2500)->create()->each(function ($record) use ($users, $inventories, $branches) {
+        Patientrecords::factory()->count(500)->create()->each(function ($record) use ($users, $inventories, $branches) {
             
             // === A. ASSIGN BRANCH (RHU 1 or RHU 2) ===
             $randomBranch = $branches->random();

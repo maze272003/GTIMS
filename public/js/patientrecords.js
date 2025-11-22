@@ -315,6 +315,54 @@ function viewMedications() {
     });
 }
 
+const filterModal = document.getElementById('filterModal');
+const openBtn = document.getElementById('openFilterModal');
+const closeBtn = document.getElementById('closeFilterModal');
+const clearBtn = document.getElementById('clearFilters');
+const form = document.getElementById('filterForm');
+
+// Open modal
+openBtn?.addEventListener('click', () => {
+    filterModal.classList.remove('hidden');
+});
+
+// Close modal
+closeBtn?.addEventListener('click', () => {
+    filterModal.classList.add('hidden');
+});
+
+// Close when clicking outside
+filterModal?.addEventListener('click', (e) => {
+    if (e.target === filterModal) {
+        filterModal.classList.add('hidden');
+    }
+});
+
+// Clear all filters and redirect to clean URL
+clearBtn?.addEventListener('click', () => {
+    const baseUrl = new URL(window.location.href);
+    const params = baseUrl.searchParams;
+
+    // Remove all filter params except branch_filter (for admin)
+    ['from_date', 'to_date', 'category', 'barangay_id', 'page'].forEach(param => {
+        params.delete(param);
+    });
+
+    // If no filters left, remove page too
+    if (!params.has('branch_filter')) {
+        params.delete('page');
+    }
+
+    window.location.href = baseUrl.toString();
+});
+
+// Optional: Allow ESC key to close
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !filterModal.classList.contains('hidden')) {
+        filterModal.classList.add('hidden');
+    }
+});
+
 /* ========================================
    6. INIT
    ======================================== */
