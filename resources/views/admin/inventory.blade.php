@@ -113,10 +113,16 @@
                         <i class="fa-regular fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm"></i>
                         <input type="text" id="search-rhu1" placeholder="Search by product name or batch number..." class="w-full pl-10 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ request('search_rhu1') }}">
                     </div>
-                    <button onclick="exportCSV(1)" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
-                        <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
-                        <span class="ml-2">Export CSV</span>
-                    </button>
+                    <form action="{{ route('admin.inventory.export') }}" method="POST">
+                        @csrf
+
+                        <input type="hidden" name="branch" value="1">
+
+                        <button type="submit" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                            <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
+                            <span class="ml-2">Export to XLSX</span>
+                        </button>
+                    </form>
                 </div>
                 <div class="overflow-x-auto" id="rhu1-container">
                     @include('admin.partials._inventory_table', ['inventories' => $inventories_rhu1, 'branch' => 1])
@@ -133,7 +139,7 @@
                     </div>
                     <button onclick="exportCSV(2)" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
                         <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
-                        <span class="ml-2">Export CSV</span>
+                        <span class="ml-2">Export XLSX</span>
                     </button>
                 </div>
                 <div class="overflow-x-auto" id="rhu2-container">

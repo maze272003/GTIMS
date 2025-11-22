@@ -18,6 +18,11 @@ class Inventory extends Model
         'is_archived'
     ];
 
+    protected $casts = [
+        'expiry_date' => 'date', // ensures Laravel converts it to a Carbon instance
+    ];
+
+
     public function product()
     {
         return $this->belongsTo(Product::class);
