@@ -392,7 +392,6 @@
                                         <th class="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Medication Details</th>
                                         <th class="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Form & Strength</th>
                                         <th class="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">Quantity</th>
-                                        <th class="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="view-medications-tbody" class="divide-y divide-gray-200 dark:divide-gray-700">

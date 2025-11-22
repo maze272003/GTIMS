@@ -41,10 +41,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const hidden = group.querySelector('.med-name-hidden');
         const options = dropdown.querySelectorAll('.option');
 
-        // Show on focus
         input.addEventListener('focus', () => dropdown.classList.remove('hidden'));
 
-        // Filter logic
         input.addEventListener('input', () => {
             const term = input.value.toLowerCase().trim();
             let visibleCount = 0;
@@ -68,7 +66,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (term === '') hidden.value = '';
         });
 
-        // Select option
         options.forEach(opt => {
             opt.addEventListener('click', () => {
                 input.value = opt.dataset.label;
@@ -76,8 +73,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 dropdown.classList.add('hidden');
             });
         });
-
-        // Hide on click outside (handled globally below in Delegation)
     }
 
 
@@ -105,34 +100,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const tbody = document.getElementById('view-medications-tbody');
             const title = document.getElementById('view-med-title');
             
-            // User Level Logic
-            // Siguraduhing may default value kung undefined para di mag error
-            const userLevel = (window.currentUserLevel !== undefined) ? window.currentUserLevel : 0; 
-
             title.innerHTML = `Medications for <span class="text-red-700 capitalize italic">${name}</span>`;
             tbody.innerHTML = '';
 
             if (medications.length > 0) {
                 medications.forEach(med => {
-                    let actionCell = '';
-                    
-                    // Only show Edit button if NOT Level 4
-                    if (userLevel != 4) {
-                        actionCell = `
-                        <td class="p-3 text-center">
-                            <button class="edit-med-item bg-green-100 text-green-700 p-1.5 rounded hover:bg-green-600 hover:text-white transition-all text-xs">
-                                <i class="fa-regular fa-pen-to-square"></i> Edit
-                            </button>
-                        </td>`;
-                    } else {
-                        actionCell = `
-                        <td class="p-3 text-center">
-                            <div class="relative inline-flex justify-center group">
-                                <span class="text-gray-400 cursor-help"><i class="fa-regular fa-lock text-sm"></i></span>
-                            </div>
-                        </td>`;
-                    }
-
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td class="p-3 text-sm text-gray-700">${med.batch || 'N/A'}</td>
@@ -144,12 +116,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         </td>
                         <td class="p-3 text-sm text-gray-700">${med.form}, ${med.strength}</td>
                         <td class="p-3 text-sm text-gray-700 text-center font-semibold">${med.quantity}</td>
-                        ${actionCell}
+                        <!-- EDIT BUTTON COMPLETELY REMOVED -->
                     `;
                     tbody.appendChild(tr);
                 });
             } else {
-                tbody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-gray-500">No medications recorded.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">No medications recorded.</td></tr>';
             }
 
             modal.classList.remove('hidden');
@@ -162,7 +134,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const row = editBtn.closest('tr');
             const modal = document.getElementById('editrecordmodal');
 
-            // Populate Fields
             document.getElementById('edit-record-id').value = row.dataset.recordId;
             document.getElementById('edit-patient-name').value = row.dataset.patientName;
             document.getElementById('edit-purok').value = row.dataset.purok;
@@ -192,8 +163,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // --- F. CLOSE MODALS (Buttons & Backdrops) ---
-        // Close buttons
+        // --- F. CLOSE MODALS ---
         if (e.target.closest('#closeadddispensationmodal')) {
             const m = document.getElementById('adddispensationmodal');
             m.classList.add('hidden');
@@ -211,7 +181,7 @@ document.addEventListener('DOMContentLoaded', function () {
             filterModal.classList.add('hidden');
         }
 
-        // Close on Backdrop Click
+        // Backdrop close
         if (e.target.id === 'adddispensationmodal') {
             e.target.classList.add('hidden');
             clearValidation(e.target);
@@ -227,8 +197,7 @@ document.addEventListener('DOMContentLoaded', function () {
             e.target.classList.add('hidden');
         }
 
-        // --- G. DROPDOWN CLOSE (Click Outside) ---
-        // Kung nag click sa labas ng .medication-group, isara ang dropdowns
+        // Close dropdowns when clicking outside
         if (!e.target.closest('.medication-group')) {
             document.querySelectorAll('.dropdown-options').forEach(el => el.classList.add('hidden'));
         }
@@ -236,14 +205,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
 
     // ==============================================================
-    // 3. STATIC INITIALIZATIONS (Things that don't change on AJAX)
+    // 3. STATIC INITIALIZATIONS
     // ==============================================================
 
-    // --- Init First Row Searchable in Add Modal ---
     const firstGroup = document.querySelector('.medication-group');
     if (firstGroup) initSearchableMedicine(firstGroup);
 
-    // --- Add More Medication Logic ---
+    // Add More Medication Rows
     const addMoreBtn = document.getElementById('add-more-medication');
     const medContainer = document.getElementById('medication-container');
     let medIndex = 1;
@@ -251,26 +219,15 @@ document.addEventListener('DOMContentLoaded', function () {
     if (addMoreBtn && medContainer) {
         addMoreBtn.addEventListener('click', () => {
             const template = medContainer.querySelector('.medication-group');
-            // Clone the node
             const clone = template.cloneNode(true);
-            
-            // Clean up clone values
-            const searchInput = clone.querySelector('.search-med-input');
-            const hiddenInput = clone.querySelector('.med-name-hidden');
-            const qtyInput = clone.querySelector('input[type="number"]');
-            
-            searchInput.value = '';
-            hiddenInput.value = '';
-            qtyInput.value = '';
-            
-            // Fix Names for Laravel Array Validation
-            // Note: Assuming your first row is medications[0], we increment index
-            // Adjust name attributes based on your controller needs
-            hiddenInput.name = `medications[${medIndex}][name]`;
-            qtyInput.name = `medications[${medIndex}][quantity]`;
 
-            // Add Remove Button
-            // Check if remove button already exists (in case template had one)
+            clone.querySelector('.search-med-input').value = '';
+            clone.querySelector('.med-name-hidden').value = '';
+            clone.querySelector('input[type="number"]').value = '';
+
+            clone.querySelector('.med-name-hidden').name = `medications[${medIndex}][name]`;
+            clone.querySelector('input[type="number"]').name = `medications[${medIndex}][quantity]`;
+
             let removeBtn = clone.querySelector('.remove-med-btn');
             if (!removeBtn) {
                 removeBtn = document.createElement('button');
@@ -280,32 +237,26 @@ document.addEventListener('DOMContentLoaded', function () {
                 clone.appendChild(removeBtn);
             }
 
-            // Append
             medContainer.appendChild(clone);
-            
-            // Activate Search Logic for New Row
             initSearchableMedicine(clone);
             medIndex++;
         });
 
-        // Event Delegation for Remove Button inside Container
         medContainer.addEventListener('click', (e) => {
             if (e.target.closest('.remove-med-btn')) {
                 const group = e.target.closest('.medication-group');
-                // Don't remove the very first row if it's the only one (optional guard)
                 if(medContainer.querySelectorAll('.medication-group').length > 1) {
                     group.remove();
                 } else {
-                    // Optional: Just clear values if it's the last one
-                     group.querySelector('.search-med-input').value = '';
-                     group.querySelector('.med-name-hidden').value = '';
-                     group.querySelector('input[type="number"]').value = '';
+                    group.querySelector('.search-med-input').value = '';
+                    group.querySelector('.med-name-hidden').value = '';
+                    group.querySelector('input[type="number"]').value = '';
                 }
             }
         });
     }
 
-    // --- Edit Form SweetAlert Submission ---
+    // Edit Form Confirmation
     const updateBtn = document.getElementById('update-dispensation-btn');
     const editForm = document.getElementById('edit-dispensation-form');
 
@@ -347,7 +298,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // --- Clear Filters Logic ---
+    // Clear Filters
     const clearFilterBtn = document.getElementById('clearFilters');
     if (clearFilterBtn) {
         clearFilterBtn.addEventListener('click', () => {
@@ -359,7 +310,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // --- Search Input Debounce ---
+    // Search Debounce
     const searchInput = document.getElementById('patientrecords-search-input');
     let debounceTimer;
     if (searchInput) {
@@ -368,7 +319,7 @@ document.addEventListener('DOMContentLoaded', function () {
             debounceTimer = setTimeout(() => {
                 const query = this.value;
                 const currentUrl = new URL(window.location.href);
-                currentUrl.searchParams.set('search', query); // Make sure Controller handles 'search'
+                currentUrl.searchParams.set('search', query);
                 currentUrl.searchParams.set('page', 1);
                 fetchTableData(currentUrl.toString());
             }, 500);
