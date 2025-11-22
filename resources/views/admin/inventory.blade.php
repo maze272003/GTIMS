@@ -75,19 +75,19 @@
 
             {{-- Buttons --}}
             @if (auth()->user()->branch_id != 2)
-            <div class="mt-6 flex flex-wrap gap-3 w-full justify-end mb-8">
-                @if (auth()->user()->user_level_id != 4)
-                <button id="addnewproductbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
-                    Register New Product
-                </button>
-                @endif
-                <button id="viewallproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
-                    View All Products
-                </button>
-                <button id="viewarchiveproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
-                    View Archive Products
-                </button>
-            </div>
+                <div class="mt-6 flex flex-wrap gap-3 w-full justify-end mb-8">
+                    @if (auth()->user()->user_level_id != 4)
+                    <button id="addnewproductbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
+                        <i class="fa-regular fa-plus mr-2"></i> Register New Product
+                    </button>
+                    @endif
+                    <button id="viewallproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
+                        <i class="fa-regular fa-eye mr-2"></i> View All Products
+                    </button>
+                    <button id="viewarchiveproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
+                        <i class="fa-regular fa-box-archive mr-2"></i> View Archive Products
+                    </button>
+                </div>
             @endif
 
             {{-- RHU 1 Table --}}
@@ -95,7 +95,7 @@
                 <div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
                     <p class="text-lg font-semibold text-red-700 dark:text-gray-100">RHU 1 Inventory</p>
                     <select id="filter-rhu1" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 dark:bg-gray-700 text-sm">
-                        <option value="">Filters by Availability</option>
+                        <option value="">All Items</option>
                         <option value="in_stock" {{ request('filter_rhu1') == 'in_stock' ? 'selected' : '' }}>In Stock (≥100)</option>
                         <option value="low_stock" {{ request('filter_rhu1') == 'low_stock' ? 'selected' : '' }}>Low Stock (1–99)</option>
                         <option value="out_of_stock" {{ request('filter_rhu1') == 'out_of_stock' ? 'selected' : '' }}>Out of Stock</option>
@@ -103,15 +103,25 @@
                         <option value="expired" {{ request('filter_rhu1') == 'expired' ? 'selected' : '' }}>Expired</option>
                     </select>
                 </div>
-               
+
                 <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                     <div class="relative w-full sm:w-[40%]">
                         <i class="fa-regular fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                        <input type="text" id="search-rhu1" placeholder="Search..." class="pl-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-sm w-full" value="{{ request('search_rhu1') }}">
+                        <input type="text" id="search-rhu1" placeholder="Search by Product Name or Batch Number" class="pl-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-sm w-full" value="{{ request('search_rhu1') }}">
                     </div>
-                    <button onclick="exportCSV(1)" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:shadow-md transition">
-                        Export CSV
-                    </button>
+
+                    @if (auth()->user()->branch_id != 2)
+                    <form action="{{ route('admin.inventory.export') }}" method="POST" class="inline">
+                        @csrf
+                        <input type="hidden" name="branch" value="1">
+                        <input type="hidden" name="filter" id="export-filter-rhu1" value="{{ request('filter_rhu1', '') }}">
+                        <input type="hidden" name="search" id="export-search-rhu1" value="{{ request('search_rhu1', '') }}">
+                        <button type="submit" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                            <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
+                            <span class="ml-2">Export to XLSX</span>
+                        </button>
+                    </form>
+                    @endif
                 </div>
                 <div class="overflow-x-auto" id="rhu1-container">
                     @include('admin.partials._inventory_table', ['inventories' => $inventories_rhu1, 'branch' => 1])
@@ -123,7 +133,7 @@
                 <div class="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
                     <p class="text-lg font-semibold text-red-700 dark:text-gray-100">RHU 2 Inventory</p>
                     <select id="filter-rhu2" class="px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 dark:bg-gray-700 text-sm">
-                        <option value="">Filters by Availability</option>
+                        <option value="">All Items</option>
                         <option value="in_stock" {{ request('filter_rhu2') == 'in_stock' ? 'selected' : '' }}>In Stock (≥100)</option>
                         <option value="low_stock" {{ request('filter_rhu2') == 'low_stock' ? 'selected' : '' }}>Low Stock (1–99)</option>
                         <option value="out_of_stock" {{ request('filter_rhu2') == 'out_of_stock' ? 'selected' : '' }}>Out of Stock</option>
@@ -131,14 +141,23 @@
                         <option value="expired" {{ request('filter_rhu2') == 'expired' ? 'selected' : '' }}>Expired</option>
                     </select>
                 </div>
+
                 <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                     <div class="relative w-full sm:w-[40%]">
                         <i class="fa-regular fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
-                        <input type="text" id="search-rhu2" placeholder="Search..." class="pl-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-sm w-full" value="{{ request('search_rhu2') }}">
+                        <input type="text" id="search-rhu2" placeholder="Search by Product Name or Batch Number" class="pl-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-sm w-full" value="{{ request('search_rhu2') }}">
                     </div>
-                    <button onclick="exportCSV(2)" class="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:shadow-md transition">
-                        Export CSV
-                    </button>
+
+                    <form action="{{ route('admin.inventory.export') }}" method="POST" class="inline">
+                        @csrf
+                        <input type="hidden" name="branch" value="2">
+                        <input type="hidden" name="filter" id="export-filter-rhu2" value="{{ request('filter_rhu2', '') }}">
+                        <input type="hidden" name="search" id="export-search-rhu2" value="{{ request('search_rhu2', '') }}">
+                        <button type="submit" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                            <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
+                            <span class="ml-2">Export to XLSX</span>
+                        </button>
+                    </form>
                 </div>
                 <div class="overflow-x-auto" id="rhu2-container">
                     @include('admin.partials._inventory_table', ['inventories' => $inventories_rhu2, 'branch' => 2])
@@ -160,7 +179,6 @@
 <script src="{{ asset('js/inventory.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    // Show modals on validation error
     @if ($errors->any())
         @if ($errors->addproduct->any())
             document.getElementById('addnewproductmodal')?.classList.remove('hidden');
@@ -177,7 +195,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const baseUrl = '{{ route("admin.inventory") }}';
 
-    // Debounce helper
     const debounce = (func, delay) => {
         let timer;
         return (...args) => {
@@ -186,18 +203,18 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     };
 
-    // AJAX fetch for search & pagination only
     function fetchTable(branch) {
         const searchInput = document.getElementById(`search-rhu${branch}`);
+        const filterSelect = document.getElementById(`filter-rhu${branch}`);
         const container = document.getElementById(`rhu${branch}-container`);
+
         const search = searchInput.value.trim();
-        const filter = document.getElementById(`filter-rhu${branch}`).value;
+        const filter = filterSelect.value;
 
         const url = new URL(baseUrl);
         if (search) url.searchParams.set(`search_rhu${branch}`, search);
         if (filter) url.searchParams.set(`filter_rhu${branch}`, filter);
 
-        // Clear other branch params
         const other = branch === 1 ? 2 : 1;
         url.searchParams.delete(`search_rhu${other}`);
         url.searchParams.delete(`filter_rhu${other}`);
@@ -210,22 +227,22 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(html => {
             container.innerHTML = html;
             history.replaceState({}, '', url.href);
-        })
-        .catch(err => console.error('Fetch error:', err));
+
+            // Update export hidden fields
+            document.getElementById(`export-search-rhu${branch}`).value = search;
+            document.getElementById(`export-filter-rhu${branch}`).value = filter;
+        });
     }
 
-    // Attach events
     [1, 2].forEach(branch => {
         const searchInput = document.getElementById(`search-rhu${branch}`);
         const filterSelect = document.getElementById(`filter-rhu${branch}`);
         const container = document.getElementById(`rhu${branch}-container`);
 
-        // SEARCH: AJAX with debounce (no reload)
-        searchInput.addEventListener('keyup', debounce(() => {
-            fetchTable(branch);
-        }, 500));
+        // Search (AJAX)
+        searchInput.addEventListener('keyup', debounce(() => fetchTable(branch), 500));
 
-        // FILTER CHANGE: Full page reload (as requested)
+        // Filter change → full reload (preserves filter)
         filterSelect.addEventListener('change', function() {
             const url = new URL(baseUrl);
             const searchVal = document.getElementById(`search-rhu${branch}`).value.trim();
@@ -234,16 +251,15 @@ document.addEventListener('DOMContentLoaded', function () {
             if (searchVal) url.searchParams.set(`search_rhu${branch}`, searchVal);
             if (filterVal) url.searchParams.set(`filter_rhu${branch}`, filterVal);
 
-            // Clear other branch
             const other = branch === 1 ? 2 : 1;
             url.searchParams.delete(`search_rhu${other}`);
             url.searchParams.delete(`filter_rhu${other}`);
             url.searchParams.delete(`page_rhu${other}`);
 
-            window.location.href = url.href; // Full reload
+            window.location.href = url.href;
         });
 
-        // PAGINATION: Still AJAX
+        // Pagination (AJAX)
         container.addEventListener('click', function(e) {
             const link = e.target.closest('a[href]');
             if (!link || !link.classList.contains('pagination-link')) return;
@@ -268,36 +284,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     history.replaceState({}, '', url.href);
                 });
         });
-    });
-
-    // Export CSV
-    window.exportCSV = function(branch) {
-        const url = new URL(baseUrl);
-        url.searchParams.set('export', 'csv');
-        url.searchParams.set('branch', branch);
-        const search = document.getElementById(`search-rhu${branch}`).value.trim();
-        const filter = document.getElementById(`filter-rhu${branch}`).value;
-        if (search) url.searchParams.set(`search_rhu${branch}`, search);
-        if (filter) url.searchParams.set(`filter_rhu${branch}`, filter);
-        window.location = url.href;
-    };
-
-    // Transfer Modal
-    document.addEventListener('click', e => {
-        const transferBtn = e.target.closest('.transfer-stock-btn');
-        if (transferBtn) {
-            const modal = document.getElementById('transferstockmodal');
-            modal.classList.remove('hidden');
-            document.getElementById('transfer-inventory-id').value = transferBtn.dataset.stockId;
-            document.getElementById('transfer-product-name').textContent = `${transferBtn.dataset.product} ${transferBtn.dataset.strength} ${transferBtn.dataset.form}`;
-            document.getElementById('transfer-batch').textContent = transferBtn.dataset.batch;
-            document.getElementById('transfer-current-branch').textContent = transferBtn.dataset.branch;
-            document.getElementById('transfer-available-qty').textContent = transferBtn.dataset.quantity;
-            document.getElementById('destination_branch').value = transferBtn.dataset.branchId == 1 ? 2 : 1;
-        }
-        if (e.target.matches('#transferstockmodal') || e.target.closest('#transferstockmodal button[onclick]')) {
-            document.getElementById('transferstockmodal').classList.add('hidden');
-        }
     });
 });
 </script>

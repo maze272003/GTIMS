@@ -7,6 +7,7 @@ use App\Http\Controllers\AdminController\ProductMovementController;
 use App\Http\Controllers\AdminController\InventoryController;
 use App\Http\Controllers\AdminController\PatientRecordsController;
 use App\Http\Controllers\AdminController\HistorylogController;
+use App\Http\Controllers\AdminController\InventoryExportController;
 use App\Http\Controllers\AdminController\ManageaccountController;
 use Illuminate\Support\Facades\Auth; // <-- Siguraduhin na nandito ito
 use App\Http\Controllers\Auth\OtpLoginController;
@@ -71,7 +72,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/patientrecords', [PatientRecordsController::class, 'updatePatientRecord'])->name('patientrecords.update');
 
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
-        
+        Route::post('/inventory/export', [InventoryExportController::class, 'export'])->name('inventory.export');
         
         // == B. ADMIN/SUPERADMIN ROUTES (Level 1, 2 ONLY) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.admin (L1, L2)
