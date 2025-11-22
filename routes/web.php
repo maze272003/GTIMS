@@ -71,6 +71,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
             Route::put('/patientrecords', [PatientRecordsController::class, 'updatePatientRecord'])->name('patientrecords.update');
            Route::get('/patientrecords/export-pdf', [PatientRecordsController::class, 'exportPdf'])->name('patientrecords.exportPdf');
+           Route::get('/patientrecords/export-excel', [PatientRecordsController::class, 'exportExcel'])
+    ->name('patientrecords.exportExcel');
 
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
         Route::post('/inventory/export', [InventoryExportController::class, 'export'])->name('inventory.export');

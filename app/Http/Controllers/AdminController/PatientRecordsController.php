@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\HistoryLog;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\PatientRecordsExport;
 
 class PatientRecordsController extends Controller
 {
@@ -311,5 +313,16 @@ class PatientRecordsController extends Controller
         $pdf->setPaper('A4', 'landscape');
 
         return $pdf->download('patient_records_' . Carbon::now()->format('Ymd_His') . '.pdf');
+    }
+    public function exportExcel(Request $request)
+    {
+        $user = Auth::user();
+        
+        // Pass all request inputs (filters) and the current user to the Export class
+        return Excel::download(new PatientRecordsExport($request->all(), $user), 'patient_records_' . Carbon::now()->format('Ymd_His') . '.xlsx');
+        
+        // Note: If you specifically meant "CSV" when you said "CV export", 
+        // you can just change the extension above to '.csv':
+        // return Excel::download(new PatientRecordsExport($request->all(), $user), 'records.csv', \Maatwebsite\Excel\Excel::CSV);
     }
 }
