@@ -99,12 +99,12 @@
                                 @endif
 
                                 {{-- NEW FILTER MODAL BUTTON - SAME DESIGN --}}
-                                <button type="button" id="openFilterModal" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                <button type="button" id="openFilterModal" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
                                     <i class="fa-regular fa-sliders-up text-lg mr-2"></i>
                                     <span class="hidden sm:inline">Filter</span>
                                 </button>
 
-                                <button class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                <button class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
                                     <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
                                     <span class="ml-2 hidden sm:inline">Export CSV</span>
                                 </button>
@@ -210,7 +210,7 @@
 
                 {{-- ==================== FILTER MODAL ==================== --}}
                 <div id="filterModal" class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden overflow-y-auto">
-                    <div class="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+                    <div class="modal bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
                         <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-5">
                             <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
                                 <i class="fa-regular fa-sliders-up mr-2 text-blue-600"></i> Filter Records
