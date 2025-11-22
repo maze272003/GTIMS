@@ -221,6 +221,19 @@
                 </select>
               </div>
 
+              {{-- <--- NEW: BRANCH FILTER ---/> --}}
+              <div>
+                <label for="filter_branch" class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                <select name="filter_branch" id="filter_branch" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                  <option value="">All Branches</option>
+                  @foreach($filter_branches as $branch)
+                    <option value="{{ $branch->id }}" @selected(($filterInputs['filter_branch'] ?? '') == $branch->id)>
+                      {{ $branch->name }}
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+
               {{-- Barangay Filter --}}
               <div>
                 <label for="filter_barangay" class="block text-sm font-medium text-gray-700 mb-1">Barangay</label>
@@ -234,7 +247,7 @@
                 </select>
               </div>
               
-              {{-- <--- ADDED PRODUCT FILTER HERE ---/> --}}
+              {{-- Product Filter --}}
               <div>
                 <label for="filter_product_id" class="block text-sm font-medium text-gray-700 mb-1">Product</label>
                 <select name="filter_product_id" id="filter_product_id" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
@@ -246,9 +259,8 @@
                   @endforeach
                 </select>
               </div>
-              {{-- <--- END ADDED PRODUCT FILTER ---/> --}}
 
-              {{-- Grouping --}}
+              {{-- Grouping (Moved to next row/auto-placed) --}}
               <div>
                 <label for="grouping" class="block text-sm font-medium text-gray-700 mb-1">Group Trend By</label>
                 <select name="grouping" id="grouping" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
@@ -593,8 +605,9 @@
       filterLabels: {
           timespan: @json($filterTimespanLabel),
           barangay: @json($filterBarangayLabel),
+          branch: @json($filterBranchLabel), // <--- ADDED BRANCH LABEL
           // Use drilldown product name as the main product filter label
-          product: @json($filterProductLabel), // <--- ADDED PRODUCT LABEL
+          product: @json($filterProductLabel),
           drilldownProduct: @json($drilldown_product_name)
       }
     };
@@ -710,7 +723,6 @@
     }
     
     // --- DRILL-DOWN FUNCTION (NOW AJAX) ---
-    // --- DRILL-DOWN FUNCTION (NOW AJAX) ---
   async function handleDrillDown(productId) {
       showLoader('consumptionChart');
       showLoader('barangayChart');
@@ -759,9 +771,8 @@
 
           // 2. Update Barangay Chart (Stacked)
           if (window.myCharts.barangayChart) {
-               // FIX HERE 
-               window.myCharts.barangayChart.data.labels = data.barangay.labels; // Was data.barangayLabels
-               const stackedData = data.barangay.stackedData; // Was data.barangayStackedData
+               window.myCharts.barangayChart.data.labels = data.barangay.labels; 
+               const stackedData = data.barangay.stackedData; 
                const categories = Object.keys(stackedData);
                
                // Rebuild datasets
@@ -770,18 +781,15 @@
                    data: stackedData[category],
                    backgroundColor: categoryColors[category] || '#cccccc'
                }));
-               // END FIX
-
+               
                updateChartSubtitle('barangayChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
                window.myCharts.barangayChart.update();
           }
 
           // 3. Update Patient Visit Trend Chart
           if (window.myCharts.patientVisitChart) {
-               // FIX HERE 
-               window.myCharts.patientVisitChart.data.labels = data.patientVisit.labels; // Was data.patientVisitLabels
-               window.myCharts.patientVisitChart.data.datasets[0].data = data.patientVisit.data; // Was data.patientVisitData
-               // END FIX
+               window.myCharts.patientVisitChart.data.labels = data.patientVisit.labels; 
+               window.myCharts.patientVisitChart.data.datasets[0].data = data.patientVisit.data; 
                
                // Update title dynamically
                let title = 'Patient Visit Trend';
@@ -804,7 +812,8 @@
            // Update filter labels stored in JS (Including product label)
            initialChartData.filterLabels.timespan = data.filterTimespanLabel;
            initialChartData.filterLabels.barangay = data.filterBarangayLabel;
-           initialChartData.filterLabels.product = data.drilldownProductName ?? 'All Products'; // Update main product filter label to match drilldown if set
+           initialChartData.filterLabels.branch = data.filterBranchLabel; // <--- UPDATE BRANCH
+           initialChartData.filterLabels.product = data.drilldownProductName ?? 'All Products'; 
            initialChartData.filterLabels.drilldownProduct = data.drilldownProductName;
 
            // Update URL
@@ -910,7 +919,18 @@
              productFilter = `, Product: ${selectedOption.textContent.trim()}`;
           }
           
-          let subtitle = `Showing data for: ${timespan}`;
+          // NEW: Get Branch Name from Dropdown or Initial Data
+          let branchFilter = '';
+          const branchSelect = document.getElementById('filter_branch');
+          if (branchSelect && branchSelect.value) {
+             const selectedBranch = branchSelect.options[branchSelect.selectedIndex].textContent.trim();
+             branchFilter = `, Branch: ${selectedBranch}`;
+          } else {
+             // If dropdown is reset/empty, assume 'All Branches'
+             branchFilter = ', Branch: All Branches';
+          }
+
+          let subtitle = `Showing data for: ${timespan}${branchFilter}`;
           if (barangay && barangay !== 'All Barangays') {
               subtitle += `, ${barangay}`;
           }
@@ -926,6 +946,10 @@
         const formData = new FormData(form);
         formData.append('ajax_update', 'forecast'); // Signal to backend
         
+        // Also append filter_branch from main form to forecast query
+        const branchVal = document.getElementById('filter_branch').value;
+        if(branchVal) formData.append('filter_branch', branchVal);
+
         const queryString = new URLSearchParams(formData).toString();
         const url = `${form.action}?${queryString}`;
 
@@ -970,18 +994,13 @@
         if (selectedProductId && selectedProductId !== drilldownProductId) {
              document.getElementById('drilldown_product_id').value = ''; // Clear drilldown
              formData.delete('drilldown_product_id'); // Ensure cleared in form data
-             // The controller will now use filter_product_id as the active product ID
         } else if (!selectedProductId && drilldownProductId) {
              // If filter is cleared but drilldown is still active, clear drilldown too
              document.getElementById('drilldown_product_id').value = '';
              formData.delete('drilldown_product_id');
         }
         
-        // Re-read form data to get final state
-        const finalFormData = new FormData(form);
-        finalFormData.append('ajax_update', 'main_charts');
-        
-        const queryString = new URLSearchParams(finalFormData).toString();
+        const queryString = new URLSearchParams(formData).toString();
         const url = `${form.action}?${queryString}`;
 
         // Show all relevant loaders
@@ -1057,9 +1076,10 @@
             // Update global filter labels and drilldown indicator
             initialChartData.filterLabels.timespan = data.filterTimespanLabel;
             initialChartData.filterLabels.barangay = data.filterBarangayLabel;
-            initialChartData.filterLabels.product = data.filterProductLabel; // Update main product filter label
+            initialChartData.filterLabels.branch = data.filterBranchLabel; // <--- UPDATE BRANCH
+            initialChartData.filterLabels.product = data.filterProductLabel;
             initialChartData.filterLabels.drilldownProduct = data.drilldownProductName;
-            updateDrilldownIndicator(data.drilldownProductName); // Update drilldown indicator
+            updateDrilldownIndicator(data.drilldownProductName);
 
             // Update URL
             window.history.pushState({}, '', url);
@@ -1188,69 +1208,66 @@
     document.addEventListener('DOMContentLoaded', function () {
     
       // Filter toggle logic for custom dates
-     // --- START: New Timespan & Grouping Logic ---
-        // Get all the elements we need
-        const timespanSelect = document.getElementById('filter_timespan');
-        const customDates = document.getElementById('custom_dates_container');
-        const groupingSelect = document.getElementById('grouping');
-        const weekOption = groupingSelect.querySelector('option[value="week"]');
-        const monthOption = groupingSelect.querySelector('option[value="month"]');
+      // --- START: New Timespan & Grouping Logic ---
+        // Get all the elements we need
+        const timespanSelect = document.getElementById('filter_timespan');
+        const customDates = document.getElementById('custom_dates_container');
+        const groupingSelect = document.getElementById('grouping');
+        const weekOption = groupingSelect.querySelector('option[value="week"]');
+        const monthOption = groupingSelect.querySelector('option[value="month"]');
 
-        // This function will run on change and on page load
-        function updateGroupingOptions() {
-            // Safety check in case elements aren't found
-            if (!timespanSelect || !groupingSelect || !weekOption || !monthOption) return;
+        // This function will run on change and on page load
+        function updateGroupingOptions() {
+            // Safety check in case elements aren't found
+            if (!timespanSelect || !groupingSelect || !weekOption || !monthOption) return;
 
-            const selectedTimespan = timespanSelect.value;
-            const currentGrouping = groupingSelect.value;
+            const selectedTimespan = timespanSelect.value;
+            const currentGrouping = groupingSelect.value;
 
-            // 1. By default, enable all grouping options
-            weekOption.disabled = false;
-            monthOption.disabled = false;
+            // 1. By default, enable all grouping options
+            weekOption.disabled = false;
+            monthOption.disabled = false;
 
-            // 2. Apply rules to disable options
-            if (selectedTimespan === '7d') {
-                // Disable both week and month
-                weekOption.disabled = true;
-                monthOption.disabled = true;
-                // If one was selected, reset to 'day'
-                if (currentGrouping === 'week' || currentGrouping === 'month') {
-                    groupingSelect.value = 'day';
-                }
-            } else if (selectedTimespan === '30d') {
-                // Disable only month
-                monthOption.disabled = true;
-                // If 'month' was selected, reset to 'day'
-                if (currentGrouping === 'month') {
-                    groupingSelect.value = 'day';
-                }
-            }
-            // For '90d', '1y', 'all', and 'custom', all options remain enabled.
-            // You could add more complex logic for 'custom' by comparing dates,
-            // but this handles the main dropdowns.
+            // 2. Apply rules to disable options
+            if (selectedTimespan === '7d') {
+                // Disable both week and month
+                weekOption.disabled = true;
+                monthOption.disabled = true;
+                // If one was selected, reset to 'day'
+                if (currentGrouping === 'week' || currentGrouping === 'month') {
+                    groupingSelect.value = 'day';
+                }
+            } else if (selectedTimespan === '30d') {
+                // Disable only month
+                monthOption.disabled = true;
+                // If 'month' was selected, reset to 'day'
+                if (currentGrouping === 'month') {
+                    groupingSelect.value = 'day';
+                }
+            }
+            
+            // 3. Handle the custom dates visibility
+            if (customDates) {
+                if (selectedTimespan === 'custom') {
+                    customDates.classList.remove('hidden');
+                } else {
+                    customDates.classList.add('hidden');
+                }
+            }
+        }
 
-            // 3. Handle the custom dates visibility (your existing logic)
-            if (customDates) {
-                if (selectedTimespan === 'custom') {
-                    customDates.classList.remove('hidden');
-                } else {
-                    customDates.classList.add('hidden');
-                }
-            }
-        }
-
-        // Add the listener to the timespan select
-        if (timespanSelect) {
-            timespanSelect.addEventListener('change', updateGroupingOptions);
-            
-            // IMPORTANT: Run it once on page load to set the initial state
-            updateGroupingOptions();
-        }
-        // --- END: New Timespan & Grouping Logic ---
+        // Add the listener to the timespan select
+        if (timespanSelect) {
+            timespanSelect.addEventListener('change', updateGroupingOptions);
+            
+            // IMPORTANT: Run it once on page load to set the initial state
+            updateGroupingOptions();
+        }
+        // --- END: New Timespan & Grouping Logic ---
 
       // Set initial chart data
       
-      // --- CHART INITIALIZ});ATION ---
+      // --- CHART INITIALIZATION ---
       
       // 1. Consumption Chart (Line)
       const consumptionCtx = document.getElementById('consumptionChart').getContext('2d');
@@ -1413,7 +1430,7 @@
           plugins: { 
             legend: { display: false },
               title: { 
-                  display: false, // Title is now the H3 tag
+                  display: false, 
                   text: '...',
                   padding: { bottom: 5 }
               },
@@ -1421,7 +1438,6 @@
                 mode: 'index',
                 intersect: false,
               },
-              // ADDED: Zoom
               zoom: {
                 pan: {
                     enabled: true,
@@ -1433,7 +1449,6 @@
                     mode: 'x',
                 }
               }
-              // END Zoom
           },
           scales: { 
               y: { beginAtZero: true, title: { display: true, text: 'Number of Patients' } }, 
@@ -1466,7 +1481,6 @@
                 mode: 'index',
                 intersect: false,
             },
-            // ADDED: Zoom
             zoom: {
                 pan: {
                     enabled: true,
@@ -1478,7 +1492,6 @@
                     mode: 'x',
                 }
             }
-            // END Zoom
           }, 
           animation: { duration: 1000, easing: 'easeOutQuad' }
         }
@@ -1522,16 +1535,14 @@
           const newType = btn.dataset.type;
           const parent = btn.parentElement;
           
-          // UPDATED: To include new toggle
           let chartId;
           if (parent.id === 'consumptionChartToggle') {
               chartId = 'consumptionChart';
           } else if (parent.id === 'topProductsChartToggle') {
               chartId = 'topProductsChart';
-          } else if (parent.id === 'patientVisitChartToggle') { // <-- ADDED
+          } else if (parent.id === 'patientVisitChartToggle') { 
               chartId = 'patientVisitChart';
           }
-          // END UPDATE
 
           if (chartId) {
               parent.querySelectorAll('.chart-toggle').forEach(b => b.classList.remove('active-toggle'));
@@ -1634,7 +1645,7 @@
         updateChartSubtitle('consumptionChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
         updateChartSubtitle('topProductsChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.product === 'All Products' ? null : initialChartData.filterLabels.product); // Uses main product filter if no drilldown
         updateChartSubtitle('barangayChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
-        updateChartSubtitle('patientVisitChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct); // <-- CHANGED
+        updateChartSubtitle('patientVisitChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct); 
         updateChartSubtitle('hotspotsSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
 
         // Event Listener for AJAX Clear Drilldown
