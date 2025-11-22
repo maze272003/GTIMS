@@ -39,6 +39,7 @@ class UserSeeder extends Seeder
             'name' => 'Sigrae Super Duper',
             'email' => 'sde.gabriel.77@gmail.com',
             'branch_id' => 1,
+            'branch_id' => 1,
             'password' => Hash::make('12345678'), // Awtomatikong na-hash
             'email_verified_at' => now(), // Set as verified na
             'user_level_id' => 1, // ID para sa 'superadmin'
@@ -48,6 +49,7 @@ class UserSeeder extends Seeder
             'name' => 'Ace',
             'email' => 'acepadillaace@gmail.com',
             'branch_id' => 1,
+            'branch_id' => 1,
             'password' => Hash::make('12345678'), // Awtomatikong na-hash
             'email_verified_at' => now(), // Set as verified na
             'user_level_id' => 1, // ID para sa 'superadmin'
@@ -55,7 +57,7 @@ class UserSeeder extends Seeder
 
         // 2. Admin
         User::create([
-            'name' => 'Pharmacist (RHU 1, RHU 2)',
+            'name' => 'Pharmacist (RHU 1)',
             'email' => 'johnmichaeljonatas71@gmail.com',
             'branch_id' => 1,
             'password' => Hash::make('password'),
@@ -63,7 +65,7 @@ class UserSeeder extends Seeder
             'user_level_id' => 2, // ID para sa 'admin'
         ]);
         User::create([
-            'name' => 'Pharmacist (RHU 1, RHU 2)',
+            'name' => 'Pharmacist (RHU 2)',
             'email' => 'johnmichaeljonatas72@gmail.com',
             'branch_id' => 1,
             'password' => Hash::make('password'),
@@ -74,7 +76,9 @@ class UserSeeder extends Seeder
         // 3. Encoder
         User::create([
             'name' => 'Staff',
+            'name' => 'Staff',
             'email' => 'jg.jonatas.au@phinmaed.com',
+            'branch_id' => 2,
             'branch_id' => 2,
             'password' => Hash::make('password'),
             'email_verified_at' => now(),

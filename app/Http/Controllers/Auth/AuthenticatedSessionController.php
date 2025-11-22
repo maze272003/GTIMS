@@ -92,9 +92,9 @@ class AuthenticatedSessionController extends Controller
 
         } elseif ($user->level->name == 'admin') {
             // --- BRANCH REDIRECTION LOGIC START ---
-            if ($user->branch_id == 2) {
-                return redirect()->route('admin.inventory');
-            }
+            // if ($user->branch_id == 2) {
+            //     return redirect()->route('admin.inventory');
+            // }
             
             // Default for branch_id == 1 (or others)
             return redirect()->route('admin.dashboard');
@@ -104,9 +104,9 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('admin.dashboard'); 
         }
         elseif ($user->level->name == 'doctor') {
-            if ($user->branch_id == 2) {
-                return redirect()->route('admin.inventory');
-            }
+            // if ($user->branch_id == 2) {
+            //     return redirect()->route('admin.inventory');
+            // }
             return redirect()->route('admin.dashboard'); 
         }
 

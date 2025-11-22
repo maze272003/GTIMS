@@ -10,7 +10,7 @@
         <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
             <x-admin.header/>
 
-            @if(in_array(auth()->user()->user_level_id, [1,2,3,4]) && auth()->user()->branch_id != 2)
+            {{-- @if(in_array(auth()->user()->user_level_id, [1,2,3,4]) && auth()->user()->branch_id != 2) --}}
                 <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
                     <div class="mb-6 pt-16">
                         <p class="text-sm text-gray-600 dark:text-gray-400">Home / <span class="text-red-700 dark:text-red-300 font-medium">Product Movements</span></p>
@@ -137,14 +137,14 @@
                         </div>
                     </div>
                 </main>
-            @else
-                <main class="pt-20 p-8 text-center">
+            {{-- @else --}}
+                {{-- <main class="pt-20 p-8 text-center">
                     <i class="fa-regular fa-lock text-6xl text-gray-400 mb-4"></i>
                     <h1 class="text-3xl font-bold">Unauthorized Access</h1>
                     <p>You do not have permission to view this page.</p>
                     <a href="{{ route('admin.inventory') }}" class="mt-4 px-6 py-3 bg-blue-600 text-white rounded">Go to Inventory</a>
-                </main>
-            @endif
+                </main> --}}
+            {{-- @endif --}}
         </div>
     </body>
 </x-app-layout>
