@@ -102,10 +102,10 @@
                                     <span class="hidden sm:inline">Filter</span>
                                 </button>
 
-                                <button class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
-                                    <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
-                                    <span class="ml-2 hidden sm:inline">Export CSV</span>
-                                </button>
+                                <a href="{{ route('admin.patientrecords.exportPdf', request()->all()) }}" target="_blank" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                    <i class="fa-regular fa-file-pdf text-lg text-red-600 dark:text-red-400"></i>
+                                    <span class="ml-2 hidden sm:inline">Export PDF</span>
+                                </a>
                             </div>
                         </div>
 

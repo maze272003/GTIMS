@@ -14,6 +14,7 @@ use App\Models\Branch;
 use Illuminate\Support\Facades\Auth;
 use App\Models\HistoryLog;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PatientRecordsController extends Controller
 {
@@ -21,17 +22,15 @@ class PatientRecordsController extends Controller
     {
         $user = Auth::user();
 
-        // === 1. BUILD THE QUERY (Filters apply to both AJAX and Full Page) ===
+        // === 1. BUILD THE QUERY ===
         $query = Patientrecords::with(['dispensedMedications', 'barangay', 'branch']);
 
         // --- Branch Filtering ---
         if (in_array($user->user_level_id, [1, 2])) {
-            // Admin: optional branch filter
             if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
                 $query->where('branch_id', $request->branch_filter);
             }
         } else {
-            // Encoder/Doctor: only own branch
             $query->where('branch_id', $user->branch_id);
         }
 
@@ -39,36 +38,30 @@ class PatientRecordsController extends Controller
         if ($request->filled('from_date')) {
             $query->whereDate('created_at', '>=', $request->from_date);
         }
-
         if ($request->filled('to_date')) {
             $query->whereDate('created_at', '<=', $request->to_date);
         }
-
         if ($request->filled('category') && $request->category !== '') {
             $query->where('category', $request->category);
         }
-
         if ($request->filled('barangay_id') && $request->barangay_id !== '') {
             $query->where('barangay_id', $request->barangay_id);
         }
 
-        // === 2. GET PAGINATED RESULTS ===
+        // === 2. PAGINATION ===
         $patientrecords = $query->latest()->paginate(20)->withQueryString();
 
-        // === 3. AJAX CHECK (The Key Change) ===
-        // If the request comes from our JS fetch(), return only the table partial
+        // === 3. AJAX CHECK ===
         if ($request->ajax()) {
             return view('admin.partials.patientrecords_table', compact('patientrecords'))->render();
         }
 
-        // === 4. LOAD DATA FOR FULL PAGE ONLY (Dropdowns & Stats) ===
-        // We only need to load these if we are rendering the full dashboard, not just paging the table.
-        
+        // === 4. LOAD FULL PAGE DATA ===
         $products = Inventory::with('product')->where('is_archived', 2)->latest()->get();
         $barangays = Barangay::all();
         $branches = Branch::all();
 
-        // Calculate Stats (Re-using filter logic for accuracy)
+        // Calculate Stats
         $statsQuery = Patientrecords::query();
 
         if (in_array($user->user_level_id, [1, 2])) {
@@ -99,7 +92,6 @@ class PatientRecordsController extends Controller
             return $record->dispensedMedications->count();
         });
 
-        // === 5. RETURN FULL VIEW ===
         return view('admin.patientrecords', compact(
             'products',
             'barangays',
@@ -135,8 +127,6 @@ class PatientRecordsController extends Controller
 
         $user = Auth::user(); 
 
-        $user = Auth::user(); 
-
         // Check inventory first
         foreach ($validated['medications'] as $med) {
             $inventory = Inventory::findOrFail($med['name']);
@@ -146,7 +136,6 @@ class PatientRecordsController extends Controller
         }
 
         // Create PatientRecord
-        // IMPORTANT: We explicitly set the branch_id based on the logged-in user
         $newRecord = Patientrecords::create([
             'patient_name' => $validated['patient-name'],
             'barangay_id' => $validated['barangay_id'],
@@ -157,26 +146,20 @@ class PatientRecordsController extends Controller
         ]);
 
         // === HISTORY LOG ===
-        // === HISTORY LOG ===
         HistoryLog::create([
             'action' => 'RECORD ADDED',
-            'description' => "Recorded medication dispensation for patient {$newRecord->patient_name} (Record #: {$newRecord->id}) at " . ($user->branch->name ?? 'Branch ID ' . $user->branch_id) . ".",
-            'user_id' => $user->id,
-            'user_name' => $user->name ?? 'System',
             'description' => "Recorded medication dispensation for patient {$newRecord->patient_name} (Record #: {$newRecord->id}) at " . ($user->branch->name ?? 'Branch ID ' . $user->branch_id) . ".",
             'user_id' => $user->id,
             'user_name' => $user->name ?? 'System',
             'metadata' => [
                 'patientrecord_id' => $newRecord->id,
                 'branch_id' => $user->branch_id
-                
             ],
         ]);
 
         // Create dispensed medications and deduct inventory
         foreach ($validated['medications'] as $med) {
             $inventory = Inventory::findOrFail($med['name']);
-            
             
             $quantity_before = $inventory->quantity;
             $quantity_to_deduct = $med['quantity'];
@@ -187,11 +170,9 @@ class PatientRecordsController extends Controller
             $inventory->save();
 
             // Log Product Movement
-            // Log Product Movement
             ProductMovement::create([
                 'product_id'      => $inventory->product_id,
                 'inventory_id'    => $inventory->id,
-                'user_id'         => $user->id,
                 'user_id'         => $user->id,
                 'type'            => 'OUT',
                 'quantity'        => $quantity_to_deduct,
@@ -252,7 +233,6 @@ class PatientRecordsController extends Controller
             'purok' => $validated['purok'],
             'category' => $validated['category'],
             'date_dispensed' => $validated['date-dispensed'],
-            // Note: We usually don't allow changing the branch_id on edit unless specifically required
         ]);
 
         // HISTORY LOG: UPDATE
@@ -263,15 +243,12 @@ class PatientRecordsController extends Controller
         HistoryLog::create([
             'action' => 'RECORD UPDATED',
             'description' => "Updated patient record #{$record->id} for {$record->patient_name}. 
-            
             CHANGES: 
             - Patient Name: {$old['patient_name']} to {$record->patient_name}. 
             - Baragay: {$old['barangay_name']} to {$record->barangay->barangay_name}. 
             - Purok: {$old['purok']} to {$record->purok}. 
             - Category: {$old['category']} to {$record->category}. 
             - Date Dispensed: {$oldDate} ({$time}) to {$newDate} ({$time}).",
-            'user_id' => $user->id,
-            'user_name' => $user->name ?? 'System',
             'user_id' => $user->id,
             'user_name' => $user->name ?? 'System',
             'metadata' => [
@@ -284,5 +261,55 @@ class PatientRecordsController extends Controller
         }
 
         return to_route('admin.patientrecords')->with('success', 'Dispensation updated successfully.');
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $user = Auth::user();
+
+        // 1. REUSE FILTERS
+        $query = Patientrecords::with(['dispensedMedications', 'barangay', 'branch']);
+
+        // --- Branch Filtering ---
+        if (in_array($user->user_level_id, [1, 2])) {
+            if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
+                $query->where('branch_id', $request->branch_filter);
+            }
+        } else {
+            $query->where('branch_id', $user->branch_id);
+        }
+
+        // --- Date & Category Filters ---
+        if ($request->filled('from_date')) {
+            $query->whereDate('created_at', '>=', $request->from_date);
+        }
+        if ($request->filled('to_date')) {
+            $query->whereDate('created_at', '<=', $request->to_date);
+        }
+        if ($request->filled('category') && $request->category !== '') {
+            $query->where('category', $request->category);
+        }
+        if ($request->filled('barangay_id') && $request->barangay_id !== '') {
+            $query->where('barangay_id', $request->barangay_id);
+        }
+
+        // 2. GET DATA
+        $records = $query->latest()->get();
+
+        // 3. GENERATE PDF
+        $pdf = Pdf::loadView('admin.pdf.patientrecords_pdf', [
+            'patientrecords' => $records,
+            'generated_by' => $user->name,
+            'date' => Carbon::now()->format('F d, Y'),
+            'filters' => [
+                'from' => $request->from_date,
+                'to' => $request->to_date,
+                'category' => $request->category,
+            ]
+        ]);
+
+        $pdf->setPaper('A4', 'landscape');
+
+        return $pdf->download('patient_records_' . Carbon::now()->format('Ymd_His') . '.pdf');
     }
 }
