@@ -20,41 +20,66 @@ class InventoryController extends Controller
     {
         $products = Product::where('is_archived', 1)->get();
         $archiveproducts = Product::where('is_archived', 2)->get();
-        $branch = 
-
-        // Combined count for cards
         $inventorycount = Inventory::where('is_archived', 2)->get();
 
         // RHU 1
         $query1 = Inventory::where('branch_id', 1)->where('is_archived', 2);
+
         if ($request->filled('search_rhu1')) {
             $search = strtolower($request->search_rhu1);
             $query1->where(function ($q) use ($search) {
                 $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
-                ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
+                ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])
+                                            ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
             });
         }
+
+        if ($request->filled('filter_rhu1')) {
+            $filter = $request->filter_rhu1;
+            match ($filter) {
+                'in_stock'       => $query1->where('quantity', '>=', 100),
+                'low_stock'      => $query1->where('quantity', '>', 0)->where('quantity', '<', 100),
+                'out_of_stock'   => $query1->where('quantity', '<=', 0),
+                'nearly_expired' => $query1->where('expiry_date', '>', now())->where('expiry_date', '<', now()->addDays(30)),
+                'expired'        => $query1->where('expiry_date', '<', now()),
+            };
+        }
+
         $inventories_rhu1 = $query1->with('product')->paginate(20, ['*'], 'page_rhu1');
 
         // RHU 2
         $query2 = Inventory::where('branch_id', 2)->where('is_archived', 2);
+
         if ($request->filled('search_rhu2')) {
             $search = strtolower($request->search_rhu2);
             $query2->where(function ($q) use ($search) {
                 $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
-                ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
+                ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])
+                                            ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
             });
         }
+
+        if ($request->filled('filter_rhu2')) {
+            $filter = $request->filter_rhu2;
+            match ($filter) {
+                'in_stock'       => $query2->where('quantity', '>=', 100),
+                'low_stock'      => $query2->where('quantity', '>', 0)->where('quantity', '<', 100),
+                'out_of_stock'   => $query2->where('quantity', '<=', 0),
+                'nearly_expired' => $query2->where('expiry_date', '>', now())->where('expiry_date', '<', now()->addDays(30)),
+                'expired'        => $query2->where('expiry_date', '<', now()),
+            };
+        }
+
         $inventories_rhu2 = $query2->with('product')->paginate(20, ['*'], 'page_rhu2');
 
         if ($request->ajax()) {
             $branch = $request->input('branch', 1);
             $inventories = $branch == 1 ? $inventories_rhu1 : $inventories_rhu2;
             return view('admin.partials._inventory_table', [
-                'inventories' => $inventories, 
+                'inventories' => $inventories,
                 'branch' => $branch
-                ])->render();
-            }
+            ])->render();
+        }
 
         return view('admin.inventory', [
             'products' => $products,
@@ -191,7 +216,7 @@ class InventoryController extends Controller
 
         $product = Product::findOrFail($validated['product_id']);
         $product->update([
-            'is_archived' => 1,
+            'is_archived' => 2,
         ]);
 
         // Archive stock that belongs to the product
@@ -225,7 +250,7 @@ class InventoryController extends Controller
 
         $product = Product::findOrFail($validated['product_id']);
         $product->update([
-            'is_archived' => 2,
+            'is_archived' => 1,
         ]);
 
         // Unarchive stock that belongs to the product
