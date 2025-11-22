@@ -34,7 +34,10 @@ class AuthenticatedSessionController extends Controller
     public function store(LoginRequest $request): RedirectResponse
     {
         $request->validate([
-            'g-recaptcha-response' => 'required|captcha',
+        'g-recaptcha-response' => 'required|captcha',
+        ], [
+            'g-recaptcha-response.required' => 'Please complete the captcha verification.',
+            'g-recaptcha-response.captcha' => 'Captcha verification failed, please try again.',
         ]);
 
         $request->authenticate();
@@ -42,7 +45,17 @@ class AuthenticatedSessionController extends Controller
 
         /** @var \App\Models\User $user */
         $user = Auth::user();
+        if (is_null($user->email_verified_at)) {
+        
+        // Logout agad
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
+        // Ibalik sa login page may error message
+        return redirect('/login')->with('error', 'Your account is not verified yet. Please check your email or contact support.');
+    }
+        // security check: kung ang user level ay null, logout agad
         // If user_level_id is null, $user->level will be null.
         if (is_null($user->level)) {
             Auth::guard('web')->logout();
@@ -52,9 +65,7 @@ class AuthenticatedSessionController extends Controller
             return redirect('/')->with('error', 'You are not authorized to access this application.');
         }
 
-        // ================================================
-        // === BAGONG "NEW LOGIN NOTIFICATION" LOGIC ===
-        // ================================================
+        // email notification for new login from different IP
         $currentIp = $request->ip();
 
         // Ipadala lang ang email kung ang IP ay bago
@@ -71,8 +82,6 @@ class AuthenticatedSessionController extends Controller
         $user->last_login_at = now();
         $user->last_login_ip = $currentIp;
         $user->save();
-        // ================================================
-        // === KATAPUSAN NG BAGONG LOGIC ===
         // ================================================
 
         if ($user->level->name == 'superadmin') {
@@ -92,6 +101,9 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('admin.dashboard'); 
         }
         elseif ($user->level->name == 'doctor') {
+            if ($user->branch_id == 2) {
+                return redirect()->route('admin.inventory');
+            }
             return redirect()->route('admin.dashboard'); 
         }
 

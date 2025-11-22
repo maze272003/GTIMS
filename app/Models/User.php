@@ -24,6 +24,7 @@ class User extends Authenticatable
         'otp', // Idagdag ito
         'otp_expires_at', // Idagdag ito
         'branch_id',
+        'user_level_id',
     ];
 
     /**

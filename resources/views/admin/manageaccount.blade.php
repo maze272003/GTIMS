@@ -1,310 +1,377 @@
 <x-app-layout>
-<body class="bg-gray-50 dark:bg-gray-900">
+<body class="bg-gray-50 dark:bg-gray-900 antialiased selection:bg-blue-500 selection:text-white">
     <x-admin.sidebar/>
 
-    <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
+    <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20 min-h-screen flex flex-col">
         <x-admin.header/>
-        <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
-            
-            <div class="mb-6 pt-16">
-                <p class="text-sm text-gray-500 dark:text-gray-400">Home / <span class="text-red-700 dark:text-red-200 font-medium">Manage Account</span></p>
-            </div>
+        
+        <main id="main-content" class="flex-1 pt-24 px-4 lg:px-8 pb-8">
 
-            <div x-data="userManagement()">
+            <div id="toast-container" class="fixed top-24 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
-                <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-4">
-                    <div>
-                        <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                            User Accounts
-                        </h1>
-                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                            Manage all Superadmin, Admin, and Encoder accounts.
-                        </p>
-                    </div>
-                    <button 
-                        @click="openModal('add')"
-                        class="w-full sm:w-auto bg-blue-600 dark:bg-blue-700 text-white font-medium py-2.5 px-5 rounded-lg shadow-md hover:bg-blue-700 dark:hover:bg-blue-800 transition duration-300 flex items-center justify-center">
-                        <i class="fa-solid fa-plus mr-2"></i> Add New User
-                    </button>
-                </div>
+            @if(session('success'))
+                <script>document.addEventListener('DOMContentLoaded', () => showToast("{{ session('success') }}", 'success'));</script>
+            @endif
+            @if($errors->any())
+                <script>document.addEventListener('DOMContentLoaded', () => showToast("Please check the form for errors.", 'error'));</script>
+            @endif
 
-                <div class="flex flex-col md:flex-row justify-between items-center mb-5 gap-4">
-                    <div class="relative w-full md:w-1/2 lg:w-1/3">
-                        <input type="text" 
-                               class="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 text-gray-900 dark:text-gray-100" 
-                               placeholder="Search by name or email...">
-                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <i class="fa-solid fa-search text-gray-400 dark:text-gray-500"></i>
+            <nav class="flex mb-6" aria-label="Breadcrumb">
+                <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                    <li class="inline-flex items-center">
+                        <a href="{{ route('admin.dashboard') }}" class="text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-white text-sm font-medium transition-colors">
+                            <i class="fa-solid fa-home mr-2"></i>Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <div class="flex items-center">
+                            <i class="fa-solid fa-chevron-right text-gray-400 mx-2 text-xs"></i>
+                            <span class="text-blue-600 dark:text-blue-400 text-sm font-medium">Manage Accounts</span>
                         </div>
-                    </div>
-                    
-                    <div class="flex flex-col sm:flex-row w-full md:w-auto items-center gap-4">
-                        <select class="w-full sm:w-auto bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg py-2.5 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200 text-gray-900 dark:text-gray-100">
-                            <option value="">All Roles</option>
-                            <option value="superadmin">Superadmin</option>
-                            <option value="admin">Admin</option>
-                            <option value="encoder">Encoder</option>
-                        </select>
-                    </div>
-                </div>
+                    </li>
+                </ol>
+            </nav>
 
-
-                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead class="bg-white dark:bg-gray-800 border-b-2 border-gray-200 dark:border-gray-700">
-                                <tr>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">User</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Role</th>
-                                    <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date Added</th>
-                                    <th scope="col" class="px-6 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-100 dark:divide-gray-700">
-                                
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div class="flex-shrink-0 h-10 w-10">
-                                                <img class="h-10 w-10 rounded-full object-cover" src="https://ui-avatars.com/api/?name=Super+Admin&background=4F46E5&color=fff&bold=true" alt="Super Admin">
-                                            </div>
-                                            <div class="ml-4">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Super Admin</div>
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">super@rhu.gov.ph</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-indigo-100 dark:bg-indigo-900/20 text-indigo-800 dark:text-indigo-300">
-                                            <i class="fa-solid fa-shield-halved mr-1.5"></i> Superadmin
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                        Oct 20, 2025
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                        <button @click="openModal('edit', { id: 1, name: 'Super Admin', email: 'super@rhu.gov.ph', role: 'superadmin' })" class="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition duration-150 mx-2" title="Edit">
-                                            <i class="fa-solid fa-pencil fa-lg"></i>
-                                        </button>
-                                        <button class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition duration-150 mx-2" title="Delete">
-                                            <i class="fa-solid fa-trash-can fa-lg"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div class="flex-shrink-0 h-10 w-10">
-                                                 <img class="h-10 w-10 rounded-full object-cover" src="https://ui-avatars.com/api/?name=Juan+Dela+Cruz&background=0E7490&color=fff&bold=true" alt="Juan Dela Cruz">
-                                            </div>
-                                            <div class="ml-4">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Juan Dela Cruz</div>
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">juan.admin@rhu.gov.ph</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-cyan-100 dark:bg-cyan-900/20 text-cyan-800 dark:text-cyan-300">
-                                            <i class="fa-solid fa-user-gear mr-1.5"></i> Admin
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                        Sep 15, 2025
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                        <button @click="openModal('edit', { id: 2, name: 'Juan Dela Cruz', email: 'juan.admin@rhu.gov.ph', role: 'admin' })" class="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition duration-150 mx-2" title="Edit">
-                                            <i class="fa-solid fa-pencil fa-lg"></i>
-                                        </button>
-                                        <button class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition duration-150 mx-2" title="Delete">
-                                            <i class="fa-solid fa-trash-can fa-lg"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150">
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div class="flex-shrink-0 h-10 w-10">
-                                                <img class="h-10 w-10 rounded-full object-cover" src="https://ui-avatars.com/api/?name=Maria+Santos&background=059669&color=fff&bold=true" alt="Maria Santos">
-                                            </div>
-                                            <div class="ml-4">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-gray-100">Maria Santos</div>
-                                                <div class="text-sm text-gray-500 dark:text-gray-400">maria.santos@rhu.gov.ph</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-teal-100 dark:bg-teal-900/20 text-teal-800 dark:text-teal-300">
-                                            <i class="fa-solid fa-keyboard mr-1.5"></i> Encoder
-                                        </span>
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                        Oct 30, 2025
-                                    </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
-                                        <button @click="openModal('edit', { id: 3, name: 'Maria Santos', email: 'maria.santos@rhu.gov.ph', role: 'encoder' })" class="text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition duration-150 mx-2" title="Edit">
-                                            <i class="fa-solid fa-pencil fa-lg"></i>
-                                        </button>
-                                        <button class="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition duration-150 mx-2" title="Delete">
-                                            <i class="fa-solid fa-trash-can fa-lg"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <div class="p-5 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                        <nav class="flex justify-between items-center" aria-label="Pagination">
-                            <p class="text-sm text-gray-700 dark:text-gray-300">
-                                Showing <span class="font-medium">1</span> to <span class="font-medium">3</span> of <span class="font-medium">3</span> results (Sample)
-                            </p>
-                            <div class="flex gap-2">
-                                <a href="#" class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
-                                    <i class="fa-solid fa-chevron-left mr-2 -ml-1 h-5 w-5"></i>
-                                    Previous
-                                </a>
-                                <a href="#" class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
-                                    Next
-                                    <i class="fa-solid fa-chevron-right ml-2 -mr-1 h-5 w-5"></i>
-                                </a>
-                            </div>
-                        </nav>
-                    </div>
+            <div class="flex flex-col md:flex-row justify-between items-end md:items-center mb-8 gap-4">
+                <div>
+                    <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">User Management</h1>
+                    <p class="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-xl">
+                        Create, update, and manage system access for all users across branches.
+                    </p>
                 </div>
                 
-                <div 
-                    x-show="isModalOpen" 
-                    x-transition:enter="transition ease-out duration-300"
-                    x-transition:enter-start="opacity-0"
-                    x-transition:enter-end="opacity-100"
-                    x-transition:leave="transition ease-in duration-200"
-                    x-transition:leave-start="opacity-100"
-                    x-transition:leave-end="opacity-0"
-                    class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 p-4"
-                    @click.away="isModalOpen = false"
-                    style="display: none;">
-                    
-                    <div 
-                        x-show="isModalOpen"
-                        x-transition:enter="transition ease-out duration-300"
-                        x-transition:enter-start="opacity-0 scale-95"
-                        x-transition:enter-end="opacity-100 scale-100"
-                        x-transition:leave="transition ease-in duration-200"
-                        x-transition:leave-start="opacity-100 scale-100"
-                        x-transition:leave-end="opacity-0 scale-95"
-                        class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg border border-gray-200 dark:border-gray-700" 
-                        @click.stop>
-                        
-                        <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-                            <h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100" x-text="modalTitle"></h2>
-                            <button @click="isModalOpen = false" class="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors">
-                                <i class="fa-solid fa-times fa-lg"></i>
-                            </button>
-                        </div>
-                        
-                        <form @submit.prevent="saveUser">
-                            <div class="p-6 space-y-5">
-                                <div>
-                                    <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Full Name</label>
-                                    <input type="text" id="name" x-model="name"
-                                           class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                           required>
-                                </div>
-                                
-                                <div>
-                                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email Address</label>
-                                    <input type="email" id="email" x-model="email"
-                                           class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                           required>
-                                </div>
+                <button onclick="openUserModal('add')" class="group relative w-full md:w-auto bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-medium py-2.5 px-6 rounded-xl shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50 transition-all duration-300 transform hover:-translate-y-0.5 flex items-center justify-center cursor-pointer">
+                    <i class="fa-solid fa-plus mr-2 transition-transform group-hover:rotate-90"></i> 
+                    <span>Add New User</span>
+                </button>
+            </div>
 
-                                <div>
-                                    <label for="role" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Role</label>
-                                    <select id="role" x-model="role"
-                                            class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                            required>
-                                        <option value="encoder">Encoder</option> 
-                                        <option value="admin">Admin</option>
-                                        <option value="superadmin">Superadmin</option>
-                                    </select>
-                                </div>
-                                
-                                <div x-show="!isEditMode">
-                                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Password</label>
-                                    <input type="password" id="password"
-                                           class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                           placeholder="Set a strong password">
-                                </div>
-                                <div x-show="isEditMode">
-                                    <label for="password_new" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">New Password (Optional)</label>
-                                    <input type="password" id="password_new"
-                                           class="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                                           placeholder="Leave blank to keep current password">
-                                </div>
-                            </div>
-                            
-                            <div class="flex justify-end items-center p-6 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 rounded-b-lg space-x-3">
-                                <button type="button" @click="isModalOpen = false"
-                                        class="bg-white dark:bg-gray-700 py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    Cancel
-                                </button>
-                                <button type="submit"
-                                        class="bg-blue-600 dark:bg-blue-700 py-2 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
-                                    Save User
-                                </button>
-                            </div>
-                        </form>
+            <div class="mb-6">
+                <div class="relative w-full md:w-96 group">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fa-solid fa-search text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
+                    </div>
+                    <input type="text" id="searchInput" class="block w-full pl-10 pr-10 py-3 border border-gray-200 dark:border-gray-700 rounded-xl leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm transition-all duration-200" placeholder="Search by name, email, or role...">
+                    <div id="search-spinner" class="absolute inset-y-0 right-0 pr-3 flex items-center hidden">
+                        <i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i>
                     </div>
                 </div>
-
             </div>
-            
-            <script>
-                function userManagement() {
-                    return {
-                        isModalOpen: false,
-                        isEditMode: false,
-                        modalTitle: 'Add New User',
-                        userId: null,
-                        name: '',
-                        email: '',
-                        role: 'encoder',
-                        
-                        openModal(mode, user = null) {
-                            if (mode === 'add') {
-                                this.isEditMode = false;
-                                this.modalTitle = 'Add New User';
-                                this.userId = null;
-                                this.name = '';
-                                this.email = '';
-                                this.role = 'encoder';
-                            } else if (mode === 'edit' && user) {
-                                this.isEditMode = true;
-                                this.modalTitle = 'Edit User Account';
-                                this.userId = user.id;
-                                this.name = user.name;
-                                this.email = user.email;
-                                this.role = user.role;
-                            }
-                            this.isModalOpen = true;
-                        },
 
-                        saveUser() {
-                            if (this.isEditMode) {
-                                console.log('Updating user...', this.userId, this.name, this.email, this.role);
-                            } else {
-                                console.log('Adding new user...', this.name, this.email, this.role);
-                            }
-                            this.isModalOpen = false;
-                        }
-                    }
-                }
-            </script>
-            
+            <div id="table-container" class="min-h-[400px] transition-all duration-300 relative">
+                @include('admin.partials.users-table')
+            </div>
+
         </main>
     </div>
 
+    <div id="userModal" class="fixed inset-0 z-50 hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm transition-opacity opacity-0" id="modalBackdrop"></div>
+
+        <div class="fixed inset-0 z-10 overflow-y-auto">
+            <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+                <div class="relative transform overflow-hidden rounded-2xl bg-white dark:bg-gray-800 text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95" id="modalPanel">
+                    
+                    <div class="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                        <h3 class="text-lg font-semibold leading-6 text-gray-900 dark:text-white" id="modalTitle">Create Account</h3>
+                        <button type="button" onclick="closeUserModal()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none transition-colors cursor-pointer">
+                            <i class="fa-solid fa-xmark fa-lg"></i>
+                        </button>
+                    </div>
+
+                    <form id="userForm" method="POST" action="{{ route('admin.manageaccount.store') }}">
+                        @csrf
+                        <div id="methodField"></div>
+
+                        <div class="px-6 py-6 space-y-5">
+                            <div class="group">
+                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Full Name</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fa-regular fa-user text-gray-400"></i>
+                                    </div>
+                                    <input type="text" name="name" id="inputName" required class="pl-10 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow p-2.5">
+                                </div>
+                                @error('name') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                            </div>
+                            
+                            <div class="group">
+                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Email Address</label>
+                                <div class="relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <i class="fa-regular fa-envelope text-gray-400"></i>
+                                    </div>
+                                    <input type="email" name="email" id="inputEmail" required class="pl-10 block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-shadow p-2.5">
+                                </div>
+                                @error('email') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Role Access</label>
+                                    <select name="user_level_id" id="inputRole" required class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
+                                        <option value="" disabled selected>Select Role</option>
+                                        @foreach($levels as $level)
+                                            <option value="{{ $level->id }}">{{ ucfirst($level->name) }}</option>
+                                        @endforeach
+                                    </select>
+                                    @error('user_level_id') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Assigned Branch</label>
+                                    @if(Auth::user()->level->name === 'superadmin')
+                                        <select name="branch_id" id="inputBranch" required class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
+                                            <option value="" disabled selected>Select Branch</option>
+                                            @foreach($branches as $branch)
+                                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    @else
+                                        <input type="text" value="{{ Auth::user()->branch->name }}" disabled class="block w-full rounded-lg border-gray-200 bg-gray-100 text-gray-500 sm:text-sm p-2.5 cursor-not-allowed">
+                                        <input type="hidden" name="branch_id" value="{{ Auth::user()->branch_id }}">
+                                    @endif
+                                </div>
+                            </div>
+                            
+                            <div class="pt-2 border-t border-gray-100 dark:border-gray-700">
+                                <div class="flex justify-between items-center mb-1.5">
+                                    <label id="passwordLabel" class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Password</label>
+                                    <button type="button" onclick="generateStrongPassword()" class="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium hover:underline focus:outline-none transition-colors cursor-pointer">
+                                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Auto-Generate
+                                    </button>
+                                </div>
+
+                                <div class="relative group">
+                                    <input type="password" name="password" id="inputPassword" oninput="checkPasswordStrength(this.value)" class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm pr-10 p-2.5 transition-all" placeholder="••••••••">
+                                    <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 cursor-pointer focus:outline-none">
+                                        <i id="eyeIcon" class="fa-regular fa-eye"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="mt-3 grid grid-cols-3 gap-2">
+                                    <div id="bar-len" class="h-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full transition-colors duration-300"></div>
+                                    <div id="bar-num" class="h-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full transition-colors duration-300"></div>
+                                    <div id="bar-sym" class="h-1.5 w-full bg-gray-200 dark:bg-gray-600 rounded-full transition-colors duration-300"></div>
+                                </div>
+                                <div class="mt-2 flex justify-between text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+                                    <span id="txt-len">8+ Chars</span>
+                                    <span id="txt-num">Number</span>
+                                    <span id="txt-sym">Symbol</span>
+                                </div>
+                                @error('password') <p class="mt-1 text-xs text-red-500">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex flex-row-reverse gap-3 rounded-b-2xl">
+                            <button type="submit" class="inline-flex w-full justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto transition-colors cursor-pointer">Save User</button>
+                            <button type="button" onclick="closeUserModal()" class="mt-3 inline-flex w-full justify-center rounded-lg bg-white dark:bg-gray-600 px-4 py-2.5 text-sm font-semibold text-gray-900 dark:text-gray-200 shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-500 hover:bg-gray-50 dark:hover:bg-gray-500 sm:mt-0 sm:w-auto transition-colors cursor-pointer">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const searchInput = document.getElementById('searchInput');
+            const tableContainer = document.getElementById('table-container');
+            const searchSpinner = document.getElementById('search-spinner');
+            let searchTimer;
+
+            searchInput.addEventListener('keyup', function () {
+                clearTimeout(searchTimer);
+                searchSpinner.classList.remove('hidden'); 
+                searchTimer = setTimeout(() => {
+                    fetchUsers(1, this.value);
+                }, 400);
+            });
+
+            tableContainer.addEventListener('click', function (e) {
+                const link = e.target.closest('a');
+                if (link && link.href && link.href.includes('page=')) {
+                    e.preventDefault();
+                    const url = new URL(link.href);
+                    fetchUsers(url.searchParams.get('page'), searchInput.value);
+                }
+            });
+
+            function fetchUsers(page, query) {
+                const loader = document.getElementById('table-loader');
+                if(loader) {
+                    loader.classList.remove('hidden');
+                    loader.classList.add('flex');
+                }
+
+                let url = `{{ route('admin.manageaccount') }}?page=${page}&search=${query}`;
+
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(res => res.text())
+                .then(html => {
+                    tableContainer.innerHTML = html;
+                    searchSpinner.classList.add('hidden');
+                })
+                .catch(err => {
+                    console.error(err);
+                    searchSpinner.classList.add('hidden');
+                    showToast("Failed to load data.", 'error');
+                });
+            }
+        });
+
+        function checkPasswordStrength(password) {
+            const hasLength = password.length >= 8;
+            const hasNumber = /[0-9]/.test(password);
+            const hasSymbol = /[@$!%*#?&]/.test(password);
+
+            const updateBar = (barId, txtId, valid) => {
+                const bar = document.getElementById(barId);
+                const txt = document.getElementById(txtId);
+                if (valid) {
+                    bar.classList.remove('bg-gray-200', 'dark:bg-gray-600');
+                    bar.classList.add('bg-green-500');
+                    txt.classList.add('text-green-600', 'font-bold', 'dark:text-green-400');
+                } else {
+                    bar.classList.add('bg-gray-200', 'dark:bg-gray-600');
+                    bar.classList.remove('bg-green-500');
+                    txt.classList.remove('text-green-600', 'font-bold', 'dark:text-green-400');
+                }
+            };
+
+            updateBar('bar-len', 'txt-len', hasLength);
+            updateBar('bar-num', 'txt-num', hasNumber);
+            updateBar('bar-sym', 'txt-sym', hasSymbol);
+
+            const input = document.getElementById('inputPassword');
+            if (hasLength && hasNumber && hasSymbol) {
+                input.classList.add('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
+                input.classList.remove('border-gray-300');
+            } else {
+                input.classList.remove('border-green-500', 'focus:border-green-500', 'focus:ring-green-500');
+                input.classList.add('border-gray-300');
+            }
+        }
+
+        function openUserModal(mode, user = null) {
+            const modal = document.getElementById('userModal');
+            const backdrop = document.getElementById('modalBackdrop');
+            const panel = document.getElementById('modalPanel');
+            const form = document.getElementById('userForm');
+            const methodField = document.getElementById('methodField');
+
+            document.getElementById('inputName').value = '';
+            document.getElementById('inputEmail').value = '';
+            document.getElementById('inputRole').value = '';
+            document.getElementById('inputPassword').value = '';
+            document.getElementById('passwordLabel').innerText = 'Password';
+            checkPasswordStrength('');
+
+            if (mode === 'edit' && user) {
+                document.getElementById('modalTitle').innerText = 'Edit User Account';
+                form.action = `/admin/manageaccount/${user.id}`;
+                methodField.innerHTML = '<input type="hidden" name="_method" value="PUT">';
+                document.getElementById('inputName').value = user.name;
+                document.getElementById('inputEmail').value = user.email;
+                document.getElementById('inputRole').value = user.user_level_id;
+                if(document.getElementById('inputBranch')) document.getElementById('inputBranch').value = user.branch_id;
+                document.getElementById('passwordLabel').innerText = 'New Password (Optional)';
+            } else {
+                document.getElementById('modalTitle').innerText = 'Create Account';
+                form.action = "{{ route('admin.manageaccount.store') }}";
+                methodField.innerHTML = '';
+                if(document.getElementById('inputBranch')) document.getElementById('inputBranch').value = '';
+            }
+
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; 
+            backdrop.classList.remove('opacity-0');
+            panel.classList.remove('opacity-0', 'translate-y-4', 'sm:scale-95');
+            panel.classList.add('opacity-100', 'translate-y-0', 'sm:scale-100');
+        }
+
+        function closeUserModal() {
+            const modal = document.getElementById('userModal');
+            const backdrop = document.getElementById('modalBackdrop');
+            const panel = document.getElementById('modalPanel');
+
+            backdrop.classList.add('opacity-0');
+            panel.classList.remove('opacity-100', 'translate-y-0', 'sm:scale-100');
+            panel.classList.add('opacity-0', 'translate-y-4', 'sm:scale-95');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        document.getElementById('userModal').addEventListener('click', function(e) {
+            if (e.target.id === 'modalBackdrop') closeUserModal();
+        });
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('inputPassword');
+            const icon = document.getElementById('eyeIcon');
+            if(input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye');
+            }
+        }
+
+        function generateStrongPassword() {
+            const length = 12;
+            const numbers = "0123456789";
+            const symbols = "@$!%*#?&";
+            const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            
+            let pass = "";
+            pass += numbers.charAt(Math.floor(Math.random() * numbers.length));
+            pass += symbols.charAt(Math.floor(Math.random() * symbols.length));
+            pass += letters.charAt(Math.floor(Math.random() * letters.length));
+            
+            const allChars = letters + numbers + symbols;
+            for (let i = 3; i < length; i++) {
+                 const array = new Uint32Array(1);
+                 window.crypto.getRandomValues(array);
+                 pass += allChars[array[0] % allChars.length];
+            }
+            
+            pass = pass.split('').sort(() => 0.5 - Math.random()).join('');
+            
+            const input = document.getElementById('inputPassword');
+            input.value = pass;
+            input.type = 'text';
+            document.getElementById('eyeIcon').classList.remove('fa-eye');
+            document.getElementById('eyeIcon').classList.add('fa-eye-slash');
+            checkPasswordStrength(pass);
+        }
+
+        function showToast(msg, type) {
+            const container = document.getElementById('toast-container');
+            const div = document.createElement('div');
+            const borderColor = type === 'success' ? 'border-green-500' : 'border-red-500';
+            const iconClass = type === 'success' ? 'fa-circle-check text-green-500' : 'fa-circle-exclamation text-red-500';
+            
+            div.className = `bg-white dark:bg-gray-800 shadow-xl rounded-lg p-4 border-l-4 ${borderColor} pointer-events-auto flex items-center gap-3 transform transition-all duration-300 translate-x-full opacity-0 mb-3 w-80`;
+            
+            div.innerHTML = `
+                <i class="fa-solid ${iconClass} text-xl"></i>
+                <p class="text-sm font-medium text-gray-700 dark:text-gray-200">${msg}</p>
+            `;
+            
+            container.appendChild(div);
+
+            requestAnimationFrame(() => {
+                div.classList.remove('translate-x-full', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                div.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => div.remove(), 300);
+            }, 4000);
+        }
+    </script>
 </body>
 </x-app-layout>

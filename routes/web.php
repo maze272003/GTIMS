@@ -17,6 +17,9 @@ Route::get('/', function () {
 
 Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])->name('otp.send');
 Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])->name('otp.verify');
+Route::get('/verify-account/{id}', [ManageaccountController::class, 'verifyAccount'])
+    ->name('account.verify')
+    ->middleware('signed');
 // Lahat ng routes sa loob nito ay kailangan naka-login (auth, verified)
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -107,6 +110,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware('level.superadmin') 
              ->group(function () {
             
+            // post for create account
+           Route::post('/manageaccount', [ManageaccountController::class, 'store'])
+                ->name('manageaccount.store');
+
+// IDAGDAG ITO para gumana ang Edit:
+            Route::put('/manageaccount/{id}', [ManageaccountController::class, 'update'])
+                ->name('manageaccount.update');
             // L1: Manage Account (Protected)
             Route::get('/manageaccount' , [ManageaccountController::class, 'showManageaccount'])
                   ->name('manageaccount');
