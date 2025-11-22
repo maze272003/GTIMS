@@ -46,18 +46,24 @@ Route::get('/dangerous-db-reset', function () {
     $commandsToRun = [
         // Command 1: The Big Reset
         [PHP_BINARY, 'artisan', 'migrate:fresh', '--seed', '--force'],
-        
         // Command 2: Clear Config
         [PHP_BINARY, 'artisan', 'config:clear'],
-        
         // Command 3: Clear Cache
         [PHP_BINARY, 'artisan', 'cache:clear'],
-        
         // Command 4: Clear Routes
         [PHP_BINARY, 'artisan', 'route:clear'],
-        
         // Optional: Clear View/Compiled classes
         [PHP_BINARY, 'artisan', 'view:clear'],
+        // Optional: Optimize Clear
+        [PHP_BINARY, 'artisan', 'optimize:clear'],
+        // Rebuild Caches
+        [PHP_BINARY, 'artisan', 'config:cache'],
+        // Rebuild Routes
+        [PHP_BINARY, 'artisan', 'route:cache'],
+        // Rebuild Views
+        [PHP_BINARY, 'artisan', 'view:cache'],
+        // Final Optimization
+        [PHP_BINARY, 'artisan', 'optimize'],
     ];
 
     // 5. Loop and Execute Each Command
