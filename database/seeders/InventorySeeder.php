@@ -17,7 +17,7 @@ class InventorySeeder extends Seeder
 
         $products = Product::all();
 
-        foreach (range(1, 20) as $index) {
+        foreach (range(1, 2500) as $index) {
             Inventory::create([
                 'product_id' => $products->random()->id,
                 'branch_id' => rand(1, 2),
