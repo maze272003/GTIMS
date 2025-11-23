@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use App\Models\HistoryLog;
 
 class PatientRecordsExport implements FromQuery, WithHeadings, WithMapping, ShouldAutoSize, WithStyles
 {
@@ -27,6 +28,14 @@ class PatientRecordsExport implements FromQuery, WithHeadings, WithMapping, Shou
         $query = Patientrecords::with(['dispensedMedications', 'barangay', 'branch']);
         $filters = $this->filters;
         $user = $this->user;
+        
+        $branchLog = isset($filters["branch_filter"]) ? "RHU-" . $filters["branch_filter"] : "All RHUs";
+        HistoryLog::create([
+            'action' => 'RECORDS EXPORTED',
+            'description' => "{$branchLog} Patient Records have been exported by {$user->name}. (EXCEL FORMAT)",
+            'user_id' => $user?->id,
+            'user_name' => $user?->name ?? 'System',
+        ]);
 
         // --- 1. Branch Logic (Same as Controller) ---
         if (in_array($user->user_level_id, [1, 2])) {

@@ -286,6 +286,14 @@ class PatientRecordsController extends Controller
     {
         $user = Auth::user();
 
+        $branchLog = isset($request->branch_filter) ? "RHU-" . $request->branch_filter : "All RHUs";
+        HistoryLog::create([
+            'action' => 'RECORDS EXPORTED',
+            'description' => "{$branchLog} Patient Records have been exported by {$user->name}. (PDF FORMAT)",
+            'user_id' => $user?->id,
+            'user_name' => $user?->name ?? 'System',
+        ]);
+
         // 1. REUSE FILTERS
         $query = Patientrecords::with(['dispensedMedications', 'barangay', 'branch']);
 
