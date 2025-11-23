@@ -46,7 +46,6 @@ class PatientRecordsController extends Controller
         }
 
         // === 5. BUILD THE QUERY FOR STATS (Totals) ===
-        // FIX: Initialized $statsQuery correctly here
         $statsQuery = Patientrecords::with(['dispensedMedications']);
         
         // Apply Filters to Stats Query
@@ -80,7 +79,7 @@ class PatientRecordsController extends Controller
         });
 
         // Fetch Dropdown Data
-        $products = Inventory::with('product')->where('quantity', '>', 0)->get(); // Adjusted logic if needed
+        $products = Inventory::with('product')->where('quantity', '>', 0)->get(); 
         $barangays = Barangay::all();
         $branches = Branch::all();
 
@@ -130,9 +129,11 @@ class PatientRecordsController extends Controller
         
         $signaturePath = null; 
 
+        // === FIXED: Full Logic for Image Decoding ===
         if ($request->has('signature')) {
             $image_64 = $request->signature; 
             
+            // Get extension
             if (strpos($image_64, ';') !== false) {
                 $extension = explode('/', explode(':', substr($image_64, 0, strpos($image_64, ';')))[1])[1];   
             } else {
@@ -140,13 +141,19 @@ class PatientRecordsController extends Controller
             }
 
             $replace = substr($image_64, 0, strpos($image_64, ',')+1); 
+            
+            // Decode image
             $image = str_replace($replace, '', $image_64); 
             $image = str_replace(' ', '+', $image); 
             
+            // Generate Name
             $imageName = 'signature_' . time() . '_' . Str::random(10) . '.' . $extension;
             
-            Storage::disk('public')->put('signatures/' . $imageName, base64_decode($image));
-            $signaturePath = 'signatures/' . $imageName;
+            // Store in LOCAL (Private) disk
+            Storage::disk('local')->put('signatures/' . $imageName, base64_decode($image));
+            
+            // Save filename only
+            $signaturePath = $imageName; 
         }
 
         // Create PatientRecord
@@ -233,37 +240,52 @@ class PatientRecordsController extends Controller
         $user = Auth::user();
         
         $signaturePath = null;
+        
+        // === FIXED: Full Logic for Image Decoding ===
         if ($request->has('signature')) {
             $image_64 = $request->signature; 
-            $extension = explode('/', explode(':', substr($image_64, 0, strpos($image_64, ';')))[1])[1];   
-            $replace = substr($image_64, 0, strpos($image_64, ',')+1); 
             
+            if (strpos($image_64, ';') !== false) {
+                $extension = explode('/', explode(':', substr($image_64, 0, strpos($image_64, ';')))[1])[1];   
+            } else {
+                $extension = 'png';
+            }
+
+            $replace = substr($image_64, 0, strpos($image_64, ',')+1); 
             $image = str_replace($replace, '', $image_64); 
             $image = str_replace(' ', '+', $image); 
             
             $imageName = 'signature_' . time() . '_' . Str::random(10) . '.' . $extension;
             
-            Storage::disk('public')->put('signatures/' . $imageName, base64_decode($image));
-            $signaturePath = 'signatures/' . $imageName;
+            // Store in LOCAL (Private) disk
+            Storage::disk('local')->put('signatures/' . $imageName, base64_decode($image));
+            $signaturePath = $imageName;
         }
 
-        // SECURITY CHECK: Ensure Encoders can't edit records from other branches via ID manipulation
+        // SECURITY CHECK
         if (!in_array($user->user_level_id, [1, 2]) && $record->branch_id != $user->branch_id) {
             return back()->with('error', 'Unauthorized action.');
         }
 
-        // capture old values before updating
+        // capture old values
         $old = $record->only(['patient_name', 'barangay_id', 'purok', 'category', 'date_dispensed']);
         $old["barangay_name"] = $record->barangay->barangay_name;
 
         // Update the patient record
-        $record->update([
+        $updateData = [
             'patient_name' => $validated['patient-name'],
             'barangay_id' => $validated['barangay_id'],
             'purok' => $validated['purok'],
             'category' => $validated['category'],
             'date_dispensed' => $validated['date-dispensed'],
-        ]);
+        ];
+
+        // Only update signature if a new one was provided
+        if ($signaturePath) {
+            $updateData['signature_path'] = $signaturePath;
+        }
+
+        $record->update($updateData);
 
         // HISTORY LOG: UPDATE
         $oldDate = Carbon::parse($old["date_dispensed"])->format('F d, Y');
@@ -346,7 +368,26 @@ class PatientRecordsController extends Controller
     public function exportExcel(Request $request)
     {
         $user = Auth::user();
-        
         return Excel::download(new PatientRecordsExport($request->all(), $user), 'patient_records_' . Carbon::now()->format('Ymd_His') . '.xlsx');
+    }
+
+    public function viewSignature($filename)
+    {
+        // 1. Gamitin ang 'local' disk para sigurado (ito rin ang ginamit sa pag-save)
+        $disk = Storage::disk('local');
+        $folder = 'signatures/';
+
+        // 2. Check kung nag-eexist ang file
+        if (!$disk->exists($folder . $filename)) {
+            // DEBUG: Kung 404 pa rin, pwede mong i-uncomment ito para makita kung saan siya naghahanap:
+            // dd("File not found at: " . $disk->path($folder . $filename));
+            
+            abort(404);
+        }
+
+        // 3. Kunin ang full path para sa response
+        $path = $disk->path($folder . $filename);
+
+        return response()->file($path);
     }
 }

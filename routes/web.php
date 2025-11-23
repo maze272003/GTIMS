@@ -24,6 +24,9 @@ Route::get('/verify-account/{id}', [ManageaccountController::class, 'verifyAccou
 // Lahat ng routes sa loob nito ay kailangan naka-login (auth, verified)
 Route::middleware(['auth', 'verified'])->group(function () {
 
+    // here is the signature viewing route secure need a session before viewing
+    Route::get('/secured/signature/{filename}', [PatientRecordsController::class, 'viewSignature'])
+         ->name('secure.signature');
     // =================== 1. ANG LOGIN REDIRECTOR ===================
     // Ito ang sasalubong sa LAHAT ng user pagka-login.
     Route::get('/dashboard', function () {
@@ -76,6 +79,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
         Route::post('/inventory/export', [InventoryExportController::class, 'export'])->name('inventory.export');
+        
         
         // == B. ADMIN/SUPERADMIN ROUTES (Level 1, 2 ONLY) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.admin (L1, L2)
