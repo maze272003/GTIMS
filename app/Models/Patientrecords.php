@@ -16,6 +16,7 @@ class Patientrecords extends Model
         'category',
         'date_dispensed',
         'branch_id', // <--- Add this
+        'signature_path',
     ];
 
     protected $casts = [

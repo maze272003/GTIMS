@@ -14,7 +14,8 @@ use App\Models\Branch; // Don't forget to import Branch
 use Illuminate\Support\Facades\Auth;
 use App\Models\HistoryLog;
 use Carbon\Carbon;
-
+use Illuminate\Support\Facades\Storage; 
+use Illuminate\Support\Str;
 class PatientRecordsController extends Controller
 {
     public function showpatientrecords(Request $request)
@@ -46,7 +47,17 @@ class PatientRecordsController extends Controller
 
         // 4. Fetch Paginated Results
         $patientrecords = $query->latest()->paginate(20);
-
+        if ($request->ajax()) {
+        return view('admin.partials.patientrecords_table', compact('patientrecords'))->render();
+         }
+         $cardQuery = Patientrecords::with(['dispensedMedications']);
+            if (in_array($user->user_level_id, [1, 2])) {
+                if ($request->has('branch_filter') && $request->branch_filter != 'all') {
+                    $cardQuery->where('branch_id', $request->branch_filter);
+                }
+            } else {
+                $cardQuery->where('branch_id', $user->branch_id);
+            }
         // 5. Calculate Stats (Using the same filter logic for accuracy)
         $cardQuery = Patientrecords::with(['dispensedMedications']);
         
@@ -88,6 +99,7 @@ class PatientRecordsController extends Controller
             'medications' => 'required|array|min:1',
             'medications.*.name' => 'required|exists:inventories,id',
             'medications.*.quantity' => 'required|integer|min:1',
+            'signature' => 'required',
         ], [
             'patient-name.required' => 'Patient name is required.',
             'barangay_id.required' => 'Barangay is required.',
@@ -108,7 +120,36 @@ class PatientRecordsController extends Controller
                 return back()->withErrors(['medications' => 'Insufficient quantity for ' . ($inventory->product->generic_name ?? 'medicine') . '. Available: ' . $inventory->quantity], 'adddispensation')->withInput();
             }
         }
+        $signaturePath = null; // Initialize variable
 
+        if ($request->has('signature')) {
+            // 1. Get base64 string
+            $image_64 = $request->signature; 
+            
+            // 2. Separate the extension from the data
+            // Minsan walang extension sa string, kaya safe na mag default sa png kung sakali, 
+            // pero usually gumagana yung explode method.
+            if (strpos($image_64, ';') !== false) {
+                $extension = explode('/', explode(':', substr($image_64, 0, strpos($image_64, ';')))[1])[1];   
+            } else {
+                $extension = 'png';
+            }
+
+            $replace = substr($image_64, 0, strpos($image_64, ',')+1); 
+            
+            // 3. Decode the image
+            $image = str_replace($replace, '', $image_64); 
+            $image = str_replace(' ', '+', $image); 
+            
+            // 4. Generate unique name
+            $imageName = 'signature_' . time() . '_' . Str::random(10) . '.' . $extension;
+            
+            // 5. Store the file in storage/app/public/signatures
+            Storage::disk('public')->put('signatures/' . $imageName, base64_decode($image));
+            
+            // 6. Set path to save in DB
+            $signaturePath = 'signatures/' . $imageName;
+        }
         // Create PatientRecord
         // IMPORTANT: We explicitly set the branch_id based on the logged-in user
         $newRecord = Patientrecords::create([
@@ -117,7 +158,8 @@ class PatientRecordsController extends Controller
             'purok' => $validated['purok'],
             'category' => $validated['category'],
             'date_dispensed' => $validated['date-dispensed'],
-            'branch_id' => $user->branch_id, // <--- AUTO-ASSIGN USER'S BRANCH
+            'branch_id' => $user->branch_id,
+             'signature_path' => $signaturePath,
         ]);
 
         // === HISTORY LOG ===
@@ -191,7 +233,28 @@ class PatientRecordsController extends Controller
 
         $record = Patientrecords::with('barangay')->findOrFail($id);
         $user = Auth::user();
-
+        $signaturePath = null;
+        if ($request->has('signature')) {
+            // 1. Get base64 string
+            $image_64 = $request->signature; 
+            
+            // 2. Separate the extension from the data
+            $extension = explode('/', explode(':', substr($image_64, 0, strpos($image_64, ';')))[1])[1];   
+            $replace = substr($image_64, 0, strpos($image_64, ',')+1); 
+            
+            // 3. Decode the image
+            $image = str_replace($replace, '', $image_64); 
+            $image = str_replace(' ', '+', $image); 
+            
+            // 4. Generate unique name
+            $imageName = 'signature_' . time() . '_' . Str::random(10) . '.' . $extension;
+            
+            // 5. Store the file in storage/app/public/signatures
+            Storage::disk('public')->put('signatures/' . $imageName, base64_decode($image));
+            
+            // 6. Set path to save in DB
+            $signaturePath = 'signatures/' . $imageName;
+        }
         // SECURITY CHECK: Ensure Encoders can't edit records from other branches via ID manipulation
         if (!in_array($user->user_level_id, [1, 2]) && $record->branch_id != $user->branch_id) {
             return back()->with('error', 'Unauthorized action.');
