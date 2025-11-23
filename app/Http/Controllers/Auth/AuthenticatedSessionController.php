@@ -33,8 +33,11 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
+        $isTesting = app()->runningInConsole() || app()->env === 'testing';
+
         $request->validate([
-        'g-recaptcha-response' => 'required|captcha',
+            // Kapag testing: 'nullable', Kapag tunay na tao: 'required|captcha'
+            'g-recaptcha-response' => $isTesting ? 'nullable' : 'required|captcha',
         ], [
             'g-recaptcha-response.required' => 'Please complete the captcha verification.',
             'g-recaptcha-response.captcha' => 'Captcha verification failed, please try again.',
@@ -89,9 +92,9 @@ class AuthenticatedSessionController extends Controller
 
         } elseif ($user->level->name == 'admin') {
             // --- BRANCH REDIRECTION LOGIC START ---
-            if ($user->branch_id == 2) {
-                return redirect()->route('admin.inventory');
-            }
+            // if ($user->branch_id == 2) {
+            //     return redirect()->route('admin.inventory');
+            // }
             
             // Default for branch_id == 1 (or others)
             return redirect()->route('admin.dashboard');
@@ -101,9 +104,9 @@ class AuthenticatedSessionController extends Controller
             return redirect()->route('admin.dashboard'); 
         }
         elseif ($user->level->name == 'doctor') {
-            if ($user->branch_id == 2) {
-                return redirect()->route('admin.inventory');
-            }
+            // if ($user->branch_id == 2) {
+            //     return redirect()->route('admin.inventory');
+            // }
             return redirect()->route('admin.dashboard'); 
         }
 

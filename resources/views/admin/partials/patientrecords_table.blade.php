@@ -12,8 +12,10 @@
                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Resident Details</th>
                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-center tracking-wide">Category</th>
                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Date Dispensed</th>
-                {{-- NEW COLUMN: Signature --}}
+                
+                {{-- Signature Column --}}
                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-center tracking-wide">Signature</th> 
+                
                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-center tracking-wide">Actions</th>
             </tr>
         </thead>
@@ -67,16 +69,17 @@
                         <p class="font-semibold">{{ $patientrecord->date_dispensed->format('F j, Y') }}</p>
                     </td>
                     
-                    {{-- Signature Column Logic --}}
+                    {{-- UPDATED SIGNATURE LOGIC --}}
                     <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-center">
                         @if($patientrecord->signature_path)
-                            {{-- Button to view signature --}}
-                            <button onclick="window.open('{{ asset('storage/' . $patientrecord->signature_path) }}', '_blank')" 
-                               class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300" title="View Signature">
+                            <button type="button" 
+                                    data-src="{{ asset('storage/' . $patientrecord->signature_path) }}" 
+                                    class="view-signature-btn text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors p-1 rounded hover:bg-blue-50 dark:hover:bg-blue-900/50" 
+                                    title="View Signature">
                                 <i class="fa-solid fa-file-signature text-xl"></i>
                             </button>
                         @else
-                            <span class="text-gray-400 text-xs">N/A</span>
+                            <span class="text-gray-400 text-xs italic">N/A</span>
                         @endif
                     </td>
 
