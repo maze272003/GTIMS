@@ -108,3 +108,18 @@ body, html, input, button, select, textarea {
     border-color: #c42727 rgba(0, 0, 0, 0) #2778c4 rgba(0, 0, 0, 0) !important;
     border-width: 2px !important;
 }
+
+#successAlert {
+    animation: slide 0.5s ease-in-out;
+}
+
+@keyframes slide {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}

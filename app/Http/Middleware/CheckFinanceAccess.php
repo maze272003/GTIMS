@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class CheckUserLevelAccess
+class CheckMayorAccess
 {
     /**
      * Handle an incoming request.
@@ -14,11 +14,11 @@ class CheckUserLevelAccess
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
-    {
-        // Dapat level 1, 2, 3, O 4
-        if (auth()->check() && in_array(auth()->user()->user_level_id, [1, 2, 3, 4, 5, 6])) {
-            return $next($request);
-        }
-        abort(403, 'Access Denied. You do not have permission.');
+{
+    // Dapat level 5
+    if (auth()->check() && in_array(auth()->user()->user_level_id, [6])) {
+        return $next($request);
     }
+    abort(403, 'Access Denied. Admins and Superadmins only.');
+}
 }

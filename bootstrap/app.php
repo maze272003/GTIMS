@@ -16,6 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'level.admin'      => \App\Http\Middleware\CheckAdminAccess::class,
             'level.all'        => \App\Http\Middleware\CheckUserLevelAccess::class,
             'level.doctor'     => \App\Http\Middleware\CheckDoctorAccess::class,
+            'level.mayor'      => \App\Http\Middleware\CheckMayorAccess::class,
+            'level.finance'    => \App\Http\Middleware\CheckFinanceAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

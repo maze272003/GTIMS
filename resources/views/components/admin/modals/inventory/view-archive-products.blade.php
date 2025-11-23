@@ -48,11 +48,11 @@
                   <button class="view-archivestock-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 duration-300 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white transition-all mr-2" data-product-id="{{ $product->id }}">
                     <i class="fa-regular fa-eye mr-1"></i>View Archived Stock
                   </button>
-                  <form action="{{ route('admin.inventory.unarchiveproduct') }}" method="POST">
+                  <form action="{{ route('admin.inventory.unarchiveproduct') }}" method="POST" id="unarchiveproductform">
                     @csrf
                     @method('PUT')
                     <input type="hidden" name="product_id" value="{{ $product->id }}">
-                    <button class="restore-product-btn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 duration-300 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white transition-all">
+                    <button type="button" class="restore-product-btn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 duration-300 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white transition-all">
                       <i class="fa-regular fa-rotate-left mr-1"></i>Restore
                     </button>
                   </form>
@@ -65,3 +65,78 @@
         </div>
       </div>
   </div>
+
+  <script>
+    const unarchiveproductbtn = document.querySelectorAll('.restore-product-btn');
+    unarchiveproductbtn.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const form = btn.closest('form');
+            const inputs = form.querySelectorAll('input[type="text"], input[type="number"], input[type="date"]');
+            let allFilled = true;
+
+            inputs.forEach(input => {
+                if (input.value.trim() === '') {
+                    allFilled = false;
+                }
+            });
+
+            if (!allFilled) {
+                Swal.fire({
+                    title: 'Incomplete Form',
+                    text: 'Please fill in all required fields before submitting.',
+                    icon: 'warning',
+                    confirmButtonText: 'OK',
+                    allowOutsideClick: false,
+                    customClass: {
+                        container: 'swal-container',
+                        popup: 'swal-popup',
+                        title: 'swal-title',
+                        htmlContainer: 'swal-content',
+                        confirmButton: 'swal-confirm-button',
+                        icon: 'swal-icon'
+                    }
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "This action can't be undone. Please confirm if you want to proceed.",
+                icon: 'info',
+                showCancelButton: true,
+                cancelButtonText: 'Cancel',
+                confirmButtonText: 'Confirm',
+                allowOutsideClick: false,
+                customClass: {
+                    container: 'swal-container',
+                    popup: 'swal-popup',
+                    title: 'swal-title',
+                    htmlContainer: 'swal-content',
+                    confirmButton: 'swal-confirm-button',
+                    cancelButton: 'swal-cancel-button',
+                    icon: 'swal-icon'
+                }
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Processing...',
+                        text: "Please wait, your request is being processed.",
+                        allowOutsideClick: false,
+                        customClass: {
+                            container: 'swal-container',
+                            popup: 'swal-popup',
+                            title: 'swal-title',
+                            htmlContainer: 'swal-content',
+                            cancelButton: 'swal-cancel-button',
+                            icon: 'swal-icon'
+                        },
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    form.submit();
+                }
+            });
+        });
+    });
+  </script>

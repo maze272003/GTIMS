@@ -36,7 +36,7 @@ class PatientRecordsSeeder extends Seeder
 
         // 3. Get Inventory (Only items with stock)
         $inventories = Inventory::where('quantity', '>', 0)
-            ->where('is_archived', 2)
+            ->where('is_archived', 0)
             ->whereDate('expiry_date', '>', now()->addMonth())
             ->with('product')
             ->get();

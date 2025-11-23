@@ -12,17 +12,21 @@ class InventoryExportController extends Controller
 {
     public function export(Request $request)
     {
-        $branch = $request->input('branch'); // e.g., 1 or 2
+        $branch = $request->input('branch');
+        $filter = $request->input('filter');     // new
+        $search = $request->input('search');     // new
+
         $fileName = 'inventory_rhu' . $branch . '_' . now()->format('Y-m-d_His') . '.xlsx';
+
         $user = auth()->user();
 
         HistoryLog::create([
             'action' => 'INVENTORY EXPORTED',
-            'description' => "Inventory for RHU {$branch} has been exported.",
+            'description' => "Inventory for RHU {$branch}" . ($filter || $search ? ' (filtered)' : '') . " has been exported.",
             'user_id' => $user?->id,
             'user_name' => $user?->name ?? 'System',
         ]);
 
-        return Excel::download(new InventoryExport($branch), $fileName);
+        return Excel::download(new InventoryExport($branch, $filter, $search), $fileName);
     }
 }

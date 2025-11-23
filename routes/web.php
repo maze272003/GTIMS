@@ -18,6 +18,9 @@ Route::get('/', function () {
 
 Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])->name('otp.send');
 Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])->name('otp.verify');
+Route::get('/verify-account/{id}', [ManageaccountController::class, 'verifyAccount'])
+    ->name('account.verify')
+    ->middleware('signed');
 // Lahat ng routes sa loob nito ay kailangan naka-login (auth, verified)
 Route::middleware(['auth', 'verified'])->group(function () {
 
@@ -67,6 +70,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
             Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
             Route::put('/patientrecords', [PatientRecordsController::class, 'updatePatientRecord'])->name('patientrecords.update');
+           Route::get('/patientrecords/export-pdf', [PatientRecordsController::class, 'exportPdf'])->name('patientrecords.exportPdf');
+           Route::get('/patientrecords/export-excel', [PatientRecordsController::class, 'exportExcel'])
+    ->name('patientrecords.exportExcel');
 
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
         Route::post('/inventory/export', [InventoryExportController::class, 'export'])->name('inventory.export');
@@ -108,6 +114,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware('level.superadmin') 
              ->group(function () {
             
+            // post for create account
+           Route::post('/manageaccount', [ManageaccountController::class, 'store'])
+                ->name('manageaccount.store');
+
+// IDAGDAG ITO para gumana ang Edit:
+            Route::put('/manageaccount/{id}', [ManageaccountController::class, 'update'])
+                ->name('manageaccount.update');
             // L1: Manage Account (Protected)
             Route::get('/manageaccount' , [ManageaccountController::class, 'showManageaccount'])
                   ->name('manageaccount');
@@ -118,3 +131,4 @@ Route::middleware(['auth', 'verified'])->group(function () {
 }); // <-- End ng buong auth middleware group
 
 require __DIR__.'/auth.php';
+require __DIR__.'/db.php';

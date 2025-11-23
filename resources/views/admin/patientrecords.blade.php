@@ -28,7 +28,24 @@
                     </div>
                 </div>
 
-                <!-- Stats Cards -->
+                @if (session('success'))
+                    <div id="successAlert" class="w3 fixed top-24 right-5 border-l-4 border-green-500 bg-white text-green-500 py-3 px-6 rounded-lg shadow-lg z-101 flex items-center gap-3 z-50">
+                        <i class="fa-solid fa-circle-check text-2xl"></i>
+                        <div>
+                            <p class="font-bold">Success!</p>
+                            <p id="successMessage" class="text-black">{{ session('success') }}</p>
+                        </div>
+                    </div>
+                    <script>
+                        setTimeout(() => {
+                            const alert = document.getElementById('successAlert');
+                            if (alert) {
+                                alert.remove();
+                            }
+                        }, 3000);
+                    </script>
+                @endif
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
                         <div class="flex items-center justify-between">
@@ -60,18 +77,19 @@
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
-                <div class="mt-6 flex flex-col sm:flex-row gap-3 w-full justify-end">
-                    <button id="adddispensationbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
-                        <i class="fa-regular fa-plus mr-2"></i> Record New Dispensation
-                    </button>
-                </div>
+                @if (auth()->user()->user_level_id == 1 || auth()->user()->user_level_id == 2)
+                    <div class="mt-6 flex flex-col sm:flex-row gap-3 w-full justify-end">
+                        <button id="adddispensationbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                            <i class="fa-regular fa-plus mr-2"></i> Record New Dispensation
+                        </button>
+                    </div>
+                @endif
 
-                {{-- Records Table --}}
+                {{-- Records Table Container --}}
                 <div id="patientrecords-data-container">
                     <div class="mt-5 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                         
-                        {{-- Header: Search, Filter, Export --}}
+                        {{-- Header: Search, Filter Button, Export --}}
                         <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3">
                             
                             {{-- Search Bar --}}
@@ -98,112 +116,99 @@
                                     </form>
                                 @endif
 
-                                <button class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
-                                    <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
-                                    <span class="ml-2 hidden sm:inline">Export CSV</span>
+                                {{-- NEW FILTER MODAL BUTTON --}}
+                                <button type="button" id="openFilterModal" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                    <i class="fa-regular fa-sliders-up text-lg mr-2"></i>
+                                    <span class="hidden sm:inline">Filter</span>
+                                </button>
+
+                                <div class="flex gap-2">
+                                    {{-- PDF Button --}}
+                                    <a href="{{ route('admin.patientrecords.exportPdf', request()->all()) }}" target="_blank" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                        <i class="fa-regular fa-file-pdf text-lg text-red-600 dark:text-red-400"></i>
+                                        <span class="ml-2 hidden sm:inline">PDF</span>
+                                    </a>
+
+                                    {{-- EXCEL Button --}}
+                                    <a href="{{ route('admin.patientrecords.exportExcel', request()->all()) }}" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                        <i class="fa-regular fa-file-excel text-lg text-green-600 dark:text-green-400"></i>
+                                        <span class="ml-2 hidden sm:inline">Excel</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- DYNAMIC TABLE CONTAINER --}}
+                        <div id="table-container">
+                            @include('admin.partials.patientrecords_table')
+                        </div>
+
+                    </div>
+                </div>
+
+                {{-- ==================== FILTER MODAL ==================== --}}
+                <div id="filterModal" class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden overflow-y-auto">
+                    <div class="modal bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+                        <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-5">
+                            <h3 class="text-xl font-semibold text-gray-800 dark:text-gray-200">
+                                <i class="fa-regular fa-sliders-up mr-2 text-blue-600"></i> Filter Records
+                            </h3>
+                            <button type="button" id="closeFilterModal" class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+                                <i class="fa-regular fa-xmark text-gray-600 dark:text-gray-400 text-xl"></i>
+                            </button>
+                        </div>
+
+                        <form id="filterForm" method="GET" action="{{ route('admin.patientrecords') }}" class="space-y-5">
+
+                            {{-- Preserve branch filter for Admin --}}
+                            @if(auth()->user()->user_level_id <= 2)
+                                <input type="hidden" name="branch_filter" value="{{ request('branch_filter', 'all') }}">
+                            @endif
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Date</label>
+                                    <input type="date" name="from_date" value="{{ request('from_date') }}"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To Date</label>
+                                    <input type="date" name="to_date" value="{{ request('to_date') }}"
+                                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
+                                <select name="category" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                    <option value="">All Categories</option>
+                                    <option value="Adult" {{ request('category') == 'Adult' ? 'selected' : '' }}>Adult</option>
+                                    <option value="Child" {{ request('category') == 'Child' ? 'selected' : '' }}>Child</option>
+                                    <option value="Senior" {{ request('category') == 'Senior' ? 'selected' : '' }}>Senior</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Barangay</label>
+                                <select name="barangay_id" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                    <option value="">All Barangays</option>
+                                    @foreach($barangays as $barangay)
+                                        <option value="{{ $barangay->id }}" {{ request('barangay_id') == $barangay->id ? 'selected' : '' }}>
+                                            {{ $barangay->barangay_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <button type="button" id="clearFilters" class="px-5 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition font-medium">
+                                    Clear All Filters
+                                </button>
+                                <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
+                                    Apply Filters
                                 </button>
                             </div>
-                        </div>
-
-                        <div class="overflow-x-auto p-5">
-                            <table class="w-full pagination-links text-sm text-left">
-                                <thead class="sticky top-0 bg-gray-200 dark:bg-gray-700">
-                                    <tr>
-                                        <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">#</th>
-                                        
-                                        {{-- Show Branch Column for Admins --}}
-                                        @if(in_array(auth()->user()->user_level_id, [1, 2]))
-                                            <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Branch</th>
-                                        @endif
-
-                                        <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Resident Details</th>
-                                        <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-center tracking-wide">Resident Category</th>
-                                        <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Date Dispensed</th>
-                                        <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-center tracking-wide">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                    @if ($patientrecords->isEmpty())
-                                        <tr>
-                                            {{-- Adjust colspan based on whether admin column is shown --}}
-                                            <td colspan="{{ in_array(auth()->user()->user_level_id, [1, 2]) ? 6 : 5 }}" class="p-3 text-center text-sm text-gray-500 dark:text-gray-400">No records found.</td>
-                                        </tr>
-                                    @else
-                                        @foreach ($patientrecords as $patientrecord)
-                                        <tr data-record-id="{{ $patientrecord->id }}"
-                                            data-patient-name="{{ $patientrecord->patient_name }}"
-                                            data-barangay-id="{{ $patientrecord->barangay_id }}"
-                                            data-barangay="{{ $patientrecord->barangay->barangay_name ?? '' }}"
-                                            data-purok="{{ $patientrecord->purok }}"
-                                            data-category="{{ $patientrecord->category }}"
-                                            data-date-dispensed="{{ $patientrecord->date_dispensed->format('Y-m-d') }}"
-                                            data-medications="{{ json_encode($patientrecord->dispensedMedications->map(function ($med) {
-                                                return [
-                                                    'batch' => $med->batch_number,
-                                                    'medication' => $med->generic_name,
-                                                    'brand' => $med->brand_name,
-                                                    'form' => $med->form,
-                                                    'strength' => $med->strength,
-                                                    'quantity' => $med->quantity,
-                                                ];
-                                            })->toArray()) }}">
-                                            
-                                            <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-left">
-                                                {{ $loop->iteration + ($patientrecords->currentPage() - 1) * $patientrecords->perPage() }}
-                                            </td>
-
-                                            {{-- Show Branch Name for Admins --}}
-                                            @if(in_array(auth()->user()->user_level_id, [1, 2]))
-                                                <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-left">
-                                                    <span class="px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded text-xs font-semibold">
-                                                        {{ $patientrecord->branch->name ?? 'N/A' }}
-                                                    </span>
-                                                </td>
-                                            @endif
-
-                                            <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-left">
-                                                <div>
-                                                    <p class="font-semibold text-gray-700 dark:text-gray-200 capitalize">{{ $patientrecord->patient_name }}</p>
-                                                    <p class="italic text-gray-500 dark:text-gray-400 capitalize">{{ $patientrecord->barangay->barangay_name ?? '' }}, {{ $patientrecord->purok }}</p>
-                                                </div>
-                                            </td>
-                                            <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-center">{{ $patientrecord->category }}</td>
-                                            <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-center">
-                                                <p class="font-semibold">{{ $patientrecord->date_dispensed->format('F j, Y') }}</p>
-                                                <p class="italic text-gray-500 dark:text-gray-400">{{ $patientrecord->created_at->format('g:i A') }}</p>
-                                            </td>
-                                            
-                                            <td class="p-3 flex items-center justify-center gap-2 font-semibold">
-                                                <button class="view-medications-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
-                                                    <i class="fa-regular fa-eye mr-1"></i>View All
-                                                </button>
-                                                @if (auth()->user()->user_level_id != 4)
-                                                    {{-- Only allow edit/delete if user is Admin OR if user is Encoder for the SAME branch --}}
-                                                    @if(in_array(auth()->user()->user_level_id, [1, 2]) || auth()->user()->branch_id == $patientrecord->branch_id)
-                                                        <button class="editrecordbtn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
-                                                            <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
-                                                        </button>
-                                                        <button class="deleterecordbtn bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 dark:hover:bg-red-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
-                                                            <i class="fa-regular fa-trash mr-1"></i>Delete
-                                                        </button>
-                                                    @endif
-                                                @endif
-                                            </td>
-                                        </tr>
-                                        @endforeach
-                                    @endif
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="p-4 border-t bg-white dark:bg-gray-800 flex flex-col sm:flex-row justify-between items-center gap-4 border-gray-200 dark:border-gray-700">
-                            <p class="text-sm text-gray-600 dark:text-gray-400 order-2 sm:order-1">
-                                Showing {{ $patientrecords->firstItem() ?? 0 }} to {{ $patientrecords->lastItem() ?? 0 }} of {{ $patientrecords->total() }} results
-                            </p>
-                            <div class="flex flex-wrap justify-center sm:justify-end gap-2 pagination-links order-1 sm:order-2 w-full sm:w-auto">
-                                {{ $patientrecords->links('pagination::tailwind') }} 
-                                {{-- Simplified pagination call if you are using standard Laravel pagination, otherwise paste your custom pagination code back here --}}
-                            </div>
-                        </div>
+                        </form>
                     </div>
                 </div>
 
@@ -314,13 +319,12 @@
                             @error('medications', 'adddispensation')
                                 <p class="mt-1 text-sm text-red-600 dark:text-red-400 error-message">{{ $message }}</p>
                             @enderror
-                            <button type="submit" class="bg-blue-500 dark:bg-blue-600 text-white p-2 rounded-lg mt-5 hover:-translate-y-1 hover:shadow-md transition-all duration-200 w-fit">
+                            <button type="button" id="add-dispensation-btn" class="bg-blue-500 dark:bg-blue-600 text-white p-2 rounded-lg mt-5 hover:-translate-y-1 hover:shadow-md transition-all duration-200 w-fit">
                                 <i class="fa-regular fa-check mr-1"></i> Submit
                             </button>
                         </form>
                     </div>
                 </div>
-                {{-- End Add Modal --}}
 
                 {{-- Edit Dispensation Modal --}}
                 <div id="editrecordmodal" class="fixed w-full h-screen top-0 left-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
@@ -390,7 +394,6 @@
                         </form>
                     </div>
                 </div>
-                {{-- End Edit Modal --}}
 
                 {{-- View Medications Modal --}}
                 <div id="viewmedicationsmodal" class="fixed w-full h-screen top-0 left-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
@@ -409,7 +412,6 @@
                                         <th class="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Medication Details</th>
                                         <th class="p-3 text-left text-sm font-semibold text-gray-700 dark:text-gray-300">Form & Strength</th>
                                         <th class="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">Quantity</th>
-                                        <th class="p-3 text-center text-sm font-semibold text-gray-700 dark:text-gray-300">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody id="view-medications-tbody" class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -419,7 +421,6 @@
                         </div>
                     </div>
                 </div>
-                {{-- End View Medications Modal --}}
 
             </main>
         @else
@@ -434,5 +435,7 @@
             </main>
         @endif
     </div>
+
     <script src="{{ asset('js/patientrecords.js') }}"></script>
+    <script>window.successMessage = @json(session('success'));</script>
 </x-app-layout>

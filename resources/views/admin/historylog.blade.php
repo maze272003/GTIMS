@@ -7,7 +7,7 @@
         <x-admin.header/>
 
         {{-- Check for Authorization --}}
-        @if(in_array(auth()->user()->user_level_id, [1, 2, 3, 4]) && auth()->user()->branch_id != 2)
+        @if(in_array(auth()->user()->user_level_id, [1, 2, 3, 4]))
             {{-- AUTHORIZED VIEW --}}
             <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
                 <div class="mb-6 pt-16">
