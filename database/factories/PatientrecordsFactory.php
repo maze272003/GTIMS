@@ -11,13 +11,15 @@ class PatientrecordsFactory extends Factory
     protected $model = Patientrecords::class;
 
     public function definition(): array
-    {
-        return [
-            'patient_name'   => fake()->name(),
-            'barangay_id'    => Barangay::inRandomOrder()->first() ?? Barangay::factory()->create(),
-            'purok'          => fake()->randomElement(['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Purok 5']),
-            'category'       => fake()->randomElement(['Adult', 'Child', 'Senior']),
-            'date_dispensed' => fake()->dateTimeBetween('-3 years', 'now')->format('Y-m-d'),
-        ];
-    }
+{
+    return [
+        'patient_name'   => fake()->name(),
+        // This will automatically pick an existing ID or create one 
+        // using the BarangayFactory if needed.
+        'barangay_id'    => Barangay::factory(), 
+        'purok'          => fake()->randomElement(['Purok 1', 'Purok 2', 'Purok 3', 'Purok 4', 'Purok 5']),
+        'category'       => fake()->randomElement(['Adult', 'Child', 'Senior']),
+        'date_dispensed' => fake()->dateTimeBetween('-3 years', 'now')->format('Y-m-d'),
+    ];
+}
 }
