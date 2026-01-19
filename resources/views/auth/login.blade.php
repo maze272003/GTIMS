@@ -1,6 +1,6 @@
-@php
+<!-- @php
     use Anhskohbo\NoCaptcha\Facades\NoCaptcha;
-@endphp
+@endphp -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -183,7 +183,7 @@
                                class="w-4 h-4 text-red-800 focus:ring-red-800 border-gray-300 rounded">
                         <label for="remember_me" class="text-sm text-black/80 font-medium">Remember Me</label>
                     </div>
-                    {{-- RECAPTCHA --}}
+                    <!-- {{-- RECAPTCHA --}}
                     <div class="flex flex-col justify-center items-center gap-2">
                         <div class="outline-1 {{ $errors->has('g-recaptcha-response') ? 'outline-red-500' : '' }} rounded-md">
                             {!! NoCaptcha::display() !!}
@@ -192,7 +192,7 @@
                             <p class="text-red-500 text-sm mt-1 font-medium">{{ $message }}</p>
                         @enderror
                     </div>
-                    {{-- RECAPTCHA --}}
+                    {{-- RECAPTCHA --}} -->
 
                     <button type="submit" id="loginButton"
                             class="bg-red-700 w-full p-3 rounded-lg text-white font-medium text-sm md:text-base hover:bg-red-800 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300">
@@ -200,9 +200,9 @@
                     </button>
                 </form>
 
-                {{-- yung JS logic ng recaptcha wag i-delete --}}
+                <!-- {{-- yung JS logic ng recaptcha wag i-delete --}}
                 {!! NoCaptcha::renderJs() !!}
-                {{-- yung JS logic ng recaptcha wag i-delete --}}
+                {{-- yung JS logic ng recaptcha wag i-delete --}} -->
 
                 <div id="otp-form" class="mt-2 space-y-6 hidden">
                     <div id="otp-input-container" class="hidden">
@@ -446,10 +446,9 @@
             const form = document.getElementById('password-form');
 
             const inputs = [
-                form.querySelector('#email').value,
-                form.querySelector('#password').value,
-                document.querySelector('#g-recaptcha-response').value,
-            ];
+    form.querySelector('#email').value,
+    form.querySelector('#password').value,
+];
 
             // Check if ANY required field is empty
             const hasEmpty = inputs.some(inp => inp.trim() === '');

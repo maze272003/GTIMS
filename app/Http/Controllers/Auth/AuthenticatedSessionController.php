@@ -33,15 +33,15 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        $isTesting = app()->runningInConsole() || app()->env === 'testing';
+        // $isTesting = app()->runningInConsole() || app()->env === 'testing';
 
-        $request->validate([
-            // Kapag testing: 'nullable', Kapag tunay na tao: 'required|captcha'
-            'g-recaptcha-response' => $isTesting ? 'nullable' : 'required|captcha',
-        ], [
-            'g-recaptcha-response.required' => 'Please complete the captcha verification.',
-            'g-recaptcha-response.captcha' => 'Captcha verification failed, please try again.',
-        ]);
+        // $request->validate([
+        //     // Kapag testing: 'nullable', Kapag tunay na tao: 'required|captcha'
+        //     'g-recaptcha-response' => $isTesting ? 'nullable' : 'required|captcha',
+        // ], [
+        //     'g-recaptcha-response.required' => 'Please complete the captcha verification.',
+        //     'g-recaptcha-response.captcha' => 'Captcha verification failed, please try again.',
+        // ]);
 
         $request->authenticate();
         $request->session()->regenerate();
