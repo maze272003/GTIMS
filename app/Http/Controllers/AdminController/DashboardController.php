@@ -895,7 +895,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         $apiKey = env("GEMINI_API_KEY"); // Best practice: use env
         if (!$apiKey) {
             // Fallback hardcoded key if env not set (matches your previous code)
-            $apiKey = "AIzaSyCr5K_DdA0RRvRLo7_sDfG-gB1ToVd51L8"; 
+            $apiKey = "AIzaSyCo7c-_hA5coTOISnBTsU34jubUFa8GFao"; 
         }
         
         if (!$apiKey) {

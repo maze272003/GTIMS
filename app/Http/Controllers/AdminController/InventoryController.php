@@ -4,97 +4,29 @@ namespace App\Http\Controllers\AdminController;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Product;
-use App\Models\Inventory;
-use App\Models\HistoryLog;
-use Carbon\Carbon;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\Auth;
-use App\Models\ProductMovement;
+use App\Services\Contracts\InventoryServiceInterface;
+use App\Helpers\ValidationHelper;
+use App\Helpers\HistoryLogHelper;
+use Exception;
 
 class InventoryController extends Controller
 {
-    
+    protected InventoryServiceInterface $inventoryService;
+
+    public function __construct(InventoryServiceInterface $inventoryService)
+    {
+        $this->inventoryService = $inventoryService;
+    }
+
     // Show Inventory
     public function showinventory(Request $request)
     {
-        // 1. Common Data
-        $products = Product::where('is_archived', 0)->get();
-        $archiveproducts = Product::where('is_archived', 1)->get();
-        $inventorycount = Inventory::where('is_archived', '!=', 1)->get(); // Count all active
+        $data = $this->inventoryService->getInventoryData($request);
 
-        // 2. RHU 1 Query Setup
-        // Using != 1 to catch both status 0 and 2 (active stocks)
-        $query1 = Inventory::where('branch_id', 1)->where('is_archived', '!=', 1);
-
-        // Search RHU 1
-        if ($request->filled('search_rhu1')) {
-            $search = strtolower($request->search_rhu1);
-            $query1->where(function ($q) use ($search) {
-                $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
-                ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])
-                                            ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
-            });
-        }
-
-        // Filter RHU 1
-        if ($request->filled('filter_rhu1')) {
-            match ($request->filter_rhu1) {
-                'in_stock'       => $query1->where('quantity', '>=', 100),
-                'low_stock'      => $query1->where('quantity', '>', 0)->where('quantity', '<', 100),
-                'out_of_stock'   => $query1->where('quantity', '<=', 0),
-                'nearly_expired' => $query1->where('expiry_date', '>', now())->where('expiry_date', '<', now()->addDays(30)),
-                'expired'        => $query1->where('expiry_date', '<', now()),
-                default          => null,
-            };
-        }
-        
-        // Paginate RHU 1 (explicit page name 'page_rhu1')
-        $inventories_rhu1 = $query1->with('product')
-            ->orderBy('expiry_date', 'asc')
-            ->paginate(20, ['*'], 'page_rhu1');
-
-
-        // 3. RHU 2 Query Setup
-        // FIXED: Changed from where('is_archived', 0) to where('is_archived', '!=', 1)
-        // This ensures transferred stocks (status 2) are visible.
-        $query2 = Inventory::where('branch_id', 2)->where('is_archived', '!=', 1);
-
-        // Search RHU 2
-        if ($request->filled('search_rhu2')) {
-            $search = strtolower($request->search_rhu2);
-            $query2->where(function ($q) use ($search) {
-                $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
-                ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])
-                                            ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
-            });
-        }
-
-        // Filter RHU 2
-        if ($request->filled('filter_rhu2')) {
-            match ($request->filter_rhu2) {
-                'in_stock'       => $query2->where('quantity', '>=', 100),
-                'low_stock'      => $query2->where('quantity', '>', 0)->where('quantity', '<', 100),
-                'out_of_stock'   => $query2->where('quantity', '<=', 0),
-                'nearly_expired' => $query2->where('expiry_date', '>', now())->where('expiry_date', '<', now()->addDays(30)),
-                'expired'        => $query2->where('expiry_date', '<', now()),
-                default          => null,
-            };
-        }
-
-        // Paginate RHU 2 (explicit page name 'page_rhu2')
-        $inventories_rhu2 = $query2->with('product')
-            ->orderBy('expiry_date', 'asc')
-            ->paginate(20, ['*'], 'page_rhu2');
-
-
-        // 4. AJAX Handling
+        // AJAX Handling
         if ($request->ajax()) {
-            // Retrieve which branch is being requested. Default to 1.
             $branch = $request->input('branch', 1);
-            
-            // Select the correct dataset based on the requested branch
-            $selectedInventories = ($branch == 2) ? $inventories_rhu2 : $inventories_rhu1;
+            $selectedInventories = ($branch == 2) ? $data['inventories_rhu2'] : $data['inventories_rhu1'];
 
             return view('admin.partials._inventory_table', [
                 'inventories' => $selectedInventories,
@@ -102,14 +34,7 @@ class InventoryController extends Controller
             ])->render();
         }
 
-        // 5. Normal View Return
-        return view('admin.inventory', [
-            'products' => $products,
-            'archiveproducts' => $archiveproducts,
-            'inventorycount' => $inventorycount,
-            'inventories_rhu1' => $inventories_rhu1,
-            'inventories_rhu2' => $inventories_rhu2
-        ]);
+        return view('admin.inventory', $data);
     }
 
     // Fetch Archived Stocks
@@ -120,11 +45,7 @@ class InventoryController extends Controller
         ]);
 
         $productId = $request->input('product_id');
-        
-        $archivedstocks = Inventory::where('is_archived', 1)
-            ->where('product_id', $productId)
-            ->orderBy('expiry_date', 'desc')
-            ->paginate(20);
+        $archivedstocks = $this->inventoryService->getArchivedStocks($productId);
 
         $html = '';
         if ($archivedstocks->isEmpty() && $request->page == 1) {
@@ -132,8 +53,8 @@ class InventoryController extends Controller
         } else {
             foreach ($archivedstocks as $key => $stock) {
                 $rowNumber = ($archivedstocks->currentPage() - 1) * $archivedstocks->perPage() + $key + 1;
-                $expiryDate = Carbon::parse($stock->expiry_date)->format('M d, Y');
-                
+                $expiryDate = \Carbon\Carbon::parse($stock->expiry_date)->format('M d, Y');
+
                 $html .= "<tr class=\"hover:bg-gray-50\">
                             <td class=\"text-left p-3\">{$rowNumber}</td>
                             <td class=\"text-left font-semibold text-gray-700\">{$stock->batch_number}</td>
@@ -145,84 +66,40 @@ class InventoryController extends Controller
 
         return response()->json([
             'html' => $html,
-            'has_more_pages' => $archivedstocks->hasMorePages(), 
+            'has_more_pages' => $archivedstocks->hasMorePages(),
         ]);
     }
 
     // ADD PRODUCT
-    public function addProduct(Request $request, Product $product) {
-        $validated = $request->validateWithBag( 'addproduct', [
-            'generic_name' => 'min:3|max:120|required',
-            'brand_name' => 'min:3|max:120|required',
-            'form' => 'min:3|max:120|required',
-            'strength' => 'min:3|max:120|required',
-        ], [
-            'generic_name.required.message' => 'Generic name is required.',
-            'brand_name.required.message' => 'Brand name is required.',
-            'form.required.message' => 'Form is required.',
-            'strength.required.message' => 'Strength is required.',
-        ]);
+    public function addProduct(Request $request) {
+        $validated = $request->validateWithBag(
+            'addproduct',
+            ValidationHelper::productRules(),
+            ValidationHelper::productMessages()
+        );
 
-        // keep assignment so we can log the created product
-        $newProduct = $product->create($validated);
-
-        // minimal logging
-        $user = Auth::user();
-        HistoryLog::create([
-            'action' => 'REGISTERED PRODUCT',
-            'description' => "Registered a new product: {$newProduct->generic_name} ({$newProduct->brand_name} {$newProduct->form} - {$newProduct->strength})",
-            'user_id' => $user?->id,
-            'user_name' => $user?->name ?? 'System',
-            'metadata' => [
-                'product_id' => $newProduct->id,
-            ],
-        ]);
-
-        return to_route('admin.inventory')->with('success', 'Product added successfully.');
+        try {
+            $this->inventoryService->addProduct($validated);
+            return to_route('admin.inventory')->with('success', 'Product added successfully.');
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()], 'addproduct');
+        }
     }
     
     // UPDATE PRODUCT
     public function updateProduct(Request $request) {
-        $validated = $request->validateWithBag( 'updateproduct', [
-            'product_id' => 'required|exists:products,id',
-            'generic_name' => 'required|min:3|max:120',
-            'brand_name' => 'required|min:3|max:120',
-            'form' => 'required|min:3|max:120',
-            'strength' => 'required|min:3|max:120',
-        ], [
-            'product_id.required' => 'Product ID is required.',
-            'product_id.exists' => 'The selected product does not exist.',
-            'generic_name.required' => 'Generic name is required.',
-            'brand_name.required' => 'Brand name is required.',
-            'form.required' => 'Form is required.',
-            'strength.required' => 'Strength is required.',
-        ]);
+        $validated = $request->validateWithBag(
+            'updateproduct',
+            array_merge(['product_id' => 'required|exists:products,id'], ValidationHelper::productRules()),
+            array_merge(['product_id.required' => 'Product ID is required.', 'product_id.exists' => 'The selected product does not exist.'], ValidationHelper::productMessages())
+        );
 
-        $product = Product::findOrFail($validated['product_id']);
-
-        // capture old values for logging
-        $old = $product->only(['generic_name', 'brand_name', 'form', 'strength']);
-
-        $product->update([
-            'generic_name' => $validated['generic_name'],
-            'brand_name' => $validated['brand_name'],
-            'form' => $validated['form'],
-            'strength' => $validated['strength'],
-        ]);
-
-        // minimal logging
-        $user = Auth::user();
-        HistoryLog::create([
-            'action' => 'PRODUCT UPDATED',
-            'description' => "Updated the product details for " . $old['generic_name'] . " " . $old['brand_name'] . " (" . $old['form'] . " - " . $old['strength'] . ") into " . $validated['generic_name'] . " " . $validated['brand_name'] . " (" . $validated['form'] . " - " . $validated['strength'] . ')',
-            'user_id' => $user?->id,
-            'user_name' => $user?->name ?? 'System',
-            'metadata' => [
-                'product_id' => $product->id,
-            ],
-        ]);
-
-        return to_route('admin.inventory')->with('success', 'Product updated successfully.');
+        try {
+            $this->inventoryService->updateProduct($validated['product_id'], $validated);
+            return to_route('admin.inventory')->with('success', 'Product updated successfully.');
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()], 'updateproduct');
+        }
     }
 
     // ARCHIVE PRODUCT
@@ -234,29 +111,12 @@ class InventoryController extends Controller
             'product_id.exists' => 'The selected product does not exist.',
         ]);
 
-        $product = Product::findOrFail($validated['product_id']);
-        $product->update([
-            'is_archived' => 1,
-        ]);
-
-        // Archive stock that belongs to the product
-        Inventory::where('product_id', $product->id)->update([
-            'is_archived' => 1,
-        ]);
-
-        // logging
-        $user = Auth::user();
-        HistoryLog::create([
-            'action' => 'PRODUCT ARCHIVED',
-            'description' => "{$product->generic_name} {$product->brand_name} ({$product->form} - {$product->strength}) has been archived and its corressponding stocks assigned to it.",
-            'user_id' => $user?->id,
-            'user_name' => $user?->name ?? 'System',
-            'metadata' => [
-                'product_id' => $product->id,
-            ],
-        ]);
-
-        return to_route('admin.inventory')->with('success', 'Product archived successfully.');
+        try {
+            $this->inventoryService->archiveProduct($validated['product_id']);
+            return to_route('admin.inventory')->with('success', 'Product archived successfully.');
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()], 'archiveproduct');
+        }
     }
 
     // UNARCHIVE PRODUCT
@@ -268,269 +128,69 @@ class InventoryController extends Controller
             'product_id.exists' => 'The selected product does not exist.',
         ]);
 
-        $product = Product::findOrFail($validated['product_id']);
-        $product->update([
-            'is_archived' => 0,
-        ]);
-
-        // Unarchive stock that belongs to the product
-        Inventory::where('product_id', $product->id)->update([
-            'is_archived' => 0,
-        ]);
-
-        // logging
-        $user = Auth::user();
-        HistoryLog::create([
-            'action' => 'PRODUCT UNARCHIVED',
-            'description' => "{$product->generic_name} {$product->brand_name} ({$product->form} - {$product->strength}) has been unarchived and its corressponding stocks assigned to it.",
-            'user_id' => $user?->id,
-            'user_name' => $user?->name ?? 'System',
-            'metadata' => [
-                'product_id' => $product->id,
-            ],
-        ]);
-
-        return to_route('admin.inventory')->with('success', 'Product unarchived successfully.');
+        try {
+            $this->inventoryService->unarchiveProduct($validated['product_id']);
+            return to_route('admin.inventory')->with('success', 'Product unarchived successfully.');
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()], 'unarchiveproduct');
+        }
     }
     
     // ADD STOCK
     public function addStock(Request $request) {
-        $validated = $request->validateWithBag( 'addstock', [
-            'product_id' => 'required|exists:products,id',
-            'branch_id' => 'required|in:1,2',
-            'batchnumber' => 'required|min:3|max:120',
-            'quantity' => 'required|numeric',
-            'expiry' => 'required|date',
-        ], [
-            'product_id.required'=> 'Product ID is required.',
-            'branch_id.required'=> 'Branch ID is required.',
-            'batchnumber.required'=> 'Batch number is required.',
-            'quantity.required'=> 'Quantity is required.',
-            'expiry.required'=> 'Expiry date is required.',
-        ]);
+        $validated = $request->validateWithBag(
+            'addstock',
+            ValidationHelper::inventoryStockRules(),
+            ValidationHelper::inventoryStockMessages()
+        );
 
-        $existingStock = Inventory::where('product_id', $validated['product_id'])
-            ->where('batch_number', $validated['batchnumber'])
-            ->where('expiry_date', $validated['expiry'])
-            ->where('branch_id', $validated['branch_id'])
-            ->first();
-
-        $user = Auth::user(); // for logging
-
-        if ($existingStock) {
-            $oldStock = $existingStock->quantity;
-            $existingStock->quantity += $validated['quantity'];
-            $existingStock->save();
-
-            // Product Movement
-            ProductMovement::create([
-                'product_id' => $existingStock->product_id,
-                'inventory_id' => $existingStock->id,
-                'user_id' => $user?->id,
-                'type' => 'IN',
-                'quantity' => $validated['quantity'],
-                'quantity_before' => $oldStock,
-                'quantity_after' => $existingStock->quantity,
-                'description' => 'Manual stock addition (existing batch)',
-            ]);
-
-            $product = Product::findOrFail($validated['product_id']);
-            $oldQty = number_format($oldStock);
-            $plannedQty = number_format($validated['quantity']);
-            $addedQty = number_format($existingStock->quantity);
-
-            // logging for quantity addition
-            HistoryLog::create([
-                'action' => 'STOCK ADDED',
-                'description' => "Added additional stock (+{$plannedQty}) in batch no. {$existingStock->batch_number} (Product: {$product->generic_name} {$product->brand_name} [{$product->form} - {$product->strength}]). From {$oldQty} to {$addedQty}.",
-                'user_id' => $user?->id,
-                'user_name' => $user?->name ?? 'System',
-                'metadata' => [
-                    'inventory_id' => $existingStock->id,
-                    'product_id' => $existingStock->product_id,
-                ],
-            ]);
-        } else {
-            // NOTE: Using status 0 for regular stock addition. 
-            // Transfer creates status 2, but both are caught by != 1 check in query.
-            $addstock = Inventory::create([
-                'product_id' => $validated['product_id'],
-                'branch_id' => $validated['branch_id'],
-                'batch_number' => $validated['batchnumber'],
-                'quantity' => $validated['quantity'],
-                'expiry_date' => $validated['expiry'],
-                'is_archived' => 0, 
-            ]);
-
-            // Product Movement
-            ProductMovement::create([
-                'product_id' => $addstock->product_id,
-                'inventory_id' => $addstock->id,
-                'user_id' => $user?->id,
-                'type' => 'IN',
-                'quantity' => $addstock->quantity,
-                'quantity_before' => 0,
-                'quantity_after' => $addstock->quantity,
-                'description' => 'Manual stock addition (new batch)',
-            ]);
-
-            // logging for new stock creation
-            $prod = Product::findOrFail($validated['product_id']);
-
-            $expry = Carbon::parse($addstock->expiry_date)->translatedFormat('M d, Y');
-            $qty = number_format($addstock->quantity);
-
-            HistoryLog::create([
-                'action' => 'STOCK ADDED',
-                'description' => "Created a new batch for {$prod->generic_name} {$prod->brand_name} ({$prod->form} - {$prod->strength}). Batch No. {$addstock->batch_number} with a qty of {$qty}. Expires in: {$expry}.",
-                'user_id' => $user?->id,
-                'user_name' => $user?->name ?? 'System',
-                'metadata' => [
-                    'inventory_id' => $addstock->id,
-                    'product_id' => $addstock->product_id,
-                ],
-            ]);
+        try {
+            $this->inventoryService->addStock($validated);
+            return to_route('admin.inventory')->with('success', 'Stock added successfully.');
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()], 'addstock');
         }
-
-        return to_route('admin.inventory')->with('success', 'Stock added successfully.');
     }
 
     // EDIT STOCK
     public function editStock(Request $request)
     {
-        $validated = $request->validateWithBag('editstock', [
-            'inventory_id' => 'required|exists:inventories,id',
-            'batchnumber' => 'required|min:3|max:120',
-            'quantity' => 'required|numeric|min:0',
-            'expiry' => 'required|date|after:today',
-        ], [
-            'inventory_id.required' => 'Product ID is required.',
-            'inventory_id.exists'   => 'The selected stock does not exist.',
-            'batchnumber.required'  => 'Batch number is required.',
-            'quantity.required'     => 'Quantity is required.',
-            'quantity.numeric'      => 'Quantity must be a number.',
-            'expiry.required'       => 'Expiry date is required.',
-            'expiry.date'           => 'Expiry date must be a valid date.',
-            'expiry.after'          => 'Expiry date cannot be in the past.',
-        ]);
+        $validated = $request->validateWithBag(
+            'editstock',
+            ValidationHelper::inventoryEditStockRules(),
+            ValidationHelper::inventoryStockMessages()
+        );
 
-        $inventory = Inventory::with('product')
-        ->findOrFail($validated['inventory_id']);
-
-        // capture old values for logging
-        $old = $inventory->only(['batch_number', 'quantity', 'expiry_date']);
-
-        $inventory->update([
-            'batch_number' => $validated['batchnumber'],
-            'quantity'     => $validated['quantity'],
-            'expiry_date'  => $validated['expiry'],
-        ]);
-        
-        // Product Movement
-        $quantityChange = $validated['quantity'] - $old['quantity'];
-
-        if ($quantityChange != 0) {
-            $movementType = $quantityChange > 0 ? 'IN' : 'OUT';
-            $description = $quantityChange > 0 ? 'Manual stock adjustment (add)' : 'Manual stock adjustment (remove)';
-
-            ProductMovement::create([
-                'product_id' => $inventory->product_id,
-                'inventory_id' => $inventory->id,
-                'user_id' => Auth::id(),
-                'type' => $movementType,
-                'quantity' => abs($quantityChange),
-                'quantity_before' => $old['quantity'],
-                'quantity_after' => $validated['quantity'],
-                'description' => $description,
-            ]);
+        try {
+            $this->inventoryService->editStock($validated['inventory_id'], $validated);
+            return to_route('admin.inventory')->with('success', 'Stock updated successfully.');
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()], 'editstock');
         }
-
-        // logging
-        $prod = $inventory->product;
-        $user = Auth::user();
-        $expry = Carbon::parse($validated['expiry'])->translatedFormat('M d, Y');
-
-        HistoryLog::create([
-            'action' => 'STOCK UPDATED',
-            'description' => "Updated the stock details from {$old['batch_number']} to {$validated['batchnumber']} (Product: {$prod->generic_name} {$prod->brand_name} [{$prod->form} - {$prod->strength}]). From qty {$old['quantity']} to {$validated['quantity']}. Now expires in: {$expry}.",
-            'user_id' => $user?->id,
-            'user_name' => $user?->name ?? 'System',
-            'metadata' => [
-                'inventory_id' => $inventory->id,
-                'product_id' => $inventory->product_id,
-            ],
-        ]);
-
-        return to_route('admin.inventory')->with('success', 'Stock updated successfully.');
     }
 
     // TRANSFER STOCK
     public function transferStock(Request $request)
     {
-        $request->validate([
-            'inventory_id' => 'required|exists:inventories,id',
-            'quantity'     => 'required|numeric|min:1',
-            'destination_branch' => 'required|in:1,2',
-        ]);
+        $validated = $request->validateWithBag(
+            'transferstock',
+            ValidationHelper::inventoryTransferStockRules(),
+            [
+                'inventory_id.required' => 'Inventory ID is required.',
+                'inventory_id.exists' => 'Selected inventory does not exist.',
+                'quantity.required' => 'Quantity is required.',
+                'quantity.numeric' => 'Quantity must be a number.',
+                'quantity.min' => 'Quantity must be at least 1.',
+                'destination_branch.required' => 'Destination branch is required.',
+                'destination_branch.in' => 'Invalid destination branch.',
+            ]
+        );
 
-        $sourceInventory = Inventory::with('product')->findOrFail($request->inventory_id);
-
-        if ($sourceInventory->quantity < $request->quantity) {
-            return back()->with('error', 'Not enough stock to transfer.');
+        try {
+            $this->inventoryService->transferStock($validated['inventory_id'], $validated['quantity'], $validated['destination_branch']);
+            return redirect()->route('admin.inventory')->with('success', 'Stock transferred successfully!');
+        } catch (Exception $e) {
+            return back()->withErrors(['error' => $e->getMessage()], 'transferstock');
         }
-
-        $sourceInventory->quantity -= $request->quantity;
-        $sourceInventory->save();
-
-        // Check if destination batch exists
-        $destInventory = Inventory::where('product_id', $sourceInventory->product_id)
-            ->where('batch_number', $sourceInventory->batch_number)
-            ->where('expiry_date', $sourceInventory->expiry_date)
-            ->where('branch_id', $request->destination_branch)
-            ->first();
-
-        if ($destInventory) {
-            $oldQty = $destInventory->quantity;
-            $destInventory->quantity += $request->quantity;
-            $destInventory->save();
-        } else {
-            // Create new batch for destination.
-            // Note: Setting is_archived = 2 for tracking transfers, 
-            // but showinventory must use != 1 to see this.
-            $newBatch = Inventory::create([
-                'product_id'    => $sourceInventory->product_id,
-                'batch_number'  => $sourceInventory->batch_number,
-                'quantity'      => $request->quantity,
-                'expiry_date'   => $sourceInventory->expiry_date,
-                'branch_id'     => $request->destination_branch,
-                'is_archived'   => 2,
-            ]);
-        }
-
-        // Add a product movement for this transfer (Source)
-        ProductMovement::create([
-            'product_id' => $sourceInventory->product_id,
-            'inventory_id' => $sourceInventory->id,
-            'user_id' => Auth::id(),
-            'type' => 'OUT',
-            'quantity' => $request->quantity,
-            'quantity_before' => $sourceInventory->quantity + $request->quantity,
-            'quantity_after' => $sourceInventory->quantity,
-            'description' => 'Stock transfer from RHU ' . ($sourceInventory->branch_id == 1 ? '1' : '2') . ' to RHU ' . ($request->destination_branch == 1 ? '1' : '2') . '.',
-        ]);
-
-        // Add another product movement for the received stock (Destination)
-        ProductMovement::create([
-            'product_id' => $sourceInventory->product_id,
-            'inventory_id' => $destInventory ? $destInventory->id : $newBatch->id,
-            'user_id' => Auth::id(),
-            'type' => 'IN',
-            'quantity' => $request->quantity,
-            'quantity_before' => $destInventory ? $oldQty : 0,
-            'quantity_after' => $destInventory ? $destInventory->quantity : $newBatch->quantity,
-            'description' => 'Stock received from RHU ' . ($sourceInventory->branch_id == 1 ? '1' : '2') . ' to RHU ' . ($request->destination_branch == 1 ? '1' : '2') . '.',
-        ]);
-
-        return redirect()->route('admin.inventory')->with('success', 'Stock transferred successfully!');
     }
 }
