@@ -12,7 +12,7 @@ class BarangayFactory extends Factory
     public function definition(): array
     {
         return [
-            'barangay_name' => $this->faker->unique()->city,
+            'barangay_name' => $this->faker->unique()->city,//add this
         ];
     }
 }
