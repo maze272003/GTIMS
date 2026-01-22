@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 
 // Repositories
 use App\Repositories\Contracts\InventoryRepositoryInterface;
@@ -40,7 +41,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Intentionally left clean
-        // No HTTPS forcing for local development
+        // Force HTTPS only in production
+        if (app()->environment('production')) {
+            URL::forceScheme('https');
+        }
     }
 }
