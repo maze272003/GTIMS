@@ -879,7 +879,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         ];
     }
 
-    public function getAiAnalysis(Request $request): JsonResponse
+        public function getAiAnalysis(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'product_name' => 'required|string',
@@ -892,102 +892,218 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             'compare_data.*.data' => 'required_with:compare_product_name|numeric',
         ]);
 
-        $apiKey = env("GEMINI_API_KEY"); // Best practice: use env
-        if (!$apiKey) {
-            // Fallback hardcoded key if env not set (matches your previous code)
-            $apiKey = "AIzaSyCo7c-_hA5coTOISnBTsU34jubUFa8GFao"; 
-        }
+        // === CONFIGURATION ===
+        $baseUrl = "https://ai-api.hostcluster.site/api/chat";
+        $model = 'glm-4.7:cloud'; 
         
-        if (!$apiKey) {
-            Log::error('GEMINI_API_KEY is not set.');
-            return response()->json(['error' => 'AI analysis is not configured on the server.'], 500);
-        }
-
         $productName = $validated['product_name'];
-        
+
+        // === PREPARE DATA ===
         $dataString = collect($validated['seasonal_data'])->map(function ($item) {
             return "- {$item['label']}: {$item['data']}";
         })->join("\n");
 
-        $systemInstruction = "You are a helpful and concise data analyst for a public health clinic in the Philippines. **Crucially, output MUST be generated as raw HTML (e.g., <h2>, <table>, <tr>, <td>) with CSS classes and inline styles ONLY for structure (e.g., border, padding).** Use **<strong>** tags for bolding product names (e.g., <strong>{$productName}</strong>). Respond in clear HTML paragraphs or tables, DO NOT use Markdown, DO NOT use lists/bullet points.";
+        // === CSS STYLES FOR THE PROMPT ===
+        // We define the design system here so the AI knows exactly how to style the result
+        $css = "
+            body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #334155; line-height: 1.6; }
+            .card { background: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
+            .section-title { font-size: 1.25rem; font-weight: 700; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; }
+            .highlight { background-color: #eff6ff; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+            .alert-box { padding: 16px; border-radius: 8px; margin-top: 12px; border-left: 4px solid; }
+            .alert-warning { background-color: #fff7ed; border-color: #f97316; color: #9a3412; }
+            .alert-success { background-color: #f0fdf4; border-color: #22c55e; color: #166534; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.95rem; }
+            th { text-align: left; padding: 12px; background-color: #f8fafc; color: #475569; font-weight: 600; border-bottom: 2px solid #e2e8f0; }
+            td { padding: 12px; border-bottom: 1px solid #f1f5f9; }
+            tr:last-child td { border-bottom: none; }
+            ul { list-style-type: none; padding-left: 0; }
+            li { margin-bottom: 8px; padding-left: 24px; position: relative; }
+            li::before { content: '•'; color: #3b82f6; font-weight: bold; position: absolute; left: 0; font-size: 1.2em; line-height: 1; }
+        ";
 
-        $userQuery = "{$systemInstruction}\n\nAnalyze the following monthly dispensation data (items dispensed per month) for the product '{$productName}':\n\n{$dataString}\n\n";
+        // System Prompt: Persona + Design Constraints
+        $systemInstruction = "You are an expert Inventory Manager and Data Analyst for a Philippine public health clinic. 
+        Your goal is to analyze medical dispensation data and provide actionable insights.
+        
+        **CRITICAL OUTPUT RULES:**
+        1. You MUST output **RAW HTML only**. No Markdown (no # or **), no conversational text outside the HTML tags.
+        2. Embed the following CSS styles in a <style> block at the very top of your response to ensure a beautiful design.
+        3. Be concise, professional, and data-driven.
+        4. Use emojis in headings for visual appeal.
+        5. Focus on trends, seasonality (linking to PH seasons like Rainy/Flu/Christmas), and inventory risks.";
 
-        $tableStyle = 'width: 100%; border-collapse: collapse; margin-top: 15px;';
-        $headerStyle = 'background-color: #f3f4f6; padding: 10px; border: 1px solid #e5e7eb; text-align: left; font-weight: bold;';
-        $cellStyle = 'padding: 10px; border: 1px solid #e5e7eb; vertical-align: top;';
+        // User Prompt Construction
+        $userQuery = "<style>{$css}</style>";
+        
+        $userQuery .= "<div class='card'>
+            <h1 class='section-title'>📊 Strategic Analysis: <span class='highlight'>{$productName}</span></h1>
+            <p><strong>Data Provided:</strong></p>
+            <pre style='background:#f8fafc; padding:10px; border-radius:6px; overflow-x:auto; font-size:0.85rem;'>{$dataString}</pre>
+        </div>";
 
         if (!empty($validated['compare_product_name'])) {
+            // === COMPARISON MODE ===
             $compareName = $validated['compare_product_name'];
             $compareString = collect($validated['compare_data'])->map(function ($item) {
                 return "- {$item['label']}: {$item['data']}";
             })->join("\n");
 
-            $userQuery .= "For comparison, here is the data for '{$compareName}':\n\n{$compareString}\n\n";
-            
-            $userQuery .= "Please follow this exact structure, using raw HTML:
-<h2>🤝 Product Comparison</h2>
-Generate a single HTML table (style='{$tableStyle}') with header cells (style='{$headerStyle}') and data cells (style='{$cellStyle}'). The table must have columns for 'Product', 'Overall Trend', 'Peak Months', and 'Trough/Zero Months'.
+            $userQuery .= "
+            <div class='card'>
+                <h2 class='section-title'>🤝 Competitive Comparison: {$productName} vs {$compareName}</h2>
+                <p>Compare the dispensation trends, peak usage periods, and volatility of these two products.</p>
+                
+                <h3 style='font-size:1.1rem; margin-top:20px; color:#334155;'>Performance Metrics</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            <th>{$productName}</th>
+                            <th>{$compareName}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Overall Trend</strong></td>
+                            <td>[Describe rising, falling, or stable based on data]</td>
+                            <td>[Describe rising, falling, or stable based on data]</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Peak Month(s)</strong></td>
+                            <td>[Identify highest usage month and value]</td>
+                            <td>[Identify highest usage month and value]</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lowest Month(s)</strong></td>
+                            <td>[Identify lowest usage month and value]</td>
+                            <td>[Identify lowest usage month and value]</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Volatility</strong></td>
+                            <td>[High/Medium/Low - based on variance]</td>
+                            <td>[High/Medium/Low - based on variance]</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-<h2>💡 Insights & Drivers</h2>
-Provide a <div> block with HTML paragraphs summarizing the **primary differences** and **similarities** between the products' demand drivers, linking to environmental or public health factors.
+            <div class='card'>
+                <h2 class='section-title'>💡 Strategic Insights</h2>
+                <ul>
+                    <li><strong>Correlation:</strong> Do these products move together? Is one seasonal while the other is consistent?</li>
+                    <li><strong>Winner:</strong> Which product has higher demand stability or growth potential?</li>
+                    <li><strong>Context:</strong> Are peaks related to specific events (e.g., flu season for one, chronic maintenance for the other)?</li>
+                </ul>
+            </div>
 
-<h2>📈 Predictive Recommendations</h2>
-Provide a <div> block with HTML paragraphs containing a separate, clear, predictive recommendation for managing stock for *each* product: **<strong>{$productName}</strong>** and **<strong>{$compareName}</strong>**.";
+            <div class='card'>
+                <h2 class='section-title'>📈 Predictive Recommendations</h2>
+                <div class='alert-box alert-success'>
+                    <strong>For {$productName}:</strong>
+                    <p>[Provide specific stock advice, e.g., 'Increase buffer stock by 20% in December']</p>
+                </div>
+                <div class='alert-box alert-warning'>
+                    <strong>For {$compareName}:</strong>
+                    <p>[Provide specific stock advice, e.g., 'Maintain lean inventory due to low volatility']</p>
+                </div>
+            </div>
+            ";
 
         } else {
-            $userQuery .= "Based ONLY on the data provided, structure your response using raw HTML with the following sections:
-<h2>📊 Key Observations & Trends</h2>
-<p>Summarize the overall demand pattern and list the notable <strong>peaks</strong> (highest demand months/data points) and <strong>troughs</strong> (lowest or zero demand months/data points).</p>
-<h2>💡 Contextual Insights</h2>
-<p>Suggest potential reasons *why* these trends might be happening in the Philippines context (e.g., linking to rainy season, flu season, general health campaigns). Analyze the impact of 'zero dispensation' events on inventory management vs. patient need.</p>
-<h2>📈 Predictive Recommendation</h2>
-<p>Provide a single, clear, predictive recommendation for managing stock for **<strong>{$productName}</strong>** (e.g., 'Proactively increase stock levels by 20% from December to February to prepare for the annual peak.').</p>";
+            // === SINGLE PRODUCT MODE ===
+            $userQuery .= "
+            <div class='card'>
+                <h2 class='section-title'>📉 Trend Analysis</h2>
+                <p>Provide a 2-3 sentence summary of the demand pattern.</p>
+                
+                <h3 style='font-size:1.1rem; margin-top:20px; color:#334155;'>Key Data Points</h3>
+                <ul>
+                    <li><strong>Peak Demand:</strong> Identify the month(s) with highest usage. Why might this be happening in the Philippines context?</li>
+                    <li><strong>Troughs/Zeros:</strong> Identify months with low or zero usage. Is this seasonal or a supply issue?</li>
+                    <li><strong>Consistency:</strong> Is the usage steady throughout the year or sporadic?</li>
+                </ul>
+            </div>
+
+            <div class='card'>
+                <h2 class='section-title'>🌏 Contextual Insights (Philippines)</h2>
+                <p>Analyze the external factors:</p>
+                <ul>
+                    <li><strong>Weather Patterns:</strong> Do peaks align with the rainy season (June-Nov) or dry season?</li>
+                    <li><strong>Holidays:</strong> Is there a surge or drop during December/Christmas?</li>
+                    <li><strong>Public Health Events:</strong> Potential correlation with Dengue or Flu outbreaks?</li>
+                </ul>
+            </div>
+
+            <div class='card'>
+                <h2 class='section-title'>📦 Inventory Action Plan</h2>
+                <div class='alert-box alert-warning'>
+                    <strong>Immediate Action:</strong>
+                    <p>Based on current trend, should we order more or less right now?</p>
+                </div>
+                <div class='alert-box alert-success'>
+                    <strong>Forecasting:</strong>
+                    <p>Predict the needs for the next 3 months. Suggest a reorder point or safety stock level logic.</p>
+                </div>
+            </div>
+            ";
         }
 
-        $model = 'gemini-2.5-flash';
-        $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
-
+        // Ollama Payload
         $payload = [
-            'contents' => [
+            'model'  => $model,
+            'stream' => false,
+            'messages' => [
+                [
+                    'role' => 'system',
+                    'content' => $systemInstruction
+                ],
                 [
                     'role' => 'user',
-                    'parts' => [
-                        ['text' => $userQuery]
-                    ]
+                    'content' => $userQuery
                 ]
             ],
+            'options' => [
+                'temperature' => 0.6, // Slightly lower for more factual table data
+                'num_ctx'     => 8192 // Larger context for the long HTML prompt
+            ]
         ];
 
         try {
-            $response = Http::timeout(60)
-                ->post($apiUrl . '?key=' . $apiKey, $payload); 
+            $response = Http::timeout(120) 
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($baseUrl, $payload);
 
             if (!$response->successful()) {
-                Log::error('Gemini API request failed', ['status' => $response->status(), 'body' => $response->json()]);
-                $errorBody = data_get($response->json(), 'error.message', 'The AI service failed to respond.');
-                return response()->json(['error' => $errorBody], $response->status());
+                Log::error('Ollama API request failed', [
+                    'status' => $response->status(), 
+                    'body' => $response->body()
+                ]);
+                return response()->json(['error' => 'The AI service failed to respond.'], 500);
             }
 
-            $text = data_get($response->json(), 'candidates.0.content.parts.0.text');
+            $jsonResponse = $response->json();
+            $text = data_get($jsonResponse, 'message.content');
 
             if ($text) {
-                 $text = str_replace(['**', '*'], '', $text);
+                // Remove any markdown bolding artifacts that might have slipped through
+                $text = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $text);
+                // Remove markdown headers
+                $text = preg_replace('/^#(.*?)$/m', '<h3>$1</h3>', $text);
+                
                 return response()->json(['analysis' => trim($text)]);
             } else {
-                $finishReason = data_get($response->json(), 'candidates.0.finishReason');
-                Log::error('Gemini API gave no content', ['reason' => $finishReason, 'response' => $response->json()]);
-                if ($finishReason === 'SAFETY') {
-                    return response()->json(['error' => 'The AI analysis was blocked due to safety settings.'], 400);
-                }
+                Log::error('Ollama API gave no content', ['response' => $jsonResponse]);
                 return response()->json(['error' => 'No valid response received from the AI analysis service.'], 500);
             }
 
         } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            Log::error('Connection Error calling Gemini API: ' . $e->getMessage());
+            Log::error('Connection Error calling Ollama: ' . $e->getMessage());
             return response()->json(['error' => 'Could not connect to the AI analysis service. Please check the network connection.'], 503);
         } catch (\Exception $e) {
-            Log::error('Error calling Gemini API: ' . $e->getMessage());
+            Log::error('Error calling Ollama: ' . $e->getMessage());
             return response()->json(['error' => 'An unexpected error occurred while contacting the AI analysis service.'], 500);
         }
     }
