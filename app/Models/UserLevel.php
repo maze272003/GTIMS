@@ -18,6 +18,10 @@ class UserLevel extends Model
 
     public function hasPermission(string $permissionName): bool
     {
-        return $this->permissions()->where('name', $permissionName)->exists();
+        if (!$this->relationLoaded('permissions')) {
+            $this->load('permissions');
+        }
+
+        return $this->permissions->contains('name', $permissionName);
     }
 }

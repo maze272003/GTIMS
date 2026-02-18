@@ -28,7 +28,7 @@ class PatientRecordsController extends Controller
         $query = Patientrecords::with(['dispensedMedications', 'barangay', 'branch']);
 
         // --- Branch Filtering ---
-        if (in_array($user->user_level_id, [1, 2])) {
+        if ($user->hasPermission('patients.manage')) {
             if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
                 $query->where('branch_id', $request->branch_filter);
             }
@@ -66,7 +66,7 @@ class PatientRecordsController extends Controller
         // Calculate Stats
         $statsQuery = Patientrecords::query();
 
-        if (in_array($user->user_level_id, [1, 2])) {
+        if ($user->hasPermission('patients.manage')) {
             if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
                 $statsQuery->where('branch_id', $request->branch_filter);
             }
@@ -229,13 +229,7 @@ class PatientRecordsController extends Controller
         $user = Auth::user();
 
         // SECURITY CHECK
-        if (!in_array($user->user_level_id, [1, 2]) && $record->branch_id != $user->branch_id) {
-            return back()->with('error', 'Unauthorized action.');
-        }
-        $user = Auth::user();
-
-        // SECURITY CHECK
-        if (!in_array($user->user_level_id, [1, 2]) && $record->branch_id != $user->branch_id) {
+        if (!$user->hasPermission('patients.manage') && $record->branch_id != $user->branch_id) {
             return back()->with('error', 'Unauthorized action.');
         }
 
@@ -290,7 +284,7 @@ class PatientRecordsController extends Controller
         $query = Patientrecords::with(['dispensedMedications', 'barangay', 'branch']);
 
         // --- Branch Filtering ---
-        if (in_array($user->user_level_id, [1, 2])) {
+        if ($user->hasPermission('patients.manage')) {
             if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
                 $query->where('branch_id', $request->branch_filter);
             }

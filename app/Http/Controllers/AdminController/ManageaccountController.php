@@ -38,7 +38,7 @@ class ManageaccountController extends Controller
         return view('admin.partials.users-table', compact('users'))->render();
     }
 
-    $levels = UserLevel::whereIn('name', ['admin', 'doctor', 'encoder'])->get();
+    $levels = UserLevel::all();
     $branches = Branch::all();
 
     return view('admin.manageaccount', compact('users', 'levels', 'branches'));
@@ -63,9 +63,9 @@ class ManageaccountController extends Controller
         ],
     ]);
 
-    // 2. Check Privileges
+    // 2. Check Privileges — only users with settings.roles permission can create superadmins
     $targetLevel = UserLevel::find($request->user_level_id);
-    if ($currentUser->level->name !== 'superadmin' && $targetLevel->name === 'superadmin') {
+    if (!$currentUser->hasPermission('settings.roles') && $targetLevel->name === 'superadmin') {
             abort(403, 'You are not allowed to create a Superadmin account.');
     }
 

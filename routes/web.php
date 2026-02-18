@@ -38,18 +38,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
         $user = Auth::user();
         
-        // ---- BINAGO NATIN TO ----
-        // I-check kung ang level ay 1, 2, o 3 (Superadmin, Admin, o Encoder)
-        // (Ito ay kapareho ng logic ng 'level.all' middleware)
-        if (Auth::user() && in_array(Auth::user()->user_level_id, [1, 2, 3])) {
-             // Papuntang /admin/dashboard
+        if (!$user || !$user->level) {
+            Auth::logout();
+            return redirect('/login')->with('error', 'You do not have permission.');
+        }
+
+        // Redirect based on permissions
+        if ($user->hasPermission('dashboard.view')) {
             return redirect()->route('admin.dashboard');
         }
-        if ($user && $user->user_level_id == 6) {
+
+        if ($user->hasPermission('orders.view')) {
             return redirect()->route('admin.orders.index');
         }
 
-        // Kung wala (level 4, 5, atbp), logout
         Auth::logout();
         return redirect('/login')->with('error', 'You do not have permission.');
 

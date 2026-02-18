@@ -15,8 +15,7 @@ class CheckUserLevelAccess
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Dapat level 1, 2, 3, O 4
-        if (auth()->check() && in_array(auth()->user()->user_level_id, [1, 2, 3, 4, 5, 6])) {
+        if (auth()->check() && auth()->user()->level) {
             return $next($request);
         }
         abort(403, 'Access Denied. You do not have permission.');

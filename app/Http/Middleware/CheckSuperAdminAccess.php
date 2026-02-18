@@ -15,10 +15,9 @@ class CheckSuperAdminAccess
      */
     public function handle(Request $request, Closure $next): Response
 {
-    // Dapat level 1 lang
-    if (auth()->check() && auth()->user()->user_level_id == 1) {
+    if (auth()->check() && auth()->user()->hasPermission('settings.roles')) {
         return $next($request);
     }
-    abort(403, 'Access Denied. Superadmins only.');
+    abort(403, 'Access Denied. You do not have the required permission.');
 }
 }

@@ -101,13 +101,17 @@ class OtpLoginController extends Controller
     protected function getRedirectUrl($user)
     {
         if (is_null($user->level)) {
-            return null; // Hindi authorized
+            return null;
         }
 
-        if (in_array($user->level->name, ['superadmin', 'admin', 'encoder'])) {
-             return route('admin.dashboard');
+        if ($user->hasPermission('dashboard.view')) {
+            return route('admin.dashboard');
         }
 
-        return null; // Walang role na may access
+        if ($user->hasPermission('orders.view')) {
+            return route('admin.orders.index');
+        }
+
+        return null;
     }
 }
