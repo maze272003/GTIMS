@@ -4,7 +4,8 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <meta name="user-level" content="{{ auth()->user()->user_level_id }}">
+        <meta name="user-level" content="{{ auth()->check() ? auth()->user()->user_level_id : '' }}">
+        <meta name="user-permissions" content="{{ auth()->check() ? auth()->user()->level?->permissions->pluck('name')->implode(',') : '' }}">
         <title>{{ $title ?? 'General Tinio - Inventory System' }}</title>
         <script src="https://cdn.tailwindcss.com"></script>
         <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.1.0/css/all.css">
@@ -63,8 +64,10 @@
         </body>
 
     <script>
-        // Global variable na accessible sa lahat ng JS files
-        window.currentUserLevel = {{ auth()->user()->user_level_id }};
+        // @deprecated Use window.hasPermission() instead of window.currentUserLevel for access checks
+        window.currentUserLevel = {{ auth()->check() ? auth()->user()->user_level_id : 'null' }};
+        window.userPermissions = '{{ auth()->check() ? auth()->user()->level?->permissions->pluck("name")->implode(",") : "" }}'.split(',');
+        window.hasPermission = function(perm) { return window.userPermissions.indexOf(perm) !== -1; };
 
         // ================= SLEEP MODE SCRIPT ================= //
         document.addEventListener('DOMContentLoaded', function() {

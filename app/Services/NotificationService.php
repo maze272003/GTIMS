@@ -73,7 +73,11 @@ class NotificationService
      */
     public function notifyLowStock(int $productId, string $productName, int $available, int $threshold): void
     {
-        $admins = User::whereIn('user_level_id', [1, 2])->get();
+        $admins = User::whereHas('level', function ($query) {
+            $query->whereHas('permissions', function ($q) {
+                $q->where('name', 'notifications.manage');
+            });
+        })->get();
         foreach ($admins as $admin) {
             $this->notify($admin, 'low_stock', [
                 'product_id' => $productId,

@@ -75,7 +75,7 @@ class PatientRecordsExport implements
         $user = $this->user;
 
         // Branch Logic (Same as Controller)
-        if (in_array($user->user_level_id, [1, 2])) {
+        if ($user->hasPermission('patients.manage')) {
             if (isset($filters['branch_filter']) && $filters['branch_filter'] !== 'all') {
                 $query->where('branch_id', $filters['branch_filter']);
             }

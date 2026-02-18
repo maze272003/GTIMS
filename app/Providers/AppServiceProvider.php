@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Blade;
 use App\Models\User;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
@@ -82,5 +83,10 @@ class AppServiceProvider extends ServiceProvider
         
         // (Wala na dito 'yung 'be-admin' at 'be-encoder' GATES
         // dahil pinalitan na natin ng 'can-access-admin-panel')
+
+        // Register Blade directive for permission-based rendering
+        Blade::if('haspermission', function (string $permission) {
+            return auth()->check() && auth()->user()->hasPermission($permission);
+        });
     }
 }

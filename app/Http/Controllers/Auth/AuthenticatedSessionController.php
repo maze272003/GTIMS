@@ -87,33 +87,10 @@ class AuthenticatedSessionController extends Controller
         $user->save();
         // ================================================
 
-        if ($user->level->name == 'superadmin') {
+        if ($user->hasPermission('dashboard.view')) {
             return redirect()->route('admin.dashboard');
-
-        } elseif ($user->level->name == 'admin') {
-            // --- BRANCH REDIRECTION LOGIC START ---
-            // if ($user->branch_id == 2) {
-            //     return redirect()->route('admin.inventory');
-            // }
-            
-            // Default for branch_id == 1 (or others)
-            return redirect()->route('admin.dashboard');
-            // --- BRANCH REDIRECTION LOGIC END ---
-
-        } elseif ($user->level->name == 'encoder') {
-            return redirect()->route('admin.dashboard'); 
-        }
-        elseif ($user->level->name == 'doctor') {
-            // if ($user->branch_id == 2) {
-            //     return redirect()->route('admin.inventory');
-            // }
-            return redirect()->route('admin.dashboard'); 
-        }
-        elseif ($user->level->name == 'mayor') {
-            return redirect()->route('admin.dashboard'); 
-        }
-        elseif ($user->level->name == 'finance') {
-            return redirect()->route('admin.dashboard'); 
+        } elseif ($user->hasPermission('orders.view')) {
+            return redirect()->route('admin.orders.index');
         }
         
 

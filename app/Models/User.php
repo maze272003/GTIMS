@@ -68,6 +68,15 @@ class User extends Authenticatable
 
     public function hasPermission(string $permissionName): bool
     {
-        return $this->level && $this->level->hasPermission($permissionName);
+        if (!$this->level) {
+            return false;
+        }
+
+        // Use cached permissions to avoid repeated queries
+        if (!$this->relationLoaded('level') || !$this->level->relationLoaded('permissions')) {
+            $this->load('level.permissions');
+        }
+
+        return $this->level->permissions->contains('name', $permissionName);
     }
 }

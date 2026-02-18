@@ -26,7 +26,7 @@ class DashboardController extends Controller
      */
 // Add | RedirectResponse to the end
 public function showdashboard(Request $request): View | JsonResponse | RedirectResponse    {
-        if (\Illuminate\Support\Facades\Auth::user()->user_level_id == 6) {
+        if (!\Illuminate\Support\Facades\Auth::user()->hasPermission('dashboard.view')) {
         return redirect()->route('admin.orders.index');
             
     }

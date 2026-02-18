@@ -8,7 +8,7 @@
             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Status</th>
             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Expiry Date</th>
 
-            @if (auth()->user()->user_level_id != 4 && auth()->user()->branch_id != 2)
+            @if (auth()->user()->hasPermission('inventory.edit') && auth()->user()->branch_id != 2)
                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Actions</th>
             @endif
         </tr>
@@ -16,7 +16,7 @@
     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="inventory-table-body">
         @if ($inventories->isEmpty())
             <tr>
-                <td colspan="{{ auth()->user()->user_level_id != 4 && auth()->user()->branch_id != 2 ? 7 : 6 }}"
+                <td colspan="{{ auth()->user()->hasPermission('inventory.edit') && auth()->user()->branch_id != 2 ? 7 : 6 }}"
                     class="p-3 text-center text-sm text-gray-500 dark:text-gray-400">
                     No inventory records available
                 </td>
@@ -66,7 +66,7 @@
                         {{ \Carbon\Carbon::parse($inventory->expiry_date)->format('M d, Y') }}
                     </td>
 
-                    @if (auth()->user()->user_level_id != 4 && auth()->user()->branch_id != 2)
+                    @if (auth()->user()->hasPermission('inventory.edit') && auth()->user()->branch_id != 2)
                         <td class="p-3 flex">
                             <div class="flex gap-2 w-full">
                                 <button type="button" class="edit-stock-btn w-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white font-semibold text-sm text-center">
@@ -74,7 +74,7 @@
                                     Edit Stock
                                 </button>
 
-                                @if (auth()->user()->user_level_id <= 2)
+                                @if (auth()->user()->hasPermission('inventory.transfer'))
                                     <button type="button"
                                             class="transfer-stock-btn w-full bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-purple-600 dark:hover:bg-purple-800 hover:text-white font-semibold text-sm text-center"
                                             data-stock-id="{{ $inventory->id }}"
