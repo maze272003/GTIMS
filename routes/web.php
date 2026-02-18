@@ -11,7 +11,15 @@ use App\Http\Controllers\AdminController\ManageaccountController;
 use App\Http\Controllers\AdminController\PatientRecordsController;
 use App\Http\Controllers\AdminController\InventoryExportController;
 use App\Http\Controllers\AdminController\ProductMovementController;
-use Illuminate\Support\Facades\Auth; // <-- Siguraduhin na nandito ito
+use App\Http\Controllers\Admin\HoldController;
+use App\Http\Controllers\Admin\IncomingRequestController;
+use App\Http\Controllers\Admin\LowStockSettingController;
+use App\Http\Controllers\Admin\SupplierController;
+use App\Http\Controllers\Admin\RolePermissionController;
+use App\Http\Controllers\Admin\AuditEventController;
+use App\Http\Controllers\Admin\AnalyticsApiController;
+use App\Http\Controllers\Admin\NotificationController;
+use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
     return view('auth.login');
@@ -150,6 +158,70 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // L1, L2: History Logs (Protected)
             Route::get('/historylog', [HistorylogController::class, 'showhistorylog'])->name('historylog');
+
+            // == Holds/Pullout Routes ==
+            Route::prefix('holds')->name('holds.')->group(function () {
+                Route::get('/', [HoldController::class, 'index'])->name('index');
+                Route::get('/create', [HoldController::class, 'create'])->name('create');
+                Route::post('/', [HoldController::class, 'store'])->name('store');
+                Route::get('/{hold}', [HoldController::class, 'show'])->name('show');
+                Route::post('/{hold}/approve', [HoldController::class, 'approve'])->name('approve');
+                Route::post('/{hold}/release', [HoldController::class, 'release'])->name('release');
+            });
+
+            // == Incoming Requests Workflow Routes ==
+            Route::prefix('requests')->name('requests.')->group(function () {
+                Route::get('/', [IncomingRequestController::class, 'index'])->name('index');
+                Route::get('/create', [IncomingRequestController::class, 'create'])->name('create');
+                Route::post('/', [IncomingRequestController::class, 'store'])->name('store');
+                Route::get('/{incomingRequest}', [IncomingRequestController::class, 'show'])->name('show');
+                Route::post('/{incomingRequest}/transition', [IncomingRequestController::class, 'transition'])->name('transition');
+                Route::post('/{incomingRequest}/fulfill', [IncomingRequestController::class, 'fulfill'])->name('fulfill');
+                Route::post('/{incomingRequest}/comment', [IncomingRequestController::class, 'addComment'])->name('comment');
+                Route::post('/{incomingRequest}/attachment', [IncomingRequestController::class, 'addAttachment'])->name('attachment');
+            });
+
+            // == Low Stock Settings Routes ==
+            Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
+                Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
+                Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');
+                Route::post('/override', [LowStockSettingController::class, 'storeOverride'])->name('override');
+                Route::delete('/override/{setting}', [LowStockSettingController::class, 'destroyOverride'])->name('override.destroy');
+            });
+
+            // == Supplier Routes ==
+            Route::prefix('suppliers')->name('suppliers.')->group(function () {
+                Route::get('/', [SupplierController::class, 'index'])->name('index');
+                Route::get('/create', [SupplierController::class, 'create'])->name('create');
+                Route::post('/', [SupplierController::class, 'store'])->name('store');
+                Route::get('/{supplier}/edit', [SupplierController::class, 'edit'])->name('edit');
+                Route::put('/{supplier}', [SupplierController::class, 'update'])->name('update');
+                Route::post('/{supplier}/link-product', [SupplierController::class, 'linkProduct'])->name('link-product');
+                Route::delete('/{supplier}/unlink-product/{product}', [SupplierController::class, 'unlinkProduct'])->name('unlink-product');
+            });
+
+            // == Audit Events Routes ==
+            Route::prefix('audit')->name('audit.')->group(function () {
+                Route::get('/', [AuditEventController::class, 'index'])->name('index');
+                Route::get('/{auditEvent}', [AuditEventController::class, 'show'])->name('show');
+            });
+
+            // == Analytics API Routes ==
+            Route::prefix('analytics')->name('analytics.')->group(function () {
+                Route::get('/sla-metrics', [AnalyticsApiController::class, 'slaMetrics'])->name('sla');
+                Route::get('/reorder-suggestions', [AnalyticsApiController::class, 'reorderSuggestions'])->name('reorder');
+                Route::get('/low-stock-alerts', [AnalyticsApiController::class, 'lowStockAlerts'])->name('low-stock');
+                Route::get('/stock-kpis', [AnalyticsApiController::class, 'stockKPIs'])->name('kpis');
+            });
+
+            // == Notification Routes ==
+            Route::prefix('notifications')->name('notifications.')->group(function () {
+                Route::get('/', [NotificationController::class, 'index'])->name('index');
+                Route::post('/{id}/read', [NotificationController::class, 'markAsRead'])->name('read');
+                Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('read-all');
+                Route::get('/preferences', [NotificationController::class, 'preferences'])->name('preferences');
+                Route::post('/preferences', [NotificationController::class, 'updatePreferences'])->name('preferences.update');
+            });
         });
 
         // == C. SUPERADMIN ONLY ROUTES (Level 1) ==
@@ -167,6 +239,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // L1: Manage Account (Protected)
             Route::get('/manageaccount' , [ManageaccountController::class, 'showManageaccount'])
                   ->name('manageaccount');
+
+            // L1: Role/Permission Management
+            Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');
+            Route::post('/roles', [RolePermissionController::class, 'update'])->name('roles.update');
         });
         
     }); // <-- End ng buong /admin group

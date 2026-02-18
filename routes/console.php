@@ -2,6 +2,8 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
+use App\Services\HoldService;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -11,3 +13,10 @@ Artisan::command('jm', function () {
     // server start
     passthru('php artisan serve');
 })->purpose('start the server');
+
+Artisan::command('holds:expire', function () {
+    $count = app(HoldService::class)->expireHolds();
+    $this->info("Expired {$count} holds.");
+})->purpose('Expire holds that have passed their expiry date');
+
+Schedule::command('holds:expire')->hourly();
