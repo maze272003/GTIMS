@@ -10,4 +10,14 @@ class UserLevel extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    public function permissions()
+    {
+        return $this->belongsToMany(Permission::class, 'role_permissions');
+    }
+
+    public function hasPermission(string $permissionName): bool
+    {
+        return $this->permissions()->where('name', $permissionName)->exists();
+    }
 }

@@ -42,4 +42,18 @@ class Product extends Model
             $q->whereHas('branch', fn($b) => $b->whereIn('name', ['RHU 1', 'RHU 2']))
         ]);
     }
+
+    public function substitutes()
+    {
+        return $this->belongsToMany(Product::class, 'product_substitutes', 'product_id', 'substitute_product_id')
+            ->withPivot('priority')
+            ->orderByPivot('priority');
+    }
+
+    public function suppliers()
+    {
+        return $this->belongsToMany(Supplier::class, 'supplier_products')
+            ->withPivot('lead_time_days', 'unit_cost')
+            ->withTimestamps();
+    }
 }

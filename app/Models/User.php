@@ -65,4 +65,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Branch::class);
     }
+
+    public function hasPermission(string $permissionName): bool
+    {
+        return $this->level && $this->level->hasPermission($permissionName);
+    }
 }
