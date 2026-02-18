@@ -6,7 +6,7 @@
             <tr>
                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">#</th>
                 
-                @if(in_array(auth()->user()->user_level_id, [1, 2]))
+                @if(auth()->user()->hasPermission('patients.manage'))
                     <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Branch</th>
                 @endif
 
@@ -19,7 +19,7 @@
         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             @if ($patientrecords->isEmpty())
                 <tr>
-                    <td colspan="{{ in_array(auth()->user()->user_level_id, [1, 2]) ? 6 : 5 }}" class="p-3 text-center text-sm text-gray-500 dark:text-gray-400">No records found.</td>
+                    <td colspan="{{ auth()->user()->hasPermission('patients.manage') ? 6 : 5 }}" class="p-3 text-center text-sm text-gray-500 dark:text-gray-400">No records found.</td>
                 </tr>
             @else
                 @foreach ($patientrecords as $patientrecord)
@@ -46,7 +46,7 @@
                         {{ $loop->iteration + ($patientrecords->currentPage() - 1) * $patientrecords->perPage() }}
                     </td>
 
-                    @if(in_array(auth()->user()->user_level_id, [1, 2]))
+                    @if(auth()->user()->hasPermission('patients.manage'))
                         <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-left">
                             <span class="px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded text-xs font-semibold">
                                 {{ $patientrecord->branch->name ?? 'N/A' }}
@@ -70,8 +70,8 @@
                         <button class="view-medications-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
                             <i class="fa-regular fa-eye mr-1"></i>View All
                         </button>
-                        @if (auth()->user()->user_level_id != 4)
-                            @if(in_array(auth()->user()->user_level_id, [1, 2]) || auth()->user()->branch_id == $patientrecord->branch_id)
+                        @if (auth()->user()->hasPermission('patients.manage'))
+                            @if(auth()->user()->hasPermission('patients.manage') || auth()->user()->branch_id == $patientrecord->branch_id)
                                 <button class="editrecordbtn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
                                     <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
                                 </button>

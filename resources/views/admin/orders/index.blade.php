@@ -12,8 +12,8 @@
                     </p>
                     <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Order Management</h2>
                 </div>
-                {{-- Create Button: Only for Pharmacists (Level 2) or Super Admin (Level 1) --}}
-                @if(in_array(auth()->user()->user_level_id, [1, 2]))
+                {{-- Create Button: Only for users with orders.create permission --}}
+                @if(auth()->user()->hasPermission('orders.create'))
                     <a href="{{ route('admin.orders.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition-all duration-200">
                         <i class="fa-solid fa-plus mr-2"></i> Create New Order
                     </a>
@@ -94,8 +94,8 @@
                                     <td class="px-6 py-4 text-center">
                                         <div class="flex items-center justify-center gap-2">
 
-                                            {{-- Super Admin Actions (Level 1) --}}
-                                            @if(Auth::user()->user_level_id == 1 && $order->status == 'pending_admin')
+                                            {{-- Admin Approval Actions --}}
+                                            @if(Auth::user()->hasPermission('orders.approve_admin') && $order->status == 'pending_admin')
                                                 <form action="{{ route('admin.orders.update', $order->id) }}" method="POST" class="inline">
                                                     @csrf
                                                     <input type="hidden" name="action" value="approve">
@@ -115,8 +115,8 @@
                                                 </form>
                                             @endif
 
-                                            {{-- Finance Actions (Level 6) --}}
-                                            @if(Auth::user()->user_level_id == 6 && $order->status == 'pending_finance')
+                                            {{-- Finance Approval Actions --}}
+                                            @if(Auth::user()->hasPermission('orders.approve_finance') && $order->status == 'pending_finance')
                                                 <form action="{{ route('admin.orders.update', $order->id) }}" method="POST" class="inline">
                                                     @csrf
                                                     <input type="hidden" name="action" value="approve">
@@ -145,7 +145,7 @@
                                             @endif
 
                                             {{-- No Actions --}}
-                                            @if(!in_array(Auth::user()->user_level_id, [1,6]) || ($order->status !== 'pending_admin' && $order->status !== 'pending_finance' && $order->status !== 'approved'))
+                                            @if((!Auth::user()->hasPermission('orders.approve_admin') && !Auth::user()->hasPermission('orders.approve_finance')) || ($order->status !== 'pending_admin' && $order->status !== 'pending_finance' && $order->status !== 'approved'))
                                                 <span class="text-xs text-gray-400">-</span>
                                             @endif
                                         </div>

@@ -11,21 +11,18 @@
     <ul class="flex flex-col flex-1 mt-6 space-y-2">
         @auth
             
-            {{-- 1. DASHBOARD (Para sa Level 1, 2, 3, 4, 5) --}}
-            {{-- NOTE: Finance (6) is NOT included here --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2, 3, 4, 5]))
+            {{-- 1. DASHBOARD --}}
+            @haspermission('dashboard.view')
                 <li>
                     <a href="{{ route('admin.dashboard') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                         <i class="fa-regular fa-house-chimney nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                         <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Dashboard</span>
                     </a>
                 </li>
-            @endif
+            @endhaspermission
 
-            {{-- ========================================================= --}}
-            {{-- NEW: ORDER STOCK (For Pharmacist, SuperAdmin, Finance) --}}
-            {{-- ========================================================= --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2, 6]))
+            {{-- ORDER STOCK --}}
+            @haspermission('orders.view')
                 <li>
                     <a href="{{ route('admin.orders.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.orders.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                         <i class="fa-solid fa-cart-shopping nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
@@ -34,12 +31,10 @@
                         {{-- Optional: Notification Badge for Pending Approvals --}}
                         @php
                             $pendingCount = 0;
-                            // If Super Admin, count pending_admin
-                            if(auth()->user()->user_level_id == 1) {
+                            if(auth()->user()->hasPermission('orders.approve_admin')) {
                                 $pendingCount = \App\Models\Order::where('status', 'pending_admin')->count();
                             } 
-                            // If Finance, count pending_finance
-                            elseif(auth()->user()->user_level_id == 6) {
+                            elseif(auth()->user()->hasPermission('orders.approve_finance')) {
                                 $pendingCount = \App\Models\Order::where('status', 'pending_finance')->count();
                             }
                         @endphp
@@ -51,123 +46,124 @@
                         @endif
                     </a>
                 </li>
-            @endif
-            {{-- ========================================================= --}}
+            @endhaspermission
 
 
-            {{-- 3. INVENTORY & LOGS (Para sa Level 1, 2 - Superadmin at Admin lang, plus Encoder 3, Doctor 4) --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2, 3, 4]))
+            {{-- INVENTORY --}}
+            @haspermission('inventory.view')
             <li>
                 <a href="{{ route('admin.inventory') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <i class="fa-regular fa-cubes-stacked nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Inventory</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
             
-            @if(in_array(auth()->user()->user_level_id, [1, 2])) 
+            @haspermission('movements.view')
             <li>
                 <a href="{{ route('admin.movements') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <i class="fa-regular fa-file-spreadsheet nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Product Movement</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
 
-            {{-- 2. PATIENT RECORDS / DISPENSATION (Para sa Level 1, 2, 4 - Admin at Doctor) --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2, 4]) || auth()->user()->branch_id == 2)
+            {{-- PATIENT RECORDS / DISPENSATION --}}
+            @haspermission('patients.view')
             <li>
                 <a href="{{ route('admin.patientrecords') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <i class="fa-regular fa-book-user nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Records</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
 
-            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+            @haspermission('historylog.view')
             <li>
                 <a href="{{ route('admin.historylog') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <i class="fa-regular fa-clock-rotate-left nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">History Logs</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
 
             {{-- HOLDS / PULLOUT --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+            @haspermission('holds.view')
             <li>
                 <a href="{{ route('admin.holds.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.holds.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-hand nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Holds / Pullout</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
 
             {{-- INCOMING REQUESTS --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2, 3]))
+            @haspermission('requests.view')
             <li>
                 <a href="{{ route('admin.requests.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.requests.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-inbox nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Requests</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
 
             {{-- SUPPLIERS --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+            @haspermission('suppliers.view')
             <li>
                 <a href="{{ route('admin.suppliers.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.suppliers.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-truck nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Suppliers</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
 
             {{-- LOW STOCK SETTINGS --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+            @haspermission('settings.low_stock')
             <li>
                 <a href="{{ route('admin.lowstock.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.lowstock.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-triangle-exclamation nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Low Stock Settings</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
 
             {{-- NOTIFICATIONS --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2, 3]))
+            @haspermission('notifications.manage')
             <li>
                 <a href="{{ route('admin.notifications.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.notifications.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-bell nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Notifications</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
 
             {{-- AUDIT LOGS --}}
-            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+            @haspermission('audit.view')
             <li>
                 <a href="{{ route('admin.audit.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.audit.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-shield-check nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Audit Logs</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
             
-            {{-- 4. MANAGE ACCOUNT (Para sa Level 1 - Superadmin lang) --}}
-            @if(auth()->user()->user_level_id == 1)
+            {{-- MANAGE ACCOUNT --}}
+            @haspermission('users.manage')
             <li>
                 <a href="{{ route('admin.manageaccount') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <i class="fa-regular fa-users nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Manage Accounts</span>
                 </a>
             </li>
+            @endhaspermission
+            @haspermission('settings.roles')
             <li>
                 <a href="{{ route('admin.roles.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-user-shield nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Roles & Permissions</span>
                 </a>
             </li>
-            @endif
+            @endhaspermission
         @endauth
     </ul>
     <ul class="mt-auto space-y-1 border-t pt-4 border-gray-200 dark:border-gray-700">
