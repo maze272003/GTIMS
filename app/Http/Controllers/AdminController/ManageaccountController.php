@@ -38,7 +38,12 @@ class ManageaccountController extends Controller
         return view('admin.partials.users-table', compact('users'))->render();
     }
 
-    $levels = UserLevel::all();
+    // Only users with settings.roles permission can see all levels including superadmin
+    if ($currentUser->hasPermission('settings.roles')) {
+        $levels = UserLevel::all();
+    } else {
+        $levels = UserLevel::where('name', '!=', 'superadmin')->get();
+    }
     $branches = Branch::all();
 
     return view('admin.manageaccount', compact('users', 'levels', 'branches'));

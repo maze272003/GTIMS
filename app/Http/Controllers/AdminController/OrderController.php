@@ -160,7 +160,6 @@ class OrderController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $order = Order::findOrFail($id);
-        $userLevel = Auth::user()->user_level_id;
         $action = $request->input('action'); // 'approve' or 'reject'
 
         if ($action == 'reject') {

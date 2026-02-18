@@ -64,7 +64,7 @@
         </body>
 
     <script>
-        // Global variable na accessible sa lahat ng JS files
+        // @deprecated Use window.hasPermission() instead of window.currentUserLevel for access checks
         window.currentUserLevel = {{ auth()->check() ? auth()->user()->user_level_id : 'null' }};
         window.userPermissions = '{{ auth()->check() ? auth()->user()->level?->permissions->pluck("name")->implode(",") : "" }}'.split(',');
         window.hasPermission = function(perm) { return window.userPermissions.indexOf(perm) !== -1; };
