@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Models\User;
 use App\Models\UserLevel;
 use App\Models\Branch;
+use App\Models\Permission;
 use App\Models\HistoryLog;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,6 +23,13 @@ class HistoryLogTest extends TestCase
 
         $level = UserLevel::create(['name' => 'admin']);
         $branch = Branch::create(['name' => 'Head Office']);
+
+        // Create and assign permissions needed for admin routes
+        $perms = collect([
+            'inventory.edit', 'inventory.view', 'inventory.add', 'inventory.archive', 'inventory.transfer',
+            'historylog.view', 'dashboard.view', 'movements.view',
+        ])->map(fn ($name) => Permission::create(['name' => $name, 'group' => 'test']));
+        $level->permissions()->sync($perms->pluck('id'));
 
         $this->adminUser = User::factory()->create([
             'email_verified_at' => now(),

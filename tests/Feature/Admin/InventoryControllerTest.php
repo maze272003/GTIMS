@@ -7,11 +7,32 @@ use App\Models\User;
 use App\Models\Product;
 use App\Models\Inventory;
 use App\Models\ProductMovement;
+use App\Models\UserLevel;
+use App\Models\Branch;
+use App\Models\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class InventoryControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function createAdminUser(): User
+    {
+        $level = UserLevel::firstOrCreate(['name' => 'admin']);
+        $branch = Branch::firstOrCreate(['name' => 'RHU 1']);
+
+        $perms = collect([
+            'inventory.view', 'inventory.add', 'inventory.edit',
+            'inventory.archive', 'inventory.transfer', 'dashboard.view',
+        ])->map(fn ($name) => Permission::firstOrCreate(['name' => $name], ['group' => 'test']));
+        $level->permissions()->syncWithoutDetaching($perms->pluck('id'));
+
+        return User::factory()->create([
+            'email_verified_at' => now(),
+            'user_level_id' => $level->id,
+            'branch_id' => $branch->id,
+        ]);
+    }
 
     /**
      * Test that adding NEW stock creates an 'IN' movement record.
@@ -20,7 +41,7 @@ class InventoryControllerTest extends TestCase
     {
         $this->withoutExceptionHandling();
         // 1. Create a user and product
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $product = Product::factory()->create([
             'generic_name' => 'Paracetamol', 
             'brand_name' => 'Biogesic',
@@ -68,7 +89,7 @@ class InventoryControllerTest extends TestCase
      */
     public function test_add_stock_existing_batch_creates_movement_log()
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $product = Product::factory()->create();
         
         // Create existing inventory
@@ -113,7 +134,7 @@ class InventoryControllerTest extends TestCase
      */
     public function test_edit_stock_updates_quantity_and_logs_movement()
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $product = Product::factory()->create();
         
         // Start with 100 items
@@ -152,7 +173,7 @@ class InventoryControllerTest extends TestCase
      */
     public function test_transfer_stock_creates_two_movements()
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $product = Product::factory()->create();
         
         // Source: RHU 1 has 50 items
