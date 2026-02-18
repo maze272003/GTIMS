@@ -92,6 +92,66 @@
                 </a>
             </li>
             @endif
+
+            {{-- HOLDS / PULLOUT --}}
+            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+            <li>
+                <a href="{{ route('admin.holds.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.holds.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                    <i class="fa-regular fa-hand nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Holds / Pullout</span>
+                </a>
+            </li>
+            @endif
+
+            {{-- INCOMING REQUESTS --}}
+            @if(in_array(auth()->user()->user_level_id, [1, 2, 3]))
+            <li>
+                <a href="{{ route('admin.requests.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.requests.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                    <i class="fa-regular fa-inbox nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Requests</span>
+                </a>
+            </li>
+            @endif
+
+            {{-- SUPPLIERS --}}
+            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+            <li>
+                <a href="{{ route('admin.suppliers.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.suppliers.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                    <i class="fa-regular fa-truck nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Suppliers</span>
+                </a>
+            </li>
+            @endif
+
+            {{-- LOW STOCK SETTINGS --}}
+            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+            <li>
+                <a href="{{ route('admin.lowstock.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.lowstock.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                    <i class="fa-regular fa-triangle-exclamation nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Low Stock Settings</span>
+                </a>
+            </li>
+            @endif
+
+            {{-- NOTIFICATIONS --}}
+            @if(in_array(auth()->user()->user_level_id, [1, 2, 3]))
+            <li>
+                <a href="{{ route('admin.notifications.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.notifications.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                    <i class="fa-regular fa-bell nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Notifications</span>
+                </a>
+            </li>
+            @endif
+
+            {{-- AUDIT LOGS --}}
+            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+            <li>
+                <a href="{{ route('admin.audit.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.audit.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                    <i class="fa-regular fa-shield-check nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Audit Logs</span>
+                </a>
+            </li>
+            @endif
             
             {{-- 4. MANAGE ACCOUNT (Para sa Level 1 - Superadmin lang) --}}
             @if(auth()->user()->user_level_id == 1)
@@ -99,6 +159,12 @@
                 <a href="{{ route('admin.manageaccount') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <i class="fa-regular fa-users nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Manage Accounts</span>
+                </a>
+            </li>
+            <li>
+                <a href="{{ route('admin.roles.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                    <i class="fa-regular fa-user-shield nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Roles & Permissions</span>
                 </a>
             </li>
             @endif

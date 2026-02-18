@@ -22,7 +22,7 @@ class DatabaseSeeder extends Seeder
             InventorySeeder::class,
             BarangaySeeder::class,
             PatientRecordsSeeder::class,
-           
+            PermissionSeeder::class,
         ]);
         
         // \App\Models\User::factory(10)->create();
