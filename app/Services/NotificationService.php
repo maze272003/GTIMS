@@ -57,12 +57,14 @@ class NotificationService
      */
     protected function buildMessage(string $type, array $data): string
     {
+        $safe = array_map(fn($v) => is_string($v) ? strip_tags($v) : $v, $data);
+
         return match ($type) {
-            'low_stock' => "Low stock alert: {$data['product_name']} is below threshold ({$data['available']} available, threshold: {$data['threshold']}).",
-            'approval_needed' => "A new request #{$data['request_id']} requires your approval.",
-            'hold_expiry' => "Hold #{$data['hold_id']} is expiring soon.",
-            'request_status' => "Request #{$data['request_id']} status changed to {$data['status']}.",
-            default => "GTIMS Notification: " . json_encode($data),
+            'low_stock' => "Low stock alert: {$safe['product_name']} is below threshold ({$safe['available']} available, threshold: {$safe['threshold']}).",
+            'approval_needed' => "A new request #{$safe['request_id']} requires your approval.",
+            'hold_expiry' => "Hold #{$safe['hold_id']} is expiring soon.",
+            'request_status' => "Request #{$safe['request_id']} status changed to {$safe['status']}.",
+            default => "GTIMS Notification: " . json_encode($safe),
         };
     }
 

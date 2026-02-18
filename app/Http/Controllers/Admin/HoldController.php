@@ -81,13 +81,17 @@ class HoldController extends Controller
         return back()->with('success', 'Hold approved successfully.');
     }
 
-    public function release(Hold $hold)
+    public function release(Request $request, Hold $hold)
     {
         if (!in_array($hold->status, ['pending', 'approved'])) {
             return back()->with('error', 'Hold can only be released when pending or approved.');
         }
 
-        $this->holdService->releaseHold($hold, Auth::id(), request('reason'));
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $this->holdService->releaseHold($hold, Auth::id(), $validated['reason'] ?? null);
         return back()->with('success', 'Hold released successfully.');
     }
 }
