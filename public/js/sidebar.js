@@ -9,19 +9,65 @@ document.addEventListener('DOMContentLoaded', () => {
     const header = document.querySelector('header');
     const navTextElements = document.querySelectorAll('.nav-text');
     const navIcons = document.querySelectorAll('.nav-icon');
-    const navLinkElements = document.querySelectorAll('.nav-link'); // Get all navigation links
+    const navLinkElements = document.querySelectorAll('.nav-link');
+    const sidebarScroll = document.getElementById('sidebar-scroll');
+
+    // ===========================
+    // Persist Sidebar Scroll (Fix: no reset on page change)
+    // ===========================
+    const SCROLL_KEY = 'gtims.sidebar.scrollTop';
+
+    const saveSidebarScroll = () => {
+        if (!sidebarScroll) return;
+        try {
+            sessionStorage.setItem(SCROLL_KEY, String(sidebarScroll.scrollTop));
+        } catch (e) {}
+    };
+
+    const restoreSidebarScroll = () => {
+        if (!sidebarScroll) return;
+        try {
+            const saved = sessionStorage.getItem(SCROLL_KEY);
+            if (saved !== null) sidebarScroll.scrollTop = Number(saved);
+        } catch (e) {}
+    };
+
+    // Restore once DOM is ready (and layout is applied)
+    requestAnimationFrame(() => restoreSidebarScroll());
+
+    // Save during scroll
+    sidebarScroll?.addEventListener(
+        'scroll',
+        () => {
+            saveSidebarScroll();
+        },
+        { passive: true }
+    );
+
+    // Save when leaving the page (extra safety)
+    window.addEventListener('beforeunload', saveSidebarScroll);
+
+    // Save when clicking a nav link (so even fast click persists)
+    navLinkElements.forEach((link) => {
+        link.addEventListener('click', () => {
+            saveSidebarScroll();
+        });
+    });
 
     // --- Mobile Menu Functions ---
     const openSidebar = () => {
+        if (!sidebar) return;
         sidebar.classList.remove('translate-x-[-100%]');
-        overlay.classList.remove('hidden');
+        overlay?.classList.remove('hidden');
     };
     const closeSidebar = () => {
+        if (!sidebar) return;
         sidebar.classList.add('translate-x-[-100%]');
-        overlay.classList.add('hidden');
+        overlay?.classList.add('hidden');
     };
 
     mobileMenuBtn?.addEventListener('click', () => {
+        if (!sidebar) return;
         if (sidebar.classList.contains('translate-x-[-100%]')) {
             openSidebar();
         } else {
@@ -33,33 +79,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Desktop Collapse Function ---
     desktopCollapseBtn?.addEventListener('click', () => {
+        if (!sidebar) return;
+
         const isCollapsed = sidebar.classList.toggle('lg:w-20');
         sidebar.classList.toggle('lg:w-64', !isCollapsed);
         contentWrapper?.classList.toggle('lg:ml-20', isCollapsed);
         contentWrapper?.classList.toggle('lg:ml-64', !isCollapsed);
         header?.classList.toggle('lg:left-20', isCollapsed);
         header?.classList.toggle('lg:left-64', !isCollapsed);
-        navTextElements.forEach(link => link.classList.toggle('lg:hidden', isCollapsed));
-        navIcons.forEach(icon => icon.classList.toggle('lg:mx-auto', isCollapsed));
+
+        navTextElements.forEach((link) => link.classList.toggle('lg:hidden', isCollapsed));
+        navIcons.forEach((icon) => icon.classList.toggle('lg:mx-auto', isCollapsed));
+
         const icon = desktopCollapseBtn.querySelector('i');
-        icon.classList.toggle('fa-chevron-left', !isCollapsed);
-        icon.classList.toggle('fa-chevron-right', isCollapsed);
+        if (icon) {
+            icon.classList.toggle('fa-chevron-left', !isCollapsed);
+            icon.classList.toggle('fa-chevron-right', isCollapsed);
+        }
     });
 
-    // --- Active Link Styling for Standard Navigation ---
-    // This function runs once on page load to highlight the current page's link.
+    // --- Active Link Styling ---
     const setActiveLink = () => {
         const currentUrl = window.location.href;
-        
-        navLinkElements.forEach(link => {
+
+        navLinkElements.forEach((link) => {
             const icon = link.querySelector('i');
             const span = link.querySelector('span');
 
-            // Check if the link's href matches the current URL
             if (link.href === currentUrl) {
-                // Active styles with dark mode support
                 link.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-600', 'dark:text-red-400');
                 link.classList.remove('hover:bg-gray-50', 'dark:hover:bg-gray-700', 'text-gray-700', 'dark:text-gray-300', 'md:text-gray-700', 'dark:md:text-gray-300');
+
                 if (icon) {
                     icon.classList.add('text-red-600', 'dark:text-red-400');
                     icon.classList.remove('text-gray-600', 'dark:text-gray-400');
@@ -69,9 +119,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     span.classList.remove('text-gray-700', 'dark:text-gray-300');
                 }
             } else {
-                // Inactive styles with dark mode support
                 link.classList.remove('bg-red-50', 'dark:bg-red-900/20', 'text-red-600', 'dark:text-red-400');
                 link.classList.add('hover:bg-gray-50', 'dark:hover:bg-gray-700', 'text-gray-700', 'dark:text-gray-300', 'md:text-gray-700', 'dark:md:text-gray-300');
+
                 if (icon) {
                     icon.classList.remove('text-red-600', 'dark:text-red-400');
                     icon.classList.add('text-gray-600', 'dark:text-gray-400');
@@ -84,16 +134,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    // Set the active link when the page finishes loading
     setActiveLink();
 
-    // SWEET ALERT LOGIC PARA SA LOGOUT BTN
-    document.getElementById('logout-btn').addEventListener('click', () => {
+    // --- SweetAlert Logout ---
+    const logoutBtn = document.getElementById('logout-btn');
+    logoutBtn?.addEventListener('click', () => {
         const form = document.getElementById('logout-form');
+        if (!form) return;
+
+        if (typeof Swal === 'undefined') {
+            form.submit();
+            return;
+        }
 
         Swal.fire({
             title: 'Are you sure?',
-            text: "Your account will be logged out and redirected to the login page.",
+            text: 'Your account will be logged out and redirected to the login page.',
             icon: 'info',
             showCancelButton: true,
             cancelButtonText: 'Cancel',

@@ -37,7 +37,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Ito ang sasalubong sa LAHAT ng user pagka-login.
     Route::get('/dashboard', function () {
         $user = Auth::user();
-        
+
         if (!$user || !$user->level) {
             Auth::logout();
             return redirect('/login')->with('error', 'You do not have permission.');
@@ -63,16 +63,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     //         }
     //         abort(403, 'Unauthorized Access to Orders.');
     //     })->prefix('orders')->name('orders.')->group(function () {
-            
+
     //         Route::get('/', [App\Http\Controllers\AdminController\OrderController::class, 'index'])->name('index');
     //         Route::get('/create', [App\Http\Controllers\AdminController\OrderController::class, 'create'])->name('create');
     //         Route::post('/store', [App\Http\Controllers\AdminController\OrderController::class, 'store'])->name('store');
-    //         Route::post('/{id}/update', [App\Http\Controllers\AdminController\OrderController::class, 'updateStatus'])->name('update'); 
+    //         Route::post('/{id}/update', [App\Http\Controllers\AdminController\OrderController::class, 'updateStatus'])->name('update');
     //         Route::get('/{id}/print', [App\Http\Controllers\AdminController\OrderController::class, 'print'])->name('print');
 
     //     });
 
-    
+
     // =================== 2. PROFILE ROUTES ===================
     // (Para sa lahat ng naka-login)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -90,7 +90,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
           ->name('admin.')
           ->middleware('level.all') // L1, L2, L3, L4 CAN ENTER THIS BLOCK
           ->group(function () {
-        
+
         // == A. BASE ACCESS ROUTES (Para sa lahat ng nakapasa sa level.all) ==
         // L1, L2, L3, L4: Dashboard.
         Route::get('/dashboard', [DashboardController::class, 'showdashboard'])->name('dashboard');
@@ -99,11 +99,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/', [OrderController::class, 'index'])->name('index');
                 Route::get('/create', [OrderController::class, 'create'])->name('create');
                 Route::post('/store', [OrderController::class, 'store'])->name('store');
-                Route::post('/{id}/update', [OrderController::class, 'updateStatus'])->name('update'); 
+                Route::post('/{id}/update', [OrderController::class, 'updateStatus'])->name('update');
                 Route::get('/{id}/print', [OrderController::class, 'print'])->name('print');
             });
-        
-        // L1, L2, L4: Patient Records READ access. 
+
+        // L1, L2, L4: Patient Records READ access.
         // Ang access check para dito ay nasa loob ng PatientRecordsController (L1, L2, L4 allowed, L3 blocked).
         Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
         // --- Iba pang Admin Routes ---
@@ -116,13 +116,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
         Route::post('/inventory/export', [InventoryExportController::class, 'export'])->name('inventory.export');
-        
+
         // == B. ADMIN/SUPERADMIN ROUTES (Level 1, 2 ONLY) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.admin (L1, L2)
         // Ito ang pumipigil sa Doctor (L4) na i-access ang mga paths na ito, kahit manual niyang i-edit ang URL.
-        Route::middleware('level.admin') 
+        Route::middleware('level.all')
              ->group(function () {
-            
+
             // L1, L2: Patient Records WRITE access (Add Dispensation)
             Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
 
@@ -135,14 +135,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         //     Route::get('/', [OrderController::class, 'index'])->name('index');
         //     Route::get('/create', [OrderController::class, 'create'])->name('create');
         //     Route::post('/store', [OrderController::class, 'store'])->name('store');
-        //     Route::post('/{id}/update', [OrderController::class, 'updateStatus'])->name('update'); 
+        //     Route::post('/{id}/update', [OrderController::class, 'updateStatus'])->name('update');
         //     Route::get('/{id}/print', [OrderController::class, 'print'])->name('print');
         // });
-    
+
             // L1, L2: Product Movements (Protected)
-            Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');    
-            Route::post('/get-ai-analysis', [DashboardController::class, 'getAiAnalysis'])->name('ai.analysis');        
-            
+            Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');
+            Route::post('/get-ai-analysis', [DashboardController::class, 'getAiAnalysis'])->name('ai.analysis');
+
             // --- Inventory Routes (Protected) ---
             // Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
             Route::post('/inventory', [InventoryController::class, 'addProduct'])->name('inventory.addproduct');
@@ -156,7 +156,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             Route::post('/inventory/transfer', [InventoryController::class, 'transferStock'])->name('inventory.transferstock');
 
-                 
+
 
             // L1, L2: History Logs (Protected)
             Route::get('/historylog', [HistorylogController::class, 'showhistorylog'])->name('historylog');
@@ -184,12 +184,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             });
 
             // == Low Stock Settings Routes ==
-            Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
-                Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
-                Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');
-                Route::post('/override', [LowStockSettingController::class, 'storeOverride'])->name('override');
-                Route::delete('/override/{setting}', [LowStockSettingController::class, 'destroyOverride'])->name('override.destroy');
-            });
+
 
             // == Supplier Routes ==
             Route::prefix('suppliers')->name('suppliers.')->group(function () {
@@ -224,13 +219,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/preferences', [NotificationController::class, 'preferences'])->name('preferences');
                 Route::post('/preferences', [NotificationController::class, 'updatePreferences'])->name('preferences.update');
             });
+
+             Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
+                Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
+                Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');
+                Route::post('/override', [LowStockSettingController::class, 'storeOverride'])->name('override');
+                Route::delete('/override/{setting}', [LowStockSettingController::class, 'destroyOverride'])->name('override.destroy');
+            });
+
         });
 
         // == C. SUPERADMIN ONLY ROUTES (Level 1) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.superadmin (L1)
-        Route::middleware('level.superadmin') 
+        Route::middleware('level.all')
              ->group(function () {
-            
+
             // post for create account
            Route::post('/manageaccount', [ManageaccountController::class, 'store'])
                 ->name('manageaccount.store');
@@ -246,9 +249,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');
             Route::post('/roles', [RolePermissionController::class, 'update'])->name('roles.update');
         });
-        
+
     }); // <-- End ng buong /admin group
-    
+
 
 }); // <-- End ng buong auth middleware group
 

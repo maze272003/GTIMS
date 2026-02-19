@@ -22,11 +22,12 @@
             {{-- Global Threshold --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
                 <h3 class="font-semibold text-lg text-gray-800 dark:text-white mb-4">Global Threshold</h3>
-                <form action="{{ route('admin.settings.low-stock.update-global') }}" method="POST" class="flex flex-col sm:flex-row gap-4 items-end">
+                <form action="{{ route('admin.lowstock.global')
+ }}" method="POST" class="flex flex-col sm:flex-row gap-4 items-end">
                     @csrf
                     <div class="flex-1">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Default Low Stock Threshold</label>
-                        <input type="number" name="global_threshold" min="1" value="{{ $globalThreshold ?? 100 }}" required class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-red-500">
+                        <input type="number" name="threshold" min="1" value="{{ old('threshold', $globalSetting?->threshold ?? 100) }}" required class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-red-500">
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Items below this quantity will trigger low stock alerts.</p>
                     </div>
                     <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-4 py-2.5 rounded-lg text-sm transition shadow-sm">
@@ -43,7 +44,7 @@
 
                 {{-- Add Override Form --}}
                 <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                    <form action="{{ route('admin.settings.low-stock.add-override') }}" method="POST" class="flex flex-col sm:flex-row gap-4 items-end">
+                    <form action="{{ route('admin.lowstock.override') }}" method="POST" class="flex flex-col sm:flex-row gap-4 items-end">
                         @csrf
                         <div class="flex-1">
                             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product</label>
@@ -80,7 +81,7 @@
                                     <td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">{{ $override->product->generic_name ?? $override->product->name ?? '-' }}</td>
                                     <td class="px-4 py-3 text-sm text-center font-bold text-gray-900 dark:text-white">{{ $override->threshold }}</td>
                                     <td class="px-4 py-3 text-sm text-center">
-                                        <form action="{{ route('admin.settings.low-stock.remove-override', $override->id) }}" method="POST" class="inline">
+                                        <form action="{{ route('admin.lowstock.override.destroy', $override->id) }}" method="POST" class="inline">
                                             @csrf @method('DELETE')
                                             <button type="submit" class="text-red-600 hover:text-red-800 transition" onclick="return confirm('Remove this override?')">
                                                 <i class="fa-solid fa-trash-can"></i>

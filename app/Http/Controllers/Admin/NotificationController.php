@@ -10,11 +10,16 @@ use Illuminate\Support\Facades\Auth;
 class NotificationController extends Controller
 {
     public function index()
-    {
-        $notifications = Auth::user()->notifications()->paginate(20);
-        $unreadCount = Auth::user()->unreadNotifications()->count();
-        return view('admin.notifications.index', compact('notifications', 'unreadCount'));
-    }
+{
+    $user = Auth::user();
+    abort_if(!$user, 401);
+
+    $notifications = $user->notifications()->paginate(20);
+    $unreadCount = $user->unreadNotifications()->count();
+
+    return view('admin.notifications.index', compact('notifications', 'unreadCount'));
+}
+
 
     public function markAsRead(string $id)
     {
