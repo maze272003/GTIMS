@@ -23,6 +23,8 @@ class DatabaseSeeder extends Seeder
             BarangaySeeder::class,
             PatientRecordsSeeder::class,
             PermissionSeeder::class,
+            LowStockSettingSeeder::class,
+            TransactionLogSeeder::class,
         ]);
         
         // \App\Models\User::factory(10)->create();
