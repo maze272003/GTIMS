@@ -17,8 +17,13 @@ class LowStockSettingSeeder extends Seeder
             ['threshold' => 10, 'product_id' => null, 'branch_id' => null]
         );
 
+        // Requires ProductSeeder and BranchSeeder to run first
         $products = Product::take(5)->get();
         $branches = Branch::all();
+
+        if ($products->isEmpty() || $branches->isEmpty()) {
+            return;
+        }
 
         // Create product-specific overrides (no branch)
         foreach ($products->take(3) as $product) {
