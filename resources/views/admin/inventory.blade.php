@@ -142,7 +142,11 @@
                     @endif
                 </div>
                 <div class="overflow-x-auto" id="rhu1-container">
-                    @include('admin.partials._inventory_table', ['inventories' => $inventories_rhu1, 'branch' => 1])
+                    @include('admin.partials._inventory_table', [
+                        'inventories' => $inventories_rhu1,
+                        'branch' => 1,
+                        'focusInventoryId' => $focusInventoryId ?? null,
+                    ])
                 </div>
             </div>
 
@@ -178,7 +182,11 @@
                     </form>
                 </div>
                 <div class="overflow-x-auto" id="rhu2-container">
-                    @include('admin.partials._inventory_table', ['inventories' => $inventories_rhu2, 'branch' => 2])
+                    @include('admin.partials._inventory_table', [
+                        'inventories' => $inventories_rhu2,
+                        'branch' => 2,
+                        'focusInventoryId' => $focusInventoryId ?? null,
+                    ])
                 </div>
             </div>
         </main>
@@ -286,6 +294,24 @@ document.addEventListener('DOMContentLoaded', function () {
     @endif
 
     const baseUrl = '{{ route("admin.inventory") }}';
+    const focusInventoryId = @json($focusInventoryId ?? null);
+    const focusBranch = @json($focusBranch ?? null);
+
+    function focusInventoryRow() {
+        if (!focusInventoryId || !focusBranch) return;
+
+        const row = document.getElementById(`inventory-row-${focusInventoryId}`);
+        const branchContainer = document.getElementById(`rhu${focusBranch}-container`);
+
+        if (!row || !branchContainer) return;
+
+        branchContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.style.outline = '2px solid rgb(239 68 68)';
+            row.style.outlineOffset = '-2px';
+        }, 150);
+    }
 
     // Debounce function
     const debounce = (func, delay) => {
@@ -328,6 +354,7 @@ document.addEventListener('DOMContentLoaded', function () {
             
             // Re-attach listeners for buttons inside the newly loaded table
             attachTableListeners(branch);
+            focusInventoryRow();
 
             // Update export hidden fields
             document.getElementById(`export-search-rhu${branch}`).value = search;
@@ -386,6 +413,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(html => {
                     container.innerHTML = html;
                     attachTableListeners(branch);
+                    focusInventoryRow();
                 });
         });
     });
@@ -429,6 +457,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initial attachment on page load
     attachTransferButtonListeners();
+    focusInventoryRow();
 
     // Confirm Transfer Logic
     const confirmTransferBtn = document.getElementById('confirm-transfer-btn');

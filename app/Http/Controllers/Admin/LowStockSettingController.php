@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Branch;
 use App\Services\AnalyticsService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class LowStockSettingController extends Controller
 {
@@ -15,7 +16,10 @@ class LowStockSettingController extends Controller
 
     public function index(Request $request)
     {
-        $selectedBranchId = $request->integer('branch_id'); // optional filter
+        $alertBranchId = $request->integer('alert_branch_id')
+            ?: $request->integer('branch_id');
+        $alertProductId = $request->integer('alert_product_id');
+        $alertSearch = trim((string) $request->input('alert_search', ''));
 
         $globalSetting = LowStockSetting::where('is_global', true)->first();
 
@@ -32,7 +36,8 @@ class LowStockSettingController extends Controller
             ->whereNotNull('product_id')
             ->with(['product', 'branch'])
             ->orderByDesc('updated_at')
-            ->paginate(20);
+            ->paginate(20, ['*'], 'overrides_page')
+            ->withQueryString();
 
         // Products (your table doesn't have "name", so use generic_name)
         // Safe ordering even if generic_name is NULL
@@ -45,10 +50,29 @@ class LowStockSettingController extends Controller
 
         $globalThreshold = $globalSetting?->threshold ?? 100;
 
-        // Low stock alerts (branch-aware)
-        $lowStockItems = $this->analyticsService->getLowStockAlerts(
-            $selectedBranchId ?: null
+        // Low stock alerts (branch-aware), then additional server-side filtering.
+        $lowStockItems = collect(
+            $this->analyticsService->getLowStockAlerts($alertBranchId ?: null)
         );
+
+        if ($alertProductId) {
+            $lowStockItems = $lowStockItems->where('product_id', $alertProductId);
+        }
+
+        if ($alertSearch !== '') {
+            $search = mb_strtolower($alertSearch);
+            $lowStockItems = $lowStockItems->filter(function (array $item) use ($search) {
+                $productName = mb_strtolower((string) ($item['product_name'] ?? ''));
+                $batchNumber = mb_strtolower((string) ($item['batch_number'] ?? ''));
+                $branchName = mb_strtolower((string) ($item['branch_name'] ?? ''));
+
+                return str_contains($productName, $search)
+                    || str_contains($batchNumber, $search)
+                    || str_contains($branchName, $search);
+            });
+        }
+
+        $lowStockItems = $this->paginateAlerts($lowStockItems, $request);
 
         return view('admin.settings.low-stock', compact(
             'globalSetting',
@@ -58,7 +82,9 @@ class LowStockSettingController extends Controller
             'products',
             'branches',
             'lowStockItems',
-            'selectedBranchId'
+            'alertBranchId',
+            'alertProductId',
+            'alertSearch'
         ));
     }
 
@@ -128,5 +154,27 @@ class LowStockSettingController extends Controller
         $setting->delete();
 
         return back()->with('success', 'Setting removed.');
+    }
+
+    private function paginateAlerts($alerts, Request $request): LengthAwarePaginator
+    {
+        $alerts = collect($alerts)->values();
+        $perPage = 15;
+        $pageName = 'alerts_page';
+        $currentPage = LengthAwarePaginator::resolveCurrentPage($pageName);
+        $sliced = $alerts->slice(($currentPage - 1) * $perPage, $perPage)->values();
+
+        $paginator = new LengthAwarePaginator(
+            $sliced,
+            $alerts->count(),
+            $perPage,
+            $currentPage,
+            [
+                'path' => $request->url(),
+                'pageName' => $pageName,
+            ]
+        );
+
+        return $paginator->appends($request->except($pageName));
     }
 }

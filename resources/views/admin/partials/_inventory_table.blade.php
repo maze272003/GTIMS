@@ -23,7 +23,12 @@
             </tr>
         @else
             @foreach ($inventories as $inventory)
-                <tr data-stock-id="{{ $inventory->id }}"
+                @php
+                    $isFocusedInventory = isset($focusInventoryId) && (int) $focusInventoryId === (int) $inventory->id;
+                @endphp
+                <tr id="inventory-row-{{ $inventory->id }}"
+                    class="{{ $isFocusedInventory ? 'bg-red-50 dark:bg-red-900/20' : '' }}"
+                    data-stock-id="{{ $inventory->id }}"
                     data-batch="{{ $inventory->batch_number }}"
                     data-brand="{{ $inventory->product->brand_name }}"
                     data-product="{{ $inventory->product->generic_name }}"

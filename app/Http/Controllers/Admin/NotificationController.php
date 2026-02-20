@@ -35,26 +35,52 @@ class NotificationController extends Controller
     }
 
     public function preferences()
-    {
-        $types = ['low_stock', 'approval_needed', 'hold_expiry', 'request_status'];
-        $preferences = NotificationPreference::where('user_id', Auth::id())->get()->keyBy('type');
-        return view('admin.notifications.preferences', compact('types', 'preferences'));
+{
+    $notificationTypes = [
+        'low_stock',
+        'approval_needed',
+        'hold_expiry',
+        'request_status',
+    ];
+
+    // Convert DB rows into an easy array: $preferences['low_stock']['email_enabled'] = true
+    $preferences = NotificationPreference::where('user_id', Auth::id())
+        ->get()
+        ->keyBy('type')
+        ->map(fn ($row) => [
+            'email_enabled' => (bool) $row->email_enabled,
+            'in_app_enabled' => (bool) $row->in_app_enabled,
+        ])
+        ->toArray();
+
+    return view('admin.notifications.preferences', compact('notificationTypes', 'preferences'));
+}
+
+public function updatePreferences(Request $request)
+{
+    $notificationTypes = [
+        'low_stock',
+        'approval_needed',
+        'hold_expiry',
+        'request_status',
+    ];
+
+    $input = $request->input('preferences', []);
+
+    foreach ($notificationTypes as $type) {
+        $emailEnabled = (bool) data_get($input, "{$type}.email_enabled", false);
+        $inAppEnabled = (bool) data_get($input, "{$type}.in_app_enabled", true); // default true if you want
+
+        NotificationPreference::updateOrCreate(
+            ['user_id' => Auth::id(), 'type' => $type],
+            [
+                'email_enabled' => $emailEnabled,
+                'in_app_enabled' => $inAppEnabled,
+            ]
+        );
     }
 
-    public function updatePreferences(Request $request)
-    {
-        $types = ['low_stock', 'approval_needed', 'hold_expiry', 'request_status'];
+    return back()->with('success', 'Notification preferences updated.');
+}
 
-        foreach ($types as $type) {
-            NotificationPreference::updateOrCreate(
-                ['user_id' => Auth::id(), 'type' => $type],
-                [
-                    'email_enabled' => $request->boolean("email_{$type}", false),
-                    'in_app_enabled' => $request->boolean("in_app_{$type}", false),
-                ]
-            );
-        }
-
-        return back()->with('success', 'Notification preferences updated.');
-    }
 }

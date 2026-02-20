@@ -32,92 +32,6 @@
                 </div>
             @endif
 
-            {{-- Global Threshold --}}
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-                <h3 class="font-semibold text-lg text-gray-800 dark:text-white mb-4">Global Threshold</h3>
-
-                <form action="{{ route('admin.lowstock.global') }}" method="POST" class="flex flex-col sm:flex-row gap-4 items-end">
-                    @csrf
-                    <div class="flex-1">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Default Low Stock Threshold
-                        </label>
-                        <input
-                            type="number"
-                            name="threshold"
-                            min="1"
-                            value="{{ old('threshold', $globalSetting?->threshold ?? 100) }}"
-                            required
-                            class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 focus:ring-2 focus:ring-red-500"
-                        >
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Fallback threshold if no branch/product rules exist.
-                        </p>
-                    </div>
-                    <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-4 py-2.5 rounded-lg text-sm transition shadow-sm">
-                        <i class="fa-solid fa-save mr-1"></i> Save
-                    </button>
-                </form>
-            </div>
-
-            {{-- Branch Default Thresholds --}}
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                    <h3 class="font-semibold text-lg text-gray-800 dark:text-white">Branch Default Thresholds</h3>
-                </div>
-
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-                    <form action="{{ route('admin.lowstock.branchDefault') }}" method="POST" class="flex flex-col sm:flex-row gap-4 items-end">
-                        @csrf
-                        <div class="flex-1">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Branch</label>
-                            <select name="branch_id" required class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500">
-                                <option value="" disabled selected>-- Select Branch --</option>
-                                @foreach($branches as $branch)
-                                    <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="w-full sm:w-40">
-                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Threshold</label>
-                            <input type="number" name="threshold" min="1" required class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500">
-                        </div>
-                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm">
-                            <i class="fa-solid fa-plus mr-1"></i> Save Branch Default
-                        </button>
-                    </form>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="text-xs uppercase text-gray-500 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
-                                <th class="py-3 px-4 font-medium">Branch</th>
-                                <th class="py-3 px-4 font-medium text-center">Default Threshold</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                            @forelse($branchDefaults as $bd)
-                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-750 transition">
-                                    <td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">
-                                        {{ $bd->branch?->name ?? '-' }}
-                                    </td>
-                                    <td class="px-4 py-3 text-sm text-center font-bold text-gray-900 dark:text-white">
-                                        {{ $bd->threshold }}
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="2" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-                                        No branch defaults configured.
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             {{-- Per-Item Overrides --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
                 <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
@@ -151,7 +65,7 @@
                                 @endforeach
                             </select>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                Leave as “All branches” to apply to every branch.
+                                Leave as "All branches" to apply to every branch.
                             </p>
                         </div>
 
@@ -221,9 +135,53 @@
                         <i class="fa-solid fa-triangle-exclamation text-orange-500"></i>
                         Current Low Stock Alerts
                         <span class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                            {{ count($lowStockItems ?? []) }}
+                            {{ $lowStockItems->total() }}
                         </span>
                     </h3>
+                </div>
+                <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <form method="GET" action="{{ route('admin.lowstock.index') }}" class="grid grid-cols-1 lg:grid-cols-4 gap-3 items-end">
+                        <div class="lg:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
+                            <input
+                                type="text"
+                                name="alert_search"
+                                value="{{ $alertSearch }}"
+                                placeholder="Search product, batch, or branch"
+                                class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500"
+                            >
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Branch</label>
+                            <select name="alert_branch_id" class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500">
+                                <option value="">All branches</option>
+                                @foreach($branches as $branch)
+                                    <option value="{{ $branch->id }}" {{ (string)$alertBranchId === (string)$branch->id ? 'selected' : '' }}>
+                                        {{ $branch->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product</label>
+                            <select name="alert_product_id" class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500">
+                                <option value="">All products</option>
+                                @foreach($products as $product)
+                                    <option value="{{ $product->id }}" {{ (string)$alertProductId === (string)$product->id ? 'selected' : '' }}>
+                                        {{ $product->generic_name ?? $product->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="flex gap-2 lg:col-span-4">
+                            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm">
+                                <i class="fa-solid fa-filter mr-1"></i> Apply Filters
+                            </button>
+                            <a href="{{ route('admin.lowstock.index') }}" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg text-sm transition hover:bg-gray-300 dark:hover:bg-gray-600">
+                                Reset
+                            </a>
+                        </div>
+                    </form>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -239,7 +197,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                            @forelse($lowStockItems ?? [] as $item)
+                            @forelse($lowStockItems as $item)
                                 @php
                                     $current = (int)($item['current_stock'] ?? 0);
                                     $thr = (int)($item['threshold'] ?? $globalThreshold ?? 100);
@@ -251,7 +209,13 @@
                                         {{ $item['product_name'] ?? '-' }}
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
-                                        {{ $item['batch_number'] ?? '-' }}
+                                        @if(!empty($item['inventory_id']) && !empty($item['batch_number']))
+                                            <a href="{{ route('admin.inventory', ['focus_inventory_id' => $item['inventory_id']]) }}" class="text-blue-600 dark:text-blue-400 font-semibold hover:underline">
+                                                {{ $item['batch_number'] }}
+                                            </a>
+                                        @else
+                                            {{ $item['batch_number'] ?? '-' }}
+                                        @endif
                                     </td>
                                     <td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                                         {{ $item['branch_name'] ?? '-' }}
@@ -272,14 +236,17 @@
                                 <tr>
                                     <td colspan="6" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                                         <div class="flex flex-col items-center">
-                                            <i class="fa-solid fa-check-circle text-3xl text-green-400 mb-2"></i>
-                                            <p>All stock levels are healthy!</p>
+                                            <i class="fa-solid fa-magnifying-glass text-3xl text-gray-400 mb-2"></i>
+                                            <p>No low stock records found for the selected filters.</p>
                                         </div>
                                     </td>
                                 </tr>
                             @endforelse
                         </tbody>
                     </table>
+                </div>
+                <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                    {{ $lowStockItems->links() }}
                 </div>
             </div>
 

@@ -19,6 +19,27 @@ class InventoryController extends Controller
 
 public function showinventory(Request $request)
 {
+    $focusInventoryId = $request->integer('focus_inventory_id');
+    $focusedInventory = null;
+    $focusBranch = null;
+
+    if ($focusInventoryId) {
+        $focusedInventory = Inventory::with('product')
+            ->where('is_archived', '!=', 1)
+            ->find($focusInventoryId);
+
+        if ($focusedInventory) {
+            $focusBranch = (int) $focusedInventory->branch_id;
+            $focusSearchKey = 'search_rhu' . $focusBranch;
+
+            if (!$request->filled($focusSearchKey)) {
+                $request->merge([
+                    $focusSearchKey => $focusedInventory->batch_number,
+                ]);
+            }
+        }
+    }
+
     // 1. Common Data
     $products = Product::where('is_archived', 0)->get();
     $archiveproducts = Product::where('is_archived', 1)->get();
@@ -48,6 +69,10 @@ public function showinventory(Request $request)
             'expired'        => $query1->where('expiry_date', '<', now()),
             default          => null,
         };
+    }
+
+    if ($focusedInventory && $focusBranch === 1) {
+        $query1->where('id', $focusedInventory->id);
     }
     
     // Paginate RHU 1 (explicit page name 'page_rhu1')
@@ -80,6 +105,10 @@ public function showinventory(Request $request)
         };
     }
 
+    if ($focusedInventory && $focusBranch === 2) {
+        $query2->where('id', $focusedInventory->id);
+    }
+
     // Paginate RHU 2 (explicit page name 'page_rhu2')
     $inventories_rhu2 = $query2->with('product')
         ->orderBy('expiry_date', 'asc')
@@ -106,7 +135,9 @@ public function showinventory(Request $request)
         'archiveproducts' => $archiveproducts,
         'inventorycount' => $inventorycount,
         'inventories_rhu1' => $inventories_rhu1,
-        'inventories_rhu2' => $inventories_rhu2
+        'inventories_rhu2' => $inventories_rhu2,
+        'focusInventoryId' => $focusedInventory?->id,
+        'focusBranch' => $focusBranch,
     ]);
 }
 
