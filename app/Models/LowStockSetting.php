@@ -39,6 +39,12 @@ class LowStockSetting extends Model
             if ($setting) return $setting->threshold;
         }
 
+        // Check for branch default (all products at a branch)
+        if ($branchId) {
+            $setting = self::whereNull('product_id')->where('branch_id', $branchId)->first();
+            if ($setting) return $setting->threshold;
+        }
+
         // Fall back to global default
         $global = self::where('is_global', true)->first();
         return $global ? $global->threshold : 10;
@@ -115,4 +121,5 @@ class LowStockSetting extends Model
 
         return $alerts;
     }
+
 }

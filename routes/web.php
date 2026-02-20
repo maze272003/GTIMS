@@ -183,12 +183,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('/preferences', [NotificationController::class, 'updatePreferences'])->name('preferences.update');
             });
 
-             Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
-                Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
-                Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');
-                Route::post('/override', [LowStockSettingController::class, 'storeOverride'])->name('override');
-                Route::delete('/override/{setting}', [LowStockSettingController::class, 'destroyOverride'])->name('override.destroy');
-            });
+            //  Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
+            //     Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
+            //     Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');
+            //     Route::post('/override', [LowStockSettingController::class, 'storeOverride'])->name('override');
+            //     Route::delete('/override/{setting}', [LowStockSettingController::class, 'destroyOverride'])->name('override.destroy');
+            // });
+            Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
+        Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
+
+        // global threshold
+        Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');
+
+        // per-branch default threshold (this fixes: Route [lowstock.branchDefault] not defined)
+        Route::post('/branch-default', [LowStockSettingController::class, 'storeBranchDefault'])
+            ->name('branchDefault');
+
+        // per product override (optionally per branch)
+        Route::post('/override', [LowStockSettingController::class, 'storeOverride'])->name('override');
+
+        // delete override
+        Route::delete('/override/{setting}', [LowStockSettingController::class, 'destroyOverride'])
+            ->name('override.destroy');
+    });
 
         });
 

@@ -3,12 +3,10 @@
 namespace App\Services;
 
 use App\Models\IncomingRequest;
-use App\Models\RequestStatusHistory;
 use App\Models\LowStockSetting;
 use App\Models\ReorderRule;
 use App\Models\Product;
 use App\Models\Inventory;
-use Illuminate\Support\Facades\DB;
 
 class AnalyticsService
 {
@@ -19,9 +17,6 @@ class AnalyticsService
         $this->availabilityService = $availabilityService;
     }
 
-    /**
-     * Get SLA metrics for requests.
-     */
     public function getRequestSLAMetrics(?\Carbon\Carbon $from = null, ?\Carbon\Carbon $to = null): array
     {
         $query = IncomingRequest::query();
@@ -75,9 +70,6 @@ class AnalyticsService
         return $metrics;
     }
 
-    /**
-     * Get reorder suggestions based on rules and current stock.
-     */
     public function getReorderSuggestions(?int $branchId = null): array
     {
         $rules = ReorderRule::with(['product', 'preferredSupplier'])
@@ -113,33 +105,69 @@ class AnalyticsService
     }
 
     /**
-     * Get low stock alerts based on settings.
+     * Get low stock alerts across branches (or single branch if $branchId is provided).
+     *
+     * Returns array items with keys:
+     * inventory_id, product_id, branch_id, batch_number, product_name,
+     * branch_name, current_stock, threshold, on_hand, held
      */
     public function getLowStockAlerts(?int $branchId = null): array
     {
-        $products = Product::where('is_archived', false)->get();
+        $globalThreshold = (int) (LowStockSetting::where('is_global', true)->value('threshold') ?? 100);
+        $rules = LowStockSetting::where('is_global', false)->get(['product_id', 'branch_id', 'threshold']);
+        $ruleMap = $this->buildRuleMap($rules);
+
+        $inventoryQuery = Inventory::query()
+            ->where('is_archived', false)
+            ->whereHas('product', fn($q) => $q->where('is_archived', false))
+            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->with([
+                'product:id,generic_name,brand_name',
+                'branch:id,name',
+            ])
+            ->withSum([
+                'holdItems as held_quantity' => function ($q) {
+                    $q->whereHas('hold', fn($h) => $h->whereIn('status', ['pending', 'approved']));
+                },
+            ], 'quantity');
+
+        $batches = $inventoryQuery->get(['id', 'product_id', 'branch_id', 'batch_number', 'quantity']);
+
         $alerts = [];
 
-        foreach ($products as $product) {
-            $threshold = LowStockSetting::getThresholdFor($product->id, $branchId);
-            $available = $this->availabilityService->getAvailable($product->id, $branchId);
+        foreach ($batches as $batch) {
+            $held = (int) ($batch->held_quantity ?? 0);
+            $available = max(0, (int) $batch->quantity - $held);
+            $threshold = $this->resolveThreshold(
+                (int) $batch->product_id,
+                (int) $batch->branch_id,
+                $ruleMap,
+                $globalThreshold
+            );
 
             if ($available <= $threshold) {
                 $alerts[] = [
-                    'product' => $product,
-                    'available' => $available,
-                    'threshold' => $threshold,
-                    'branch_id' => $branchId,
+                    'inventory_id'  => (int) $batch->id,
+                    'product_id'    => (int) $batch->product_id,
+                    'branch_id'     => (int) $batch->branch_id,
+                    'batch_number'  => $batch->batch_number,
+                    'product_name'  => $batch->product?->generic_name
+                        ?? $batch->product?->brand_name
+                        ?? ("Product #".$batch->product_id),
+                    'branch_name'   => $batch->branch?->name ?? 'Unknown Branch',
+                    'current_stock' => (int) $available,
+                    'threshold'     => (int) $threshold,
+                    'on_hand'       => (int) $batch->quantity,
+                    'held'          => (int) $held,
                 ];
             }
         }
 
+        usort($alerts, fn($a, $b) => $a['current_stock'] <=> $b['current_stock']);
+
         return $alerts;
     }
 
-    /**
-     * Get available stock KPIs for dashboard.
-     */
     public function getStockKPIs(?int $branchId = null): array
     {
         $products = Product::where('is_archived', false)->get();
@@ -162,5 +190,38 @@ class AnalyticsService
             'total_available' => $totalAvailable,
             'product_count' => $products->count(),
         ];
+    }
+
+    // ---------------------------
+    // Helpers
+    // ---------------------------
+
+    private function buildRuleMap($rules): array
+    {
+        // map keys:
+        // p{productId}-b{branchId}
+        // use 0 for NULL (all products / all branches)
+        $map = [];
+
+        foreach ($rules as $r) {
+            $p = $r->product_id ?? 0;
+            $b = $r->branch_id ?? 0;
+            $map["p{$p}-b{$b}"] = (int) $r->threshold;
+        }
+
+        return $map;
+    }
+
+    private function resolveThreshold(int $productId, int $branchId, array $map, int $globalThreshold): int
+    {
+        // Priority:
+        // 1) product+branch
+        // 2) product (all branches)
+        // 3) branch default (all products)
+        // 4) global
+        return $map["p{$productId}-b{$branchId}"]
+            ?? $map["p{$productId}-b0"]
+            ?? $map["p0-b{$branchId}"]
+            ?? $globalThreshold;
     }
 }
