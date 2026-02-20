@@ -44,10 +44,17 @@ class ProductMovement extends Model
         return $this->belongsTo(User::class);
     }
 
-    // NEW: Get branch from inventory
+    // Get branch through inventory relationship
     public function branch()
     {
-        return $this->inventory()->with('branch'); // assuming you have branch relationship in Inventory
+        return $this->hasOneThrough(
+            Branch::class,
+            Inventory::class,
+            'id',           // Foreign key on inventories table (inventories.id)
+            'id',           // Foreign key on branches table (branches.id)
+            'inventory_id', // Local key on product_movements table
+            'branch_id'     // Local key on inventories table
+        );
     }
 
     // Helper to get branch name easily

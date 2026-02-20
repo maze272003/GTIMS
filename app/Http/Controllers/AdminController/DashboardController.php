@@ -11,7 +11,6 @@ use App\Models\ProductMovement;
 use App\Models\Branch; // <--- Imported Branch Model
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
-use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;

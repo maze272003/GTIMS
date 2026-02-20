@@ -57,29 +57,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     })->name('dashboard'); // <-- Ito ang default "home" ng Laravel
 
-    // Route::middleware(function ($request, $next) {
-    //         if (in_array(Auth::user()->user_level_id, [1, 2, 6])) {
-    //             return $next($request);
-    //         }
-    //         abort(403, 'Unauthorized Access to Orders.');
-    //     })->prefix('orders')->name('orders.')->group(function () {
-
-    //         Route::get('/', [App\Http\Controllers\AdminController\OrderController::class, 'index'])->name('index');
-    //         Route::get('/create', [App\Http\Controllers\AdminController\OrderController::class, 'create'])->name('create');
-    //         Route::post('/store', [App\Http\Controllers\AdminController\OrderController::class, 'store'])->name('store');
-    //         Route::post('/{id}/update', [App\Http\Controllers\AdminController\OrderController::class, 'updateStatus'])->name('update');
-    //         Route::get('/{id}/print', [App\Http\Controllers\AdminController\OrderController::class, 'print'])->name('print');
-
-    //     });
-
-
     // =================== 2. PROFILE ROUTES ===================
     // (Para sa lahat ng naka-login)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    Route::post('/{id}/update', [App\Http\Controllers\AdminController\OrderController::class, 'updateStatus'])->name('update');
-    Route::get('/', [App\Http\Controllers\AdminController\OrderController::class, 'index'])->name('index');
 
 
     // =================== 3. ANG IISANG (SHARED) ADMIN PANEL ===================
@@ -103,16 +85,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/{id}/print', [OrderController::class, 'print'])->name('print');
             });
 
-        // L1, L2, L4: Patient Records READ access.
-        // Ang access check para dito ay nasa loob ng PatientRecordsController (L1, L2, L4 allowed, L3 blocked).
+        // Patient Records routes
         Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
-        // --- Iba pang Admin Routes ---
-            Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
-            Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
-            Route::put('/patientrecords', [PatientRecordsController::class, 'updatePatientRecord'])->name('patientrecords.update');
-           Route::get('/patientrecords/export-pdf', [PatientRecordsController::class, 'exportPdf'])->name('patientrecords.exportPdf');
-           Route::get('/patientrecords/export-excel', [PatientRecordsController::class, 'exportExcel'])
-    ->name('patientrecords.exportExcel');
+        Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
+        Route::put('/patientrecords', [PatientRecordsController::class, 'updatePatientRecord'])->name('patientrecords.update');
+        Route::get('/patientrecords/export-pdf', [PatientRecordsController::class, 'exportPdf'])->name('patientrecords.exportPdf');
+        Route::get('/patientrecords/export-excel', [PatientRecordsController::class, 'exportExcel'])
+            ->name('patientrecords.exportExcel');
 
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
         Route::post('/inventory/export', [InventoryExportController::class, 'export'])->name('inventory.export');
@@ -120,24 +99,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // == B. ADMIN/SUPERADMIN ROUTES (Level 1, 2 ONLY) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.admin (L1, L2)
         // Ito ang pumipigil sa Doctor (L4) na i-access ang mga paths na ito, kahit manual niyang i-edit ang URL.
-        Route::middleware('level.all')
+        Route::middleware('level.admin')
              ->group(function () {
-
-            // L1, L2: Patient Records WRITE access (Add Dispensation)
-            Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
-
-        //   Route::middleware(function ($request, $next) {
-        //     if (in_array(Auth::user()->user_level_id, [1, 2, 6])) {
-        //         return $next($request);
-        //     }
-        //     abort(403, 'Unauthorized Access to Orders');
-        // })->prefix('orders')->name('orders.')->group(function () {
-        //     Route::get('/', [OrderController::class, 'index'])->name('index');
-        //     Route::get('/create', [OrderController::class, 'create'])->name('create');
-        //     Route::post('/store', [OrderController::class, 'store'])->name('store');
-        //     Route::post('/{id}/update', [OrderController::class, 'updateStatus'])->name('update');
-        //     Route::get('/{id}/print', [OrderController::class, 'print'])->name('print');
-        // });
 
             // L1, L2: Product Movements (Protected)
             Route::get('/product-movements', [ProductMovementController::class, 'showMovements'])->name('movements');
@@ -152,7 +115,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/inventory/archive', [InventoryController::class, 'archiveProduct'])->name('inventory.archiveproduct');
             Route::put('/inventory/unarchive', [InventoryController::class, 'unarchiveProduct'])->name('inventory.unarchiveproduct');
             Route::get('/inventory/archived-stocks', [InventoryController::class, 'fetchArchivedStocks'])
-                 ->name('admin.inventory.fetchArchivedStocks');
+                 ->name('inventory.fetchArchivedStocks');
 
             Route::post('/inventory/transfer', [InventoryController::class, 'transferStock'])->name('inventory.transferstock');
 
@@ -231,7 +194,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // == C. SUPERADMIN ONLY ROUTES (Level 1) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.superadmin (L1)
-        Route::middleware('level.all')
+        Route::middleware('level.superadmin')
              ->group(function () {
 
             // post for create account
@@ -258,4 +221,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
 require __DIR__.'/auth.php';
-require __DIR__.'/db.php';
+// SECURITY: db.php contains a dangerous database reset route.
+// Only include it in local/development environments.
+if (app()->environment('local')) {
+    require __DIR__.'/db.php';
+}

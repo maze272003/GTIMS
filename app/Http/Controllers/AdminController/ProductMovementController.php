@@ -85,7 +85,7 @@ class ProductMovementController extends Controller
 
         // 7. Return View
         if ($request->ajax()) {
-            return view('admin.partials._movements_table', compact('movements'))->render();
+            return view('admin.partials.movements_table', compact('movements'))->render();
         }
 
         return view('admin.product_movements', compact(

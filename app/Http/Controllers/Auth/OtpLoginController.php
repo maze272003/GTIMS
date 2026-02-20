@@ -69,7 +69,7 @@ class OtpLoginController extends Controller
         $user = User::where('email', $request->email)->first();
 
         // Check kung invalid ang OTP o expired na
-        if (!$user || $user->otp !== $request->otp || Carbon::now()->isAfter($user->otp_expires_at)) {
+        if (!$user || (string) $user->otp !== (string) $request->otp || Carbon::now()->isAfter($user->otp_expires_at)) {
             return response()->json(['success' => false, 'message' => 'Invalid or expired OTP. Please try again.'], 401);
         }
 

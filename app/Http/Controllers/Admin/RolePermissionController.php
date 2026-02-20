@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\UserLevel;
 use App\Models\Permission;
-use App\Models\RolePermission;
 use Illuminate\Http\Request;
 
 class RolePermissionController extends Controller

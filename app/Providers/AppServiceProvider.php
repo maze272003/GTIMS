@@ -2,17 +2,9 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Blade;
-use App\Models\User;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Auth\Events\Login;
-use Illuminate\Auth\Events\Failed;
-use Illuminate\Auth\Events\Logout;
-
-use App\Listeners\LogUserLogin;
-use App\Listeners\LogUserLoginFailed;
 
 class AppServiceProvider extends ServiceProvider
 {

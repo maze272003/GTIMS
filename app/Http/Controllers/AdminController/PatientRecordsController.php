@@ -129,8 +129,6 @@ class PatientRecordsController extends Controller
 
         $user = Auth::user(); 
 
-        $user = Auth::user(); 
-
         // Check inventory first
         foreach ($validated['medications'] as $med) {
             $inventory = Inventory::findOrFail($med['name']);
@@ -150,12 +148,8 @@ class PatientRecordsController extends Controller
         ]);
 
         // === HISTORY LOG ===
-        // === HISTORY LOG ===
         HistoryLog::create([
             'action' => 'RECORD ADDED',
-            'description' => "Recorded medication dispensation for patient {$newRecord->patient_name} (Record #: {$newRecord->id}) at " . ($user->branch->name ?? 'Branch ID ' . $user->branch_id) . ".",
-            'user_id' => $user->id,
-            'user_name' => $user->name ?? 'System',
             'description' => "Recorded medication dispensation for patient {$newRecord->patient_name} (Record #: {$newRecord->id}) at " . ($user->branch->name ?? 'Branch ID ' . $user->branch_id) . ".",
             'user_id' => $user->id,
             'user_name' => $user->name ?? 'System',
@@ -179,11 +173,9 @@ class PatientRecordsController extends Controller
             $inventory->save();
 
             // Log Product Movement
-            // Log Product Movement
             ProductMovement::create([
                 'product_id'      => $inventory->product_id,
                 'inventory_id'    => $inventory->id,
-                'user_id'         => $user->id,
                 'user_id'         => $user->id,
                 'type'            => 'OUT',
                 'quantity'        => $quantity_to_deduct,
@@ -262,14 +254,12 @@ class PatientRecordsController extends Controller
             - Date Dispensed: {$oldDate} ({$time}) to {$newDate} ({$time}).",
             'user_id' => $user->id,
             'user_name' => $user->name ?? 'System',
-            'user_id' => $user->id,
-            'user_name' => $user->name ?? 'System',
             'metadata' => [
                 'patientrecord_id' => $record->id,
             ],
         ]);
 
-        if ($record->barangay_id != $validated['barangay_id']) {
+        if ($old['barangay_id'] != $validated['barangay_id']) {
             Dispensedmedication::where('patientrecord_id', $id)->update(['barangay_id' => $validated['barangay_id']]);
         }
 

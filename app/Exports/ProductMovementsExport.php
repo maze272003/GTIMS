@@ -146,7 +146,7 @@ class ProductMovementsExport implements
                 ]);
 
                 // Exported By + Generated Date — RIGHT AFTER TITLE (Row 17)
-                $user = Auth::user()->name ?? 'Guest';
+                $user = Auth::user()?->name ?? 'Guest';
                 $generatedAt = now()->format('M d, Y h:i A');
                 $exportInfo = "Exported By: $user";
 

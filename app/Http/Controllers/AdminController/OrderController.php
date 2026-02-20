@@ -11,8 +11,6 @@ use App\Models\OrderItem;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB; // <--- Crucial for the Sum() function
 use Illuminate\Support\Facades\Log;
-use middleware;
-use index;
 
 class OrderController extends Controller
 {

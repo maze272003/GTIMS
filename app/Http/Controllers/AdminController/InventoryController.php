@@ -8,7 +8,6 @@ use App\Models\Product;
 use App\Models\Inventory;
 use App\Models\HistoryLog; // <-- added
 use Carbon\Carbon;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth; // <-- added
 use App\Models\ProductMovement; // <-- ADD THIS
 
@@ -57,7 +56,7 @@ public function showinventory(Request $request)
         ->paginate(20, ['*'], 'page_rhu1');
 
         // RHU 2
-        $query2 = Inventory::where('branch_id', 2)->where('is_archived', 0);
+        $query2 = Inventory::where('branch_id', 2)->where('is_archived', '!=', 1);
 
     // Search RHU 2
     if ($request->filled('search_rhu2')) {
@@ -489,18 +488,20 @@ public function showinventory(Request $request)
             ->where('branch_id', $request->destination_branch)
             ->first();
 
+        $oldQty = 0;
+
         if ($destInventory) {
             $oldQty = $destInventory->quantity;
             $destInventory->quantity += $request->quantity;
             $destInventory->save();
         } else {
-            $newBatch = Inventory::create([
+            $destInventory = Inventory::create([
                 'product_id'    => $sourceInventory->product_id,
                 'batch_number'  => $sourceInventory->batch_number,
                 'quantity'      => $request->quantity,
                 'expiry_date'   => $sourceInventory->expiry_date,
                 'branch_id'     => $request->destination_branch,
-                'is_archived'   => 2,
+                'is_archived'   => 0,
             ]);
         }
 
@@ -519,12 +520,12 @@ public function showinventory(Request $request)
         // Add another product movement for the received stock
         ProductMovement::create([
             'product_id' => $sourceInventory->product_id,
-            'inventory_id' => $destInventory ? $destInventory->id : $newBatch->id,
+            'inventory_id' => $destInventory->id,
             'user_id' => Auth::id(),
             'type' => 'IN',
             'quantity' => $request->quantity,
-            'quantity_before' => $destInventory ? $oldQty : 0,
-            'quantity_after' => $destInventory ? $destInventory->quantity : $newBatch->quantity,
+            'quantity_before' => $oldQty,
+            'quantity_after' => $destInventory->quantity,
             'description' => 'Stock received from RHU ' . ($sourceInventory->branch_id == 1 ? '1' : '2') . ' to RHU ' . ($request->destination_branch == 1 ? '1' : '2') . '.',
         ]);
 
