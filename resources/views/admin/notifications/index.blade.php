@@ -20,7 +20,7 @@
                 </div>
 
                 @if(isset($unreadCount) && $unreadCount > 0)
-                    <form action="{{ route('admin.notifications.mark-all-read') }}" method="POST">
+                    <form action="{{ route('admin.notifications.read-all') }}" method="POST">
                         @csrf
                         <button type="submit"
                             class="inline-flex items-center justify-center px-5 py-2.5 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200">
@@ -152,7 +152,7 @@
 
                         <div class="flex items-center gap-2 flex-shrink-0">
                             @if(!$notification->read_at)
-                                <form action="{{ route('admin.notifications.mark-read', $notification->id) }}" method="POST">
+                                <form action="{{ route('admin.notifications.read', $notification->id) }}" method="POST">
                                     @csrf
                                     <button type="submit" class="text-blue-600 hover:text-blue-800 text-sm transition" title="Mark as read">
                                         <i class="fa-solid fa-envelope-open"></i>
