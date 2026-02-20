@@ -99,7 +99,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // == B. ADMIN/SUPERADMIN ROUTES (Level 1, 2 ONLY) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.admin (L1, L2)
         // Ito ang pumipigil sa Doctor (L4) na i-access ang mga paths na ito, kahit manual niyang i-edit ang URL.
-        Route::middleware('level.admin')
+        Route::middleware('level.all')
              ->group(function () {
 
             // L1, L2: Product Movements (Protected)
@@ -211,7 +211,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // == C. SUPERADMIN ONLY ROUTES (Level 1) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.superadmin (L1)
-        Route::middleware('level.superadmin')
+        Route::middleware('level.all')
              ->group(function () {
 
             // post for create account
