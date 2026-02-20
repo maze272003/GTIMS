@@ -342,7 +342,7 @@ public function showinventory(Request $request)
 
         $existingStock = Inventory::where('product_id', $validated['product_id'])
             ->where('batch_number', $validated['batchnumber'])
-            ->where('expiry_date', $validated['expiry'])
+            ->whereDate('expiry_date', $validated['expiry'])
             ->where('branch_id', $validated['branch_id'])
             ->first();
 
