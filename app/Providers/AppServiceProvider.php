@@ -2,7 +2,14 @@
 
 namespace App\Providers;
 
+use App\Listeners\LogUserLogin;
+use App\Listeners\LogUserLoginFailed;
+use App\Listeners\LogUserLogout;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
 
@@ -80,5 +87,10 @@ class AppServiceProvider extends ServiceProvider
         Blade::if('haspermission', function (string $permission) {
             return auth()->check() && auth()->user()->hasPermission($permission);
         });
+
+        // Explicit event wiring for auth activity listeners.
+        Event::listen(Login::class, LogUserLogin::class);
+        Event::listen(Logout::class, LogUserLogout::class);
+        Event::listen(Failed::class, LogUserLoginFailed::class);
     }
 }

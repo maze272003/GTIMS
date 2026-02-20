@@ -11,6 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->web(append: [
+            \App\Http\Middleware\RecordSystemActivityNotification::class,
+        ]);
+
         $middleware->alias([
             'level.superadmin' => \App\Http\Middleware\CheckSuperAdminAccess::class,
             'level.admin'      => \App\Http\Middleware\CheckAdminAccess::class,

@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Models\HistoryLog;
+use App\Services\SystemActivityNotificationService;
 use Illuminate\Auth\Events\Failed;
 
 class LogUserLoginFailed
@@ -10,10 +11,9 @@ class LogUserLoginFailed
     /**
      * Create the event listener.
      */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(
+        private readonly SystemActivityNotificationService $notificationService
+    ) {}
 
     /**
      * Handle the event.
@@ -36,6 +36,18 @@ DESC;
             'user_id' => null,
             'user_name' => 'Unknown',
             'metadata' => [
+                'ip' => $ip,
+                'agent' => $agent,
+            ],
+        ]);
+
+        $this->notificationService->notify([
+            'type' => 'security',
+            'category' => 'security',
+            'action_type' => 'login_failed',
+            'title' => 'Failed login attempt',
+            'details' => [
+                'email' => $email,
                 'ip' => $ip,
                 'agent' => $agent,
             ],

@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Models\HistoryLog;
+use App\Services\SystemActivityNotificationService;
 use Illuminate\Auth\Events\Login;
 
 class LogUserLogin
@@ -10,10 +11,9 @@ class LogUserLogin
     /**
      * Create the event listener.
      */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(
+        private readonly SystemActivityNotificationService $notificationService
+    ) {}
 
     /**
      * Handle the event.
@@ -36,6 +36,19 @@ DESC;
             'user_id' => $user->id,
             'user_name' => $user->name,
             'metadata' => [
+                'ip' => $ip,
+                'agent' => $agent,
+            ],
+        ]);
+
+        $this->notificationService->notify([
+            'type' => 'security',
+            'category' => 'security',
+            'action_type' => 'login',
+            'title' => 'User login successful',
+            'details' => [
+                'user_name' => $user->name,
+                'user_email' => $user->email,
                 'ip' => $ip,
                 'agent' => $agent,
             ],
