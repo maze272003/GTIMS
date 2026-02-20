@@ -103,19 +103,21 @@ class HistoryLogTest extends TestCase
     public function test_filter_by_date_range_works()
     {
         // Arrange: Gumamit ng explicit dates para iwas sa timezone issues ng SQLite
-        HistoryLog::create([
+        $oldLog = HistoryLog::create([
             'action' => 'Old Log', 
             'user_name' => 'A', 
             'description' => 'desc',
-            'created_at' => Carbon::parse('2023-01-01 10:00:00') // Malayong past
         ]);
+        $oldLog->created_at = Carbon::parse('2023-01-01 10:00:00');
+        $oldLog->save();
 
-        HistoryLog::create([
+        $newLog = HistoryLog::create([
             'action' => 'New Log', 
             'user_name' => 'B', 
             'description' => 'desc',
-            'created_at' => Carbon::parse('2023-10-01 10:00:00') // Target date
         ]);
+        $newLog->created_at = Carbon::parse('2023-10-01 10:00:00');
+        $newLog->save();
 
         // Act: Filter para lang sa October 1, 2023
         $from = '2023-10-01';

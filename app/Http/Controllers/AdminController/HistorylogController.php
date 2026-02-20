@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\HistoryLog;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class HistorylogController extends Controller
 {
@@ -25,9 +26,14 @@ class HistorylogController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('action', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhere('user_name', 'like', "%{$search}%")
-                  ->orWhereRaw("DATE_FORMAT(created_at, '%M %e, %Y %l:%i %p') LIKE ?", ["%{$search}%"])
-                  ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"]);
+                  ->orWhere('user_name', 'like', "%{$search}%");
+
+                if (DB::connection()->getDriverName() !== 'sqlite') {
+                    $q->orWhereRaw("DATE_FORMAT(created_at, '%M %e, %Y %l:%i %p') LIKE ?", ["%{$search}%"])
+                      ->orWhereRaw("DATE_FORMAT(created_at, '%Y-%m-%d') LIKE ?", ["%{$search}%"]);
+                } else {
+                    $q->orWhere('created_at', 'like', "%{$search}%");
+                }
             });
         }
 
@@ -59,7 +65,7 @@ class HistorylogController extends Controller
         // For dropdown data
         
         if ($request->ajax()) {
-            return view('admin.partials._history_table', compact('historyLogs'))->render();
+            return view('admin.partials._history_table', compact('historyLogs'));
         }
         
         $actions = HistoryLog::select('action')->distinct()->pluck('action');
