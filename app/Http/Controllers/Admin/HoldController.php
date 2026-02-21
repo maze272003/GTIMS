@@ -3,38 +3,33 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Barangay;
 use App\Models\Branch;
+use App\Models\Barangay;
 use App\Models\Hold;
 use App\Models\Inventory;
-use App\Models\Product;
+use App\Repositories\Interfaces\HoldRepositoryInterface;
+use App\Repositories\Interfaces\ProductRepositoryInterface;
 use App\Services\HoldService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class HoldController extends Controller
 {
-    protected HoldService $holdService;
-
-    public function __construct(HoldService $holdService)
-    {
-        $this->holdService = $holdService;
+    public function __construct(
+        protected HoldService $holdService,
+        protected HoldRepositoryInterface $holdRepository,
+        protected ProductRepositoryInterface $productRepository
+    ) {
     }
 
     public function index(Request $request)
     {
-        $holds = Hold::query()
-            ->with([
-                'branch',
-                'creator',
-                'approver',
-                'items.product',
-            ])
-            ->when($request->status, fn ($q, $s) => $q->where('status', $s))
-            ->when($request->type, fn ($q, $t) => $q->where('type', $t))
-            ->when($request->branch_id, fn ($q, $b) => $q->where('branch_id', $b))
-            ->latest()
-            ->paginate(20);
+        $holds = $this->holdRepository->paginateWithFilters(
+            $request->status,
+            $request->type,
+            $request->branch_id ? (int) $request->branch_id : null,
+            20
+        );
 
         $branches = Branch::all();
 
@@ -43,31 +38,10 @@ class HoldController extends Controller
 
     public function create()
     {
-        $products = Product::where('is_archived', false)->get();
+        $products = $this->productRepository->getActive();
         $branches = Branch::all();
         $barangays = Barangay::orderBy('barangay_name')->get();
-
-        $batches = Inventory::query()
-            ->where('quantity', '>', 0)
-            ->withSum([
-                'holdItems as held_quantity' => function ($query) {
-                    $query->whereHas('hold', function ($holdQuery) {
-                        $holdQuery->whereIn('status', ['pending', 'approved']);
-                    });
-                },
-            ], 'quantity')
-            ->orderBy('expiry_date')
-            ->get(['id', 'product_id', 'batch_number', 'quantity'])
-            ->map(function ($batch) {
-                $available = max(0, (int) $batch->quantity - (int) ($batch->held_quantity ?? 0));
-                $batch->available_quantity = $available;
-
-                return $batch;
-            })
-            ->filter(function ($batch) {
-                return (int) $batch->available_quantity > 0;
-            })
-            ->values();
+        $batches = $this->holdRepository->getAvailableBatches();
 
         return view('admin.holds.create', compact('products', 'branches', 'barangays', 'batches'));
     }
