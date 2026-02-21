@@ -30,11 +30,11 @@ class StoreHoldRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'items.required'              => 'At least one item is required.',
-            'items.min'                   => 'At least one item is required.',
-            'items.*.quantity.min'         => 'Each item quantity must be at least 1.',
-            'type.in'                     => 'The hold type must be reservation, quarantine, or recall.',
-            'expires_at.after'            => 'The expiration date must be in the future.',
+            'items.required' => 'At least one item is required.',
+            'items.min' => 'At least one item is required.',
+            'items.*.quantity.min' => 'Each item quantity must be at least 1.',
+            'type.in' => 'The hold type must be reservation, quarantine, or recall.',
+            'expires_at.after' => 'The expiration date must be in the future.',
         ];
     }
 }
