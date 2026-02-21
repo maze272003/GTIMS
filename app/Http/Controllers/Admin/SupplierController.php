@@ -3,16 +3,23 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Supplier;
-use App\Models\SupplierProduct;
-use App\Models\Product;
+use App\Http\Requests\Admin\StoreSupplierRequest;
+use App\Http\Requests\Admin\UpdateSupplierRequest;
+use App\Repositories\Interfaces\SupplierRepositoryInterface;
+use App\Repositories\Interfaces\ProductRepositoryInterface;
 use Illuminate\Http\Request;
 
 class SupplierController extends Controller
 {
+    public function __construct(
+        protected SupplierRepositoryInterface $supplierRepository,
+        protected ProductRepositoryInterface $productRepository
+    ) {
+    }
+
     public function index()
     {
-        $suppliers = Supplier::withCount('products')->paginate(20);
+        $suppliers = $this->supplierRepository->paginateWithProductCount(20);
         return view('admin.suppliers.index', compact('suppliers'));
     }
 
@@ -21,44 +28,27 @@ class SupplierController extends Controller
         return view('admin.suppliers.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreSupplierRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'contact_person' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-        ]);
-
-        Supplier::create($validated);
+        $this->supplierRepository->create($request->validated());
         return redirect()->route('admin.suppliers.index')
             ->with('success', 'Supplier created.');
     }
 
-    public function edit(Supplier $supplier)
+    public function edit(int $id)
     {
-        $supplier->load('products');
-        $allProducts = Product::where('is_archived', false)->get();
+        $supplier = $this->supplierRepository->findWithProducts($id);
+        $allProducts = $this->productRepository->getActive();
         return view('admin.suppliers.edit', compact('supplier', 'allProducts'));
     }
 
-    public function update(Request $request, Supplier $supplier)
+    public function update(UpdateSupplierRequest $request, int $id)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'contact_person' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-            'is_active' => 'sometimes|boolean',
-        ]);
-
-        $supplier->update($validated);
+        $this->supplierRepository->update($id, $request->validated());
         return back()->with('success', 'Supplier updated.');
     }
 
-    public function linkProduct(Request $request, Supplier $supplier)
+    public function linkProduct(Request $request, int $supplierId)
     {
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
@@ -66,19 +56,19 @@ class SupplierController extends Controller
             'unit_cost' => 'nullable|numeric|min:0',
         ]);
 
-        SupplierProduct::updateOrCreate(
-            ['supplier_id' => $supplier->id, 'product_id' => $validated['product_id']],
-            ['lead_time_days' => $validated['lead_time_days'], 'unit_cost' => $validated['unit_cost'] ?? null]
+        $this->supplierRepository->linkProduct(
+            $supplierId,
+            $validated['product_id'],
+            $validated['lead_time_days'],
+            $validated['unit_cost'] ?? null
         );
 
         return back()->with('success', 'Product linked to supplier.');
     }
 
-    public function unlinkProduct(Supplier $supplier, Product $product)
+    public function unlinkProduct(int $supplierId, int $productId)
     {
-        SupplierProduct::where('supplier_id', $supplier->id)
-            ->where('product_id', $product->id)
-            ->delete();
+        $this->supplierRepository->unlinkProduct($supplierId, $productId);
 
         return back()->with('success', 'Product unlinked from supplier.');
     }
