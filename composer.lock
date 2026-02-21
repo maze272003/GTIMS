@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "385fd2b974ca591b586035694a9b99c4",
+    "content-hash": "4145d566452f8d6da19d8126c16e8ee9",
     "packages": [
         {
             "name": "anhskohbo/no-captcha",
@@ -3628,16 +3628,16 @@
         },
         {
             "name": "predis/predis",
-            "version": "v3.0.0",
+            "version": "v3.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/predis/predis.git",
-                "reference": "7d86f7afb37940bfc7aaa2909147616881377667"
+                "reference": "1183f5732e6b10efd33f64984a96726eaecb59aa"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/predis/predis/zipball/7d86f7afb37940bfc7aaa2909147616881377667",
-                "reference": "7d86f7afb37940bfc7aaa2909147616881377667",
+                "url": "https://api.github.com/repos/predis/predis/zipball/1183f5732e6b10efd33f64984a96726eaecb59aa",
+                "reference": "1183f5732e6b10efd33f64984a96726eaecb59aa",
                 "shasum": ""
             },
             "require": {
@@ -3679,7 +3679,7 @@
             ],
             "support": {
                 "issues": "https://github.com/predis/predis/issues",
-                "source": "https://github.com/predis/predis/tree/v3.0.0"
+                "source": "https://github.com/predis/predis/tree/v3.4.0"
             },
             "funding": [
                 {
@@ -3687,7 +3687,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2025-05-02T23:18:59+00:00"
+            "time": "2026-02-11T17:30:28+00:00"
         },
         {
             "name": "psr/clock",
