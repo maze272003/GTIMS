@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreHoldRequest;
 use App\Models\Branch;
 use App\Models\Barangay;
 use App\Models\Hold;
@@ -46,21 +47,9 @@ class HoldController extends Controller
         return view('admin.holds.create', compact('products', 'branches', 'barangays', 'batches'));
     }
 
-    public function store(Request $request)
+    public function store(StoreHoldRequest $request)
     {
-        $validated = $request->validate([
-            'branch_id' => 'required|exists:branches,id',
-            'barangay_id' => 'nullable|exists:barangays,id',
-            'type' => 'required|in:reservation,quarantine,recall',
-            'reason_code' => 'required|string|max:255',
-            'remarks' => 'nullable|string',
-            'expires_at' => 'nullable|date|after:now',
-
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.inventory_id' => 'required|exists:inventories,id',
-            'items.*.quantity' => 'required|integer|min:1',
-        ]);
+        $validated = $request->validated();
 
         $requestedByInventory = [];
         foreach ($validated['items'] as $item) {

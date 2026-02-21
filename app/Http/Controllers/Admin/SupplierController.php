@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\StoreSupplierRequest;
+use App\Http\Requests\Admin\UpdateSupplierRequest;
 use App\Repositories\Interfaces\SupplierRepositoryInterface;
 use App\Repositories\Interfaces\ProductRepositoryInterface;
 use Illuminate\Http\Request;
@@ -26,17 +28,9 @@ class SupplierController extends Controller
         return view('admin.suppliers.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreSupplierRequest $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'contact_person' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-        ]);
-
-        $this->supplierRepository->create($validated);
+        $this->supplierRepository->create($request->validated());
         return redirect()->route('admin.suppliers.index')
             ->with('success', 'Supplier created.');
     }
@@ -48,18 +42,9 @@ class SupplierController extends Controller
         return view('admin.suppliers.edit', compact('supplier', 'allProducts'));
     }
 
-    public function update(Request $request, int $id)
+    public function update(UpdateSupplierRequest $request, int $id)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'contact_person' => 'nullable|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:50',
-            'address' => 'nullable|string',
-            'is_active' => 'sometimes|boolean',
-        ]);
-
-        $this->supplierRepository->update($id, $validated);
+        $this->supplierRepository->update($id, $request->validated());
         return back()->with('success', 'Supplier updated.');
     }
 

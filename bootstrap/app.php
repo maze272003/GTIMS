@@ -25,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\RecordSystemActivityNotification::class,
+            \App\Http\Middleware\SanitizeInput::class,
         ]);
 
         $middleware->alias([
