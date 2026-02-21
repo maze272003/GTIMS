@@ -47,4 +47,9 @@ class Hold extends Model
     {
         return $this->expires_at && $this->expires_at->isPast();
     }
+    public function barangay()
+    {
+        return $this->belongsTo(Barangay::class);
+    }
+
 }

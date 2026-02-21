@@ -130,7 +130,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/create', [HoldController::class, 'create'])->name('create');
                 Route::post('/', [HoldController::class, 'store'])->name('store');
                 Route::get('/{hold}', [HoldController::class, 'show'])->name('show');
-                Route::post('/{hold}/approve', [HoldController::class, 'approve'])->name('approve');
+                Route::put('/{hold}/approve', [HoldController::class, 'approve'])->name('approve');
                 Route::post('/{hold}/release', [HoldController::class, 'release'])->name('release');
             });
 

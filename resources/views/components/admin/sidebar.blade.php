@@ -77,14 +77,7 @@
             </li>
             @endhaspermission
 
-            @haspermission('historylog.view')
-            <li>
-                <a href="{{ route('admin.historylog') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <i class="fa-regular fa-clock-rotate-left nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">History Logs</span>
-                </a>
-            </li>
-            @endhaspermission
+
 
             {{-- HOLDS --}}
             @haspermission('holds.view')
@@ -135,21 +128,28 @@
                 </a>
             </li>
             @endhaspermission
-
+            @haspermission('historylog.view')
+            <li>
+                <a href="{{ route('admin.historylog') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.historylog.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                    <i class="fa-regular fa-clock-rotate-left nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">History Logs</span>
+                </a>
+            </li>
+            @endhaspermission
             {{-- AUDIT --}}
-            @haspermission('audit.view')
+            {{-- @haspermission('audit.view')
             <li>
                 <a href="{{ route('admin.audit.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.audit.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-shield-check nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Audit Logs</span>
                 </a>
             </li>
-            @endhaspermission
+            @endhaspermission --}}
 
             {{-- MANAGE ACCOUNT --}}
             @haspermission('users.manage')
             <li>
-                <a href="{{ route('admin.manageaccount') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <a href="{{ route('admin.manageaccount') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.manageaccount.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-users nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Manage Accounts</span>
                 </a>
