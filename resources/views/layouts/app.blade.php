@@ -12,6 +12,7 @@
         <link rel="icon" type="image/png" href="{{ asset('images/gtlogo.png') }}">
         <link rel="stylesheet" href="{{ asset('css/style.css') }}">
         <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script src="{{ asset('js/gtims-notify.js') }}"></script>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.4.0/dist/driver.css">
         <script src="https://cdn.jsdelivr.net/npm/driver.js@1.4.0/dist/driver.js.iife.js"></script>
         <script src="{{ asset('js/tour.js') }}" defer></script>
@@ -42,6 +43,23 @@
         }
     </style>
     <body class="font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+        {{-- Offline Banner --}}
+        <div id="offline-banner" class="hidden fixed top-0 left-0 right-0 z-[9998] bg-yellow-500 text-yellow-900 text-center text-sm font-medium py-2 px-4" role="alert">
+            <i class="fa-solid fa-wifi-slash mr-1"></i> You are offline. Some features may not be available.
+        </div>
+
+        {{-- Global Error Fallback --}}
+        <div id="error-fallback" class="hidden fixed inset-0 z-[9997] bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-6" role="alert">
+            <div class="text-center max-w-md">
+                <i class="fa-solid fa-triangle-exclamation text-5xl text-red-500 mb-4"></i>
+                <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Something went wrong</h2>
+                <p class="text-gray-600 dark:text-gray-400 mb-6">An unexpected error occurred. Please reload the page.</p>
+                <button onclick="window.location.reload()" class="bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 px-6 rounded-xl shadow transition-all">
+                    <i class="fa-solid fa-rotate-right mr-2"></i> Reload Page
+                </button>
+            </div>
+        </div>
+
         {{ $slot }}
 
         <div id="sleep-overlay" class="fixed inset-0 z-[9999] bg-black/95 hidden flex-col items-center justify-center text-white backdrop-blur-sm p-4">
@@ -144,5 +162,36 @@
                 setInterval(updateClock, 1000); // Update every second
             }
         });
+    </script>
+
+    {{-- Offline Banner & Error Boundary --}}
+    <script>
+        (function() {
+            var banner = document.getElementById('offline-banner');
+            function updateOnlineStatus() {
+                if (banner) {
+                    if (navigator.onLine) {
+                        banner.classList.add('hidden');
+                    } else {
+                        banner.classList.remove('hidden');
+                    }
+                }
+            }
+            window.addEventListener('online', updateOnlineStatus);
+            window.addEventListener('offline', updateOnlineStatus);
+            updateOnlineStatus();
+
+            // Global JS error boundary – show fallback UI for hard crashes
+            window.onerror = function(msg, url, line) {
+                var fallback = document.getElementById('error-fallback');
+                // Only show fallback for truly fatal errors, not for minor issues
+                if (fallback && msg && typeof msg === 'string' && msg.indexOf('Script error') === -1) {
+                    if (typeof gtToast !== 'undefined') {
+                        gtToast.error('An unexpected error occurred.');
+                    }
+                }
+                return false;
+            };
+        })();
     </script>
 </html>

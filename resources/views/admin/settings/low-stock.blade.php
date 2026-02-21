@@ -103,10 +103,10 @@
                                         {{ $override->threshold }}
                                     </td>
                                     <td class="px-4 py-3 text-sm text-center">
-                                        <form action="{{ route('admin.lowstock.override.destroy', $override->id) }}" method="POST" class="inline">
+                                        <form action="{{ route('admin.lowstock.override.destroy', $override->id) }}" method="POST" class="inline" id="remove-override-{{ $override->id }}">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-800 transition" onclick="return confirm('Remove this setting?')">
+                                            <button type="button" class="text-red-600 hover:text-red-800 transition" aria-label="Remove override" onclick="gtConfirm({ title: 'Remove Setting?', text: 'This low stock override will be permanently removed.', icon: 'warning', confirmText: 'Yes, remove', onConfirm: function() { document.getElementById('remove-override-{{ $override->id }}').submit(); } })">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
                                         </form>

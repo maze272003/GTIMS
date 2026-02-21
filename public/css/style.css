@@ -3,6 +3,33 @@ body, html, input, button, select, textarea {
             font-family: 'Inter', sans-serif;
         }
 
+/* Accessibility: visible focus outlines */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Mobile-first: ensure proper tap target sizes */
+@media (max-width: 640px) {
+    button, a, [role="button"] {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    table {
+        font-size: 0.8125rem;
+    }
+}
+
+/* Responsive tables: horizontal scroll on small screens */
+.overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+}
+
 .modal {
     animation: fadeInScale 0.3s ease-in-out;
 }

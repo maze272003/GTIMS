@@ -721,7 +721,7 @@ const distinctPieColors = [
    function toggleChartType(chartId, newType) {
         const chart = window.myCharts[chartId];
         const originalConfig = window.originalChartConfigs[chartId];
-        if (!chart || !originalConfig) { console.error('Chart or config not found for', chartId); return; }
+        if (!chart || !originalConfig) { return; }
 
         // --- START FIX ---
         // 1. Get the CURRENT data from the live chart instance
@@ -899,8 +899,7 @@ const distinctPieColors = [
            window.history.pushState({}, '', url);
 
     } catch (error) {
-           console.error("Drilldown failed:", error);
-           alert(`Could not update charts: ${error.message}`);
+           gtToast.error('Could not update charts. Please try again.');
     } finally {
            hideLoader('consumptionChart');
            hideLoader('barangayChart');
@@ -1053,8 +1052,7 @@ const distinctPieColors = [
                 throw new Error('Invalid JSON response from server');
             }
         } catch (error) {
-            console.error('Forecast update failed:', error);
-            alert('Could not update forecast table.');
+            gtToast.error('Could not update forecast table.');
         } finally {
             hideLoader('forecast-table-body');
         }
@@ -1164,8 +1162,7 @@ const distinctPieColors = [
             window.history.pushState({}, '', url);
 
         } catch (error) {
-            console.error('Main charts update failed:', error);
-            alert('Could not update charts.');
+            gtToast.error('Could not update charts.');
         } finally {
             // Hide all loaders
             hideLoader('consumptionChart');
@@ -1276,8 +1273,7 @@ const distinctPieColors = [
             window.history.pushState({}, '', url);
 
         } catch (error) {
-            console.error('Seasonal chart update failed:', error);
-            alert('Could not update seasonal chart.');
+            gtToast.error('Could not update seasonal chart.');
         } finally {
             hideLoader('seasonalChart');
         }
@@ -1687,21 +1683,18 @@ const distinctPieColors = [
           const result = await response.json();
 
           if (!response.ok) {
-            // Log the detailed error from the server
-             console.error('AI Analysis Error:', result);
-            throw new Error(result.error || `Server Error: ${response.status} ${response.statusText}`);
+            throw new Error(result.error || 'Server Error: ' + response.status);
           }
 
           if (result.analysis) {
             aiResponseContent.innerHTML = result.analysis;
           } else {
-             console.error('AI Analysis Error: No analysis content in response', result);
              throw new Error('No valid analysis received from the server.');
           }
 
         } catch (error) {
-             console.error('AI Analysis Fetch Failed:', error);
-           aiResponseContent.innerHTML = `<p class="text-red-600 font-semibold">Sorry, the analysis could not be completed.</p><p class="text-sm text-gray-500 mt-2">${error.message}</p>`;
+           aiResponseContent.innerHTML = '<p class="text-red-600 font-semibold">Sorry, the analysis could not be completed.</p><p class="text-sm text-gray-500 mt-2">' + error.message + '</p>';
+           gtToast.error('AI analysis failed. Please try again.');
         } finally {
           aiButton.disabled = false;
           aiButtonText.textContent = 'Get AI Analysis of this Trend';

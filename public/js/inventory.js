@@ -226,7 +226,7 @@ document.addEventListener('DOMContentLoaded', function () {
             
             // Note: Simple implementation. Add scroll listener logic here if you want infinite scroll
         } catch (error) {
-            console.error('Error:', error);
+            if (typeof gtToast !== 'undefined') gtToast.error('Error loading archived stocks.');
             if(container) container.innerHTML = '<tr><td colspan="4" class="text-red-500 p-4 text-center">Error loading data</td></tr>';
         }
     }
