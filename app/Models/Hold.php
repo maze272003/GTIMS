@@ -10,7 +10,7 @@ class Hold extends Model
     use HasFactory;
 
     protected $fillable = [
-        'branch_id', 'type', 'reason_code', 'remarks',
+        'branch_id', 'barangay_id', 'type', 'reason_code', 'remarks',
         'created_by', 'approved_by', 'status', 'expires_at',
     ];
 
@@ -21,6 +21,11 @@ class Hold extends Model
     public function branch()
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    public function barangay()
+    {
+        return $this->belongsTo(Barangay::class);
     }
 
     public function creator()
@@ -47,9 +52,4 @@ class Hold extends Model
     {
         return $this->expires_at && $this->expires_at->isPast();
     }
-    public function barangay()
-    {
-        return $this->belongsTo(Barangay::class);
-    }
-
 }

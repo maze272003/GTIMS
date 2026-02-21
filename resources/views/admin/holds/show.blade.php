@@ -4,7 +4,6 @@
         <x-admin.header/>
         <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
 
-            {{-- Header --}}
             <div class="mb-6 pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-20">
                 <div class="flex flex-col gap-5">
                     <p class="text-sm text-gray-600 dark:text-gray-400">
@@ -16,9 +15,9 @@
 
                 <div class="flex gap-3">
                     @if($hold->status === 'pending')
-                        {{-- ✅ route is POST so no @method('PUT') --}}
                         <form action="{{ route('admin.holds.approve', $hold) }}" method="POST" class="inline">
                             @csrf
+                            @method('PUT')
                             <button type="button"
                                 class="approve-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm flex items-center gap-2">
                                 <i class="fa-solid fa-check"></i> Approve
@@ -29,6 +28,7 @@
                     @if(in_array($hold->status, ['pending', 'approved']))
                         <form action="{{ route('admin.holds.release', $hold) }}" method="POST" class="inline">
                             @csrf
+                            @method('PUT')
                             <button type="button"
                                 class="release-btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm flex items-center gap-2">
                                 <i class="fa-solid fa-unlock"></i> Release
@@ -43,7 +43,6 @@
                 </div>
             </div>
 
-            {{-- Success Toast --}}
             @if (session('success'))
                 <div id="successAlert"
                      class="fixed top-24 right-5 border-l-4 border-green-500 bg-white text-green-700 py-3 px-6 rounded-lg shadow-lg z-50 flex items-center gap-3">
@@ -56,7 +55,6 @@
                 <script>setTimeout(() => { const a = document.getElementById('successAlert'); if (a) a.remove(); }, 4000);</script>
             @endif
 
-            {{-- Hold Header --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div>
@@ -66,7 +64,7 @@
 
                     <div>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Location</p>
-                        <p class="font-semibold text-gray-900 dark:text-white">{{ $hold->barangay->barangay_name ?? '—' }}</p>
+                        <p class="font-semibold text-gray-900 dark:text-white">{{ $hold->barangay->barangay_name ?? '-' }}</p>
                     </div>
 
                     <div>
@@ -119,7 +117,6 @@
                 </div>
             </div>
 
-            {{-- Hold Items --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
                 <div class="p-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 class="font-semibold text-lg text-gray-800 dark:text-white">Hold Items</h3>
@@ -156,8 +153,8 @@
                                             data-held="{{ $item->quantity ?? '-' }}"
                                             data-qty="{{ $inv->quantity ?? '-' }}"
                                             data-expiry="{{ $inv?->expiry_date ? \Carbon\Carbon::parse($inv->expiry_date)->format('M d, Y') : 'N/A' }}"
-                                            data-location="{{ $hold->barangay->barangay_name ?? '—' }}"
-                                            data-remarks="{{ $inv->remarks ?? '—' }}"
+                                            data-location="{{ $hold->barangay->barangay_name ?? '-' }}"
+                                            data-remarks="{{ $inv->remarks ?? '-' }}"
                                         >
                                             {{ $inv->batch_number ?? '-' }}
                                         </button>
@@ -179,7 +176,6 @@
                 </div>
             </div>
 
-            {{-- Status History Timeline --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <h3 class="font-semibold text-lg text-gray-800 dark:text-white mb-4">Status History</h3>
 
@@ -227,10 +223,9 @@
         </main>
     </div>
 
-    {{-- Batch Details Modal --}}
     <div id="batchModal" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 relative">
-            <button id="closeBatchModal" class="absolute top-3 right-3 text-gray-500 hover:text-black dark:hover:text-white">✕</button>
+            <button id="closeBatchModal" class="absolute top-3 right-3 text-gray-500 hover:text-black dark:hover:text-white">x</button>
 
             <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Inventory Details</h3>
 
@@ -279,7 +274,6 @@
     </div>
 
     <script>
-        // Approve
         document.querySelectorAll('.approve-btn').forEach(btn => {
             btn.addEventListener('click', function () {
                 const form = this.closest('form');
@@ -299,7 +293,6 @@
             });
         });
 
-        // Release
         document.querySelectorAll('.release-btn').forEach(btn => {
             btn.addEventListener('click', function () {
                 const form = this.closest('form');
@@ -319,7 +312,6 @@
             });
         });
 
-        // Batch Modal
         const modal = document.getElementById('batchModal');
         const closeX = document.getElementById('closeBatchModal');
         const closeBtn = document.getElementById('closeBatchModalBtn');
@@ -331,8 +323,8 @@
             document.getElementById('modalHeld').textContent = btn.dataset.held || '-';
             document.getElementById('modalQty').textContent = btn.dataset.qty || '-';
             document.getElementById('modalExpiry').textContent = btn.dataset.expiry || '-';
-            document.getElementById('modalLocation').textContent = btn.dataset.location || '—';
-            document.getElementById('modalRemarks').textContent = btn.dataset.remarks || '—';
+            document.getElementById('modalLocation').textContent = btn.dataset.location || '-';
+            document.getElementById('modalRemarks').textContent = btn.dataset.remarks || '-';
 
             modal.classList.remove('hidden');
             modal.classList.add('flex');

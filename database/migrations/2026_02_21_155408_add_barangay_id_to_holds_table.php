@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasColumn('holds', 'barangay_id')) {
+            return;
+        }
+
         Schema::table('holds', function (Blueprint $table) {
             $table->foreignId('barangay_id')
                 ->nullable()
@@ -22,9 +26,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('holds', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('barangay_id');
-        });
+        if (!Schema::hasColumn('holds', 'barangay_id')) {
+            return;
+        }
+
+        // Keep rollback safe and non-destructive for existing environments.
     }
 
 };

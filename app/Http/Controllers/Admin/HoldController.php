@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Hold;
-use App\Models\Product;
-use App\Models\Inventory;
+use App\Models\Barangay;
 use App\Models\Branch;
+use App\Models\Hold;
+use App\Models\Inventory;
+use App\Models\Product;
 use App\Services\HoldService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -44,16 +45,32 @@ class HoldController extends Controller
     {
         $products = Product::where('is_archived', false)->get();
         $branches = Branch::all();
-        $barangays = \App\Models\Barangay::orderBy('barangay_name')->get();
+        $barangays = Barangay::orderBy('barangay_name')->get();
 
         $batches = Inventory::query()
             ->where('quantity', '>', 0)
+            ->withSum([
+                'holdItems as held_quantity' => function ($query) {
+                    $query->whereHas('hold', function ($holdQuery) {
+                        $holdQuery->whereIn('status', ['pending', 'approved']);
+                    });
+                },
+            ], 'quantity')
             ->orderBy('expiry_date')
-            ->get(['id', 'product_id', 'batch_number', 'quantity']);
+            ->get(['id', 'product_id', 'batch_number', 'quantity'])
+            ->map(function ($batch) {
+                $available = max(0, (int) $batch->quantity - (int) ($batch->held_quantity ?? 0));
+                $batch->available_quantity = $available;
+
+                return $batch;
+            })
+            ->filter(function ($batch) {
+                return (int) $batch->available_quantity > 0;
+            })
+            ->values();
 
         return view('admin.holds.create', compact('products', 'branches', 'barangays', 'batches'));
     }
-
 
     public function store(Request $request)
     {
@@ -71,6 +88,44 @@ class HoldController extends Controller
             'items.*.quantity' => 'required|integer|min:1',
         ]);
 
+        $requestedByInventory = [];
+        foreach ($validated['items'] as $item) {
+            $inventoryId = (int) $item['inventory_id'];
+            $requestedByInventory[$inventoryId] = ($requestedByInventory[$inventoryId] ?? 0) + (int) $item['quantity'];
+        }
+
+        $inventoryIds = array_keys($requestedByInventory);
+        $inventories = Inventory::query()
+            ->whereIn('id', $inventoryIds)
+            ->withSum([
+                'holdItems as held_quantity' => function ($query) {
+                    $query->whereHas('hold', function ($holdQuery) {
+                        $holdQuery->whereIn('status', ['pending', 'approved']);
+                    });
+                },
+            ], 'quantity')
+            ->get(['id', 'quantity'])
+            ->keyBy('id');
+
+        $errors = [];
+        foreach ($requestedByInventory as $inventoryId => $requestedQty) {
+            $inventory = $inventories->get($inventoryId);
+
+            if (!$inventory) {
+                $errors["items.{$inventoryId}.inventory_id"] = "Selected inventory #{$inventoryId} no longer exists.";
+                continue;
+            }
+
+            $available = max(0, (int) $inventory->quantity - (int) ($inventory->held_quantity ?? 0));
+            if ($requestedQty > $available) {
+                $errors["items.{$inventoryId}.quantity"] = "Requested hold quantity ({$requestedQty}) exceeds available quantity ({$available}) for inventory #{$inventoryId}.";
+            }
+        }
+
+        if (!empty($errors)) {
+            return back()->withErrors($errors)->withInput();
+        }
+
         $this->holdService->createHold(
             collect($validated)->only(['barangay_id', 'branch_id', 'type', 'reason_code', 'remarks', 'expires_at'])->toArray(),
             $validated['items'],
@@ -86,16 +141,12 @@ class HoldController extends Controller
     {
         $hold->load([
             'branch',
+            'barangay',
             'creator',
             'approver',
-            'barangay', // if you want to show barangay details in the hold view
-
-            // ✅ for table + tooltip
             'items.product',
             'items.inventory',
-            'items.inventory.branch', // requires Inventory::branch() relation
-
-            // ✅ your blade uses $history->user
+            'items.inventory.branch',
             'statusHistory.changer',
         ]);
 
