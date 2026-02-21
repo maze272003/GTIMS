@@ -182,11 +182,16 @@
             updateOnlineStatus();
 
             // Global JS error boundary – show fallback UI for hard crashes
+            var errorCount = 0;
             window.onerror = function(msg, url, line) {
+                errorCount++;
                 var fallback = document.getElementById('error-fallback');
-                // Only show fallback for truly fatal errors, not for minor issues
-                if (fallback && msg && typeof msg === 'string' && msg.indexOf('Script error') === -1) {
-                    if (typeof gtToast !== 'undefined') {
+                if (msg && typeof msg === 'string' && msg.indexOf('Script error') === -1) {
+                    if (errorCount >= 3 && fallback) {
+                        // Multiple errors: show full fallback UI for hard crashes
+                        fallback.classList.remove('hidden');
+                    } else if (typeof gtToast !== 'undefined') {
+                        // Single error: show toast for recoverable issues
                         gtToast.error('An unexpected error occurred.');
                     }
                 }
