@@ -1060,7 +1060,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
 
     // ===== Ollama settings =====
     $baseUrl = rtrim(env('OLLAMA_BASE_URL', 'https://ai-api.hostcluster.site'), '/');
-    $model   = env('OLLAMA_MODEL', 'gpt-oss:120b-cloud'); // choice #1
+    $model   = env('OLLAMA_MODEL', 'qwen3:0.6b'); // choice #1
 
     $endpoint = $baseUrl . '/api/generate';
 
