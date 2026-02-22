@@ -28,8 +28,8 @@ document.addEventListener('DOMContentLoaded', function () {
             // Update URL without reload
             window.history.pushState(null, '', url);
         })
-        .catch(error => {
-            console.error('Error fetching data:', error);
+        .catch(function () {
+            if (typeof gtToast !== 'undefined') gtToast.error('Failed to load patient records.');
             tableContainer.style.opacity = '1';
         });
     }

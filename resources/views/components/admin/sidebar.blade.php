@@ -1,9 +1,9 @@
 <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-50 z-40 hidden md:hidden"></div>
 
-<nav id="sidebar" class="fixed top-0 left-0 h-full bg-white dark:bg-gray-800 shadow-lg w-64 p-5 flex flex-col transition-all duration-300 z-50 translate-x-[-100%] md:translate-x-0 md:w-20 lg:w-64 border-r border-gray-200 dark:border-gray-700">
+<nav id="sidebar" class="fixed top-0 left-0 h-full bg-white dark:bg-gray-800 shadow-lg w-64 p-5 flex flex-col transition-all duration-300 z-50 translate-x-[-100%] md:translate-x-0 md:w-20 lg:w-64 border-r border-gray-200 dark:border-gray-700" aria-label="Main navigation">
     <div class="flex items-center justify-between border-b-2 border-gray-200 dark:border-gray-700 pb-3">
         <img class="nav-text lg:block w-14" src="{{ asset('images/gtlogo.png') }}" alt="Logo">
-        <button id="desktop-collapse-btn" class="hidden lg:block p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+        <button id="desktop-collapse-btn" class="hidden lg:block p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Toggle sidebar">
             <i class="fa-solid fa-chevron-left text-gray-600 dark:text-gray-400"></i>
         </button>
     </div>

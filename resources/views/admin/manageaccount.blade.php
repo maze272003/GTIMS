@@ -213,9 +213,8 @@
                     searchSpinner.classList.add('hidden');
                 })
                 .catch(err => {
-                    console.error(err);
-                    searchSpinner.classList.add('hidden');
                     showToast("Failed to load data.", 'error');
+                    searchSpinner.classList.add('hidden');
                 });
             }
         });

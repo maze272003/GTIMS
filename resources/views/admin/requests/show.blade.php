@@ -71,11 +71,7 @@
             </div>
 
             @if (session('success'))
-                <div id="successAlert" class="fixed top-24 right-5 border-l-4 border-green-500 bg-white text-green-700 py-3 px-6 rounded-lg shadow-lg z-50 flex items-center gap-3">
-                    <i class="fa-solid fa-circle-check text-2xl"></i>
-                    <div><p class="font-bold">Success!</p><p class="text-black">{{ session('success') }}</p></div>
-                </div>
-                <script>setTimeout(() => { const a = document.getElementById('successAlert'); if (a) a.remove(); }, 4000);</script>
+                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
             @endif
 
             {{-- Request Header --}}

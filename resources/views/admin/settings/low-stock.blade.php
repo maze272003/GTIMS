@@ -14,16 +14,7 @@
             </div>
 
             @if (session('success'))
-                <div id="successAlert" class="fixed top-24 right-5 border-l-4 border-green-500 bg-white text-green-700 py-3 px-6 rounded-lg shadow-lg z-50 flex items-center gap-3">
-                    <i class="fa-solid fa-circle-check text-2xl"></i>
-                    <div>
-                        <p class="font-bold">Success!</p>
-                        <p class="text-black">{{ session('success') }}</p>
-                    </div>
-                </div>
-                <script>
-                    setTimeout(() => { const a = document.getElementById('successAlert'); if (a) a.remove(); }, 4000);
-                </script>
+                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
             @endif
 
             @if (session('error'))
@@ -103,10 +94,10 @@
                                         {{ $override->threshold }}
                                     </td>
                                     <td class="px-4 py-3 text-sm text-center">
-                                        <form action="{{ route('admin.lowstock.override.destroy', $override->id) }}" method="POST" class="inline">
+                                        <form action="{{ route('admin.lowstock.override.destroy', $override->id) }}" method="POST" class="inline" id="remove-override-{{ $override->id }}">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-800 transition" onclick="return confirm('Remove this setting?')">
+                                            <button type="button" class="text-red-600 hover:text-red-800 transition" aria-label="Remove override" onclick="gtConfirm({ title: 'Remove Setting?', text: 'This low stock override will be permanently removed.', icon: 'warning', confirmText: 'Yes, remove', onConfirm: function() { document.getElementById('remove-override-{{ $override->id }}').submit(); } })">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
                                         </form>

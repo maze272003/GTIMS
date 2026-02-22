@@ -14,11 +14,7 @@
             </div>
 
             @if (session('success'))
-                <div id="successAlert" class="fixed top-24 right-5 border-l-4 border-green-500 bg-white text-green-700 py-3 px-6 rounded-lg shadow-lg z-50 flex items-center gap-3">
-                    <i class="fa-solid fa-circle-check text-2xl"></i>
-                    <div><p class="font-bold">Success!</p><p class="text-black">{{ session('success') }}</p></div>
-                </div>
-                <script>setTimeout(() => { const a = document.getElementById('successAlert'); if (a) a.remove(); }, 4000);</script>
+                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
             @endif
 
             {{-- Edit Supplier Info --}}
@@ -112,9 +108,9 @@
                                     <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">{{ $product->pivot->lead_time_days ?? '-' }}</td>
                                     <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">{{ $product->pivot->unit_cost ? '₱' . number_format($product->pivot->unit_cost, 2) : '-' }}</td>
                                     <td class="px-4 py-3 text-sm text-center">
-                                        <form action="{{ route('admin.suppliers.unlink-product', [$supplier->id, $product->id]) }}" method="POST" class="inline">
+                                        <form action="{{ route('admin.suppliers.unlink-product', [$supplier->id, $product->id]) }}" method="POST" class="inline" id="unlink-form-{{ $product->id }}">
                                             @csrf @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-800 transition" onclick="return confirm('Unlink this product?')">
+                                            <button type="button" class="text-red-600 hover:text-red-800 transition" aria-label="Unlink product" onclick="gtConfirm({ title: 'Unlink Product?', text: 'This product will be unlinked from this supplier.', icon: 'warning', confirmText: 'Yes, unlink', onConfirm: function() { document.getElementById('unlink-form-{{ $product->id }}').submit(); } })">
                                                 <i class="fa-solid fa-unlink"></i>
                                             </button>
                                         </form>
