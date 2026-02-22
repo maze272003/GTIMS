@@ -164,7 +164,6 @@
                 </a>
             </li>
             @endhaspermission
-
         @endauth
     </ul>
 

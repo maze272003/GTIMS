@@ -2,6 +2,8 @@
 
 namespace App\Repositories\Interfaces;
 
+use App\Models\Order;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 interface OrderRepositoryInterface extends RepositoryInterface
@@ -20,4 +22,14 @@ interface OrderRepositoryInterface extends RepositoryInterface
      * Get pending order count for a specific status.
      */
     public function getPendingCount(string $status): int;
+
+    public function getGroupedActiveInventoryTotals(): Collection;
+
+    public function getActiveProductsOrdered(): Collection;
+
+    public function createOrderWithItems(int $branchId, int $userId, ?string $remarks, array $items): Order;
+
+    public function paginateForUserBranch(int $branchId, bool $canSeeAll, int $perPage = 10): LengthAwarePaginator;
+
+    public function findForPrint(int $id): Order;
 }

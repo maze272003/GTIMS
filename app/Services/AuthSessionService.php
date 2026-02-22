@@ -41,6 +41,39 @@ class AuthSessionService
         if ($user->hasPermission('orders.view')) {
             return route('admin.orders.index');
         }
+        else if ($user->hasPermission('holds.view')) {
+            return route('admin.holds.index');
+        }
+        else if ($user->hasPermission('inventories.view')) {
+            return route('admin.inventories.index');
+        }
+        else if ($user->hasPermission('requests.view')) {
+            return route('admin.requests.index');
+        }
+        else if ($user->hasPermission('suppliers.view')) {
+            return route('admin.suppliers.index');
+        }
+        else if ($user->hasPermission('reports.view')) {
+            return route('admin.reports.index');
+        }
+        else if ($user->hasPermission('users.view')) {
+            return route('admin.users.index');
+        }
+        else if ($user->hasPermission('settings.view')) {
+            return route('admin.settings.index');
+        }
+        else if ($user->hasPermission('notifications.view')) {
+            return route('admin.notifications.index');
+        }
+        else if ($user->hasPermission('logs.view')) {
+            return route('admin.logs.index');
+        }
+        else if ($user->hasPermission('audit_trails.view')) {
+            return route('admin.audit-trails.index');
+        }
+        else if ($user->hasPermission('profile.view')) {
+            return route('profile.show');
+        }
 
         return null;
     }
