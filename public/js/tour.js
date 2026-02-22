@@ -1,6 +1,6 @@
 /**
  * GTIMS Onboarding Tour using Driver.js
- * Multi-page guided tour that walks users through the system.
+ * Multi-page guided tour that walks users through the entire system.
  */
 document.addEventListener('DOMContentLoaded', function () {
     const TOUR_STORAGE_KEY = 'gtims_tour_step';
@@ -85,8 +85,170 @@ document.addEventListener('DOMContentLoaded', function () {
             {
                 element: '#sidebar',
                 popover: {
-                    title: 'Explore More',
-                    description: 'There are more features to explore! Check out Holds, Requests, Suppliers, and Analytics from the sidebar.',
+                    title: 'Navigation Tip',
+                    description: 'Use the sidebar to move between modules at any time.',
+                    side: 'right',
+                    align: 'start'
+                }
+            },
+            {
+                popover: {
+                    title: 'Continue the Tour',
+                    description: 'Next up: Patient Records. Click "Next" to continue, or "Skip" to end the tour.'
+                }
+            }
+        ],
+        patientrecords: [
+            {
+                element: '#main-content',
+                popover: {
+                    title: 'Patient Records',
+                    description: 'View and manage patient dispensation records here. You can search, filter, and export records to PDF or Excel.',
+                    side: 'left',
+                    align: 'start'
+                }
+            },
+            {
+                popover: {
+                    title: 'Continue the Tour',
+                    description: 'Next: Product Movements. Click "Next" to continue, or "Skip" to end.'
+                }
+            }
+        ],
+        movements: [
+            {
+                element: '#main-content',
+                popover: {
+                    title: 'Product Movements',
+                    description: 'Track all product stock movements including additions, transfers, and deductions across all branches.',
+                    side: 'left',
+                    align: 'start'
+                }
+            },
+            {
+                popover: {
+                    title: 'Continue the Tour',
+                    description: 'Next: Holds & Pullouts. Click "Next" to continue, or "Skip" to end.'
+                }
+            }
+        ],
+        holds: [
+            {
+                element: '#main-content',
+                popover: {
+                    title: 'Holds & Pullouts',
+                    description: 'Manage stock holds, quarantine items, and handle product pullouts and recalls from this section.',
+                    side: 'left',
+                    align: 'start'
+                }
+            },
+            {
+                popover: {
+                    title: 'Continue the Tour',
+                    description: 'Next: Supplier Management. Click "Next" to continue, or "Skip" to end.'
+                }
+            }
+        ],
+        suppliers: [
+            {
+                element: '#main-content',
+                popover: {
+                    title: 'Supplier Management',
+                    description: 'Manage your suppliers here. Add new suppliers, link them to products, and track contact information.',
+                    side: 'left',
+                    align: 'start'
+                }
+            },
+            {
+                popover: {
+                    title: 'Continue the Tour',
+                    description: 'Next: Low Stock Settings. Click "Next" to continue, or "Skip" to end.'
+                }
+            }
+        ],
+        lowstock: [
+            {
+                element: '#main-content',
+                popover: {
+                    title: 'Low Stock Settings',
+                    description: 'Configure low stock thresholds for products. Set global defaults or customize per-product alert levels.',
+                    side: 'left',
+                    align: 'start'
+                }
+            },
+            {
+                popover: {
+                    title: 'Continue the Tour',
+                    description: 'Next: Notifications. Click "Next" to continue, or "Skip" to end.'
+                }
+            }
+        ],
+        notifications: [
+            {
+                element: '#main-content',
+                popover: {
+                    title: 'Notifications',
+                    description: 'View system notifications and configure your notification preferences for alerts and updates.',
+                    side: 'left',
+                    align: 'start'
+                }
+            },
+            {
+                popover: {
+                    title: 'Continue the Tour',
+                    description: 'Next: History Logs. Click "Next" to continue, or "Skip" to end.'
+                }
+            }
+        ],
+        historylog: [
+            {
+                element: '#main-content',
+                popover: {
+                    title: 'History Logs',
+                    description: 'Review all system activity logs. Track who made changes, when they were made, and what was modified.',
+                    side: 'left',
+                    align: 'start'
+                }
+            },
+            {
+                popover: {
+                    title: 'Continue the Tour',
+                    description: 'Next: Account Management. Click "Next" to continue, or "Skip" to end.'
+                }
+            }
+        ],
+        manageaccount: [
+            {
+                element: '#main-content',
+                popover: {
+                    title: 'Manage Accounts',
+                    description: 'Create, edit, and manage user accounts. Control access levels and permissions for all system users.',
+                    side: 'left',
+                    align: 'start'
+                }
+            },
+            {
+                popover: {
+                    title: 'Continue the Tour',
+                    description: 'Final stop: Roles & Permissions. Click "Next" to continue, or "Skip" to end.'
+                }
+            }
+        ],
+        roles: [
+            {
+                element: '#main-content',
+                popover: {
+                    title: 'Roles & Permissions',
+                    description: 'Define user roles and assign granular permissions. Control what each role can access and modify in the system.',
+                    side: 'left',
+                    align: 'start'
+                }
+            },
+            {
+                element: '#help-tour-btn',
+                popover: {
+                    title: 'Restart Tour',
+                    description: 'You can restart this tour anytime by clicking the "Help & Tour" button here.',
                     side: 'right',
                     align: 'start'
                 }
@@ -94,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function () {
             {
                 popover: {
                     title: 'Tour Complete! 🎉',
-                    description: 'You\'ve completed the GTIMS onboarding tour! You now know the basics of the Dashboard, Inventory, and Orders. Feel free to explore the rest of the system. You can restart this tour anytime from the "Help & Tour" link in the sidebar.'
+                    description: 'You\'ve completed the full GTIMS onboarding tour! You now know all the major modules. Feel free to explore on your own. You can restart this tour anytime from the "Help & Tour" link in the sidebar.'
                 }
             }
         ]
@@ -105,21 +267,43 @@ document.addEventListener('DOMContentLoaded', function () {
      */
     function detectCurrentPage() {
         var path = window.location.pathname;
-        if (path.indexOf('/admin/inventory') !== -1)  return 'inventory';
-        if (path.indexOf('/admin/orders') !== -1)      return 'orders';
-        if (path.indexOf('/admin/dashboard') !== -1)   return 'dashboard';
+        if (path.indexOf('/admin/low-stock') !== -1 || path.indexOf('/admin/lowstock') !== -1) return 'lowstock';
+        if (path.indexOf('/admin/notifications') !== -1) return 'notifications';
+        if (path.indexOf('/admin/product-movements') !== -1) return 'movements';
+        if (path.indexOf('/admin/patientrecords') !== -1) return 'patientrecords';
+        if (path.indexOf('/admin/inventory') !== -1) return 'inventory';
+        if (path.indexOf('/admin/orders') !== -1) return 'orders';
+        if (path.indexOf('/admin/holds') !== -1) return 'holds';
+        if (path.indexOf('/admin/suppliers') !== -1) return 'suppliers';
+        if (path.indexOf('/admin/historylog') !== -1) return 'historylog';
+        if (path.indexOf('/admin/manageaccount') !== -1) return 'manageaccount';
+        if (path.indexOf('/admin/roles') !== -1) return 'roles';
+        if (path.indexOf('/admin/dashboard') !== -1) return 'dashboard';
         return null;
     }
 
     /**
-     * Navigation map: defines the flow between pages.
+     * Navigation map: defines the full tour flow across all pages.
      */
-    var tourFlow = ['dashboard', 'inventory', 'orders'];
+    var tourFlow = [
+        'dashboard', 'inventory', 'orders', 'patientrecords', 'movements',
+        'holds', 'suppliers', 'lowstock', 'notifications', 'historylog',
+        'manageaccount', 'roles'
+    ];
 
     var tourPageUrls = {
-        dashboard: '/admin/dashboard',
-        inventory: '/admin/inventory',
-        orders:    '/admin/orders'
+        dashboard:      '/admin/dashboard',
+        inventory:      '/admin/inventory',
+        orders:         '/admin/orders',
+        patientrecords: '/admin/patientrecords',
+        movements:      '/admin/product-movements',
+        holds:          '/admin/holds',
+        suppliers:      '/admin/suppliers',
+        lowstock:       '/admin/low-stock-settings',
+        notifications:  '/admin/notifications',
+        historylog:     '/admin/historylog',
+        manageaccount:  '/admin/manageaccount',
+        roles:          '/admin/roles'
     };
 
     /**

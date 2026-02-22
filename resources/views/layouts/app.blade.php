@@ -62,6 +62,11 @@
 
         {{ $slot }}
 
+        {{-- Auto-render session flash messages as toasts --}}
+        <x-toast />
+
+        @stack('scripts')
+
         {{-- Logout Form (required for auto logout) --}}
         <form id="logout-form" action="{{ route('logout') }}" method="POST" class="hidden">
             @csrf
