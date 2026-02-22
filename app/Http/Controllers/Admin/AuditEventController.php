@@ -25,8 +25,8 @@ class AuditEventController extends Controller
             30
         );
 
-        $actions = AuditEvent::select('action')->distinct()->pluck('action');
-        $entityTypes = AuditEvent::select('entity_type')->distinct()->pluck('entity_type');
+        $actions = $this->auditEventRepository->getDistinctActions();
+        $entityTypes = $this->auditEventRepository->getDistinctEntityTypes();
 
         return view('admin.audit.index', compact('events', 'actions', 'entityTypes'));
     }

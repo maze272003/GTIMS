@@ -5,6 +5,7 @@ namespace App\Repositories\Eloquent;
 use App\Models\AuditEvent;
 use App\Repositories\Interfaces\AuditEventRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class AuditEventRepository extends BaseRepository implements AuditEventRepositoryInterface
 {
@@ -30,5 +31,15 @@ class AuditEventRepository extends BaseRepository implements AuditEventRepositor
             ->when($dateTo, fn ($q, $d) => $q->whereDate('created_at', '<=', $d))
             ->latest()
             ->paginate($perPage);
+    }
+
+    public function getDistinctActions(): Collection
+    {
+        return $this->model->newQuery()->select('action')->distinct()->pluck('action');
+    }
+
+    public function getDistinctEntityTypes(): Collection
+    {
+        return $this->model->newQuery()->select('entity_type')->distinct()->pluck('entity_type');
     }
 }

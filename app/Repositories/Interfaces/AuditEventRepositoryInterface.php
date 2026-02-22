@@ -4,6 +4,7 @@ namespace App\Repositories\Interfaces;
 
 use App\Models\AuditEvent;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 interface AuditEventRepositoryInterface extends RepositoryInterface
 {
@@ -18,4 +19,8 @@ interface AuditEventRepositoryInterface extends RepositoryInterface
         ?string $dateTo = null,
         int $perPage = 20
     ): LengthAwarePaginator;
+
+    public function getDistinctActions(): Collection;
+
+    public function getDistinctEntityTypes(): Collection;
 }
