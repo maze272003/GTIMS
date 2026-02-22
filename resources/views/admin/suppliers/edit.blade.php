@@ -13,10 +13,6 @@
                 </div>
             </div>
 
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
-
             {{-- Edit Supplier Info --}}
             <form action="{{ route('admin.suppliers.update', $supplier->id) }}" method="POST">
                 @csrf @method('PUT')

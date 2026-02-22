@@ -11,10 +11,6 @@
                 <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-5">Roles & Permissions Matrix</h2>
             </div>
 
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
-
             <form action="{{ route('admin.roles.update') }}" method="POST" id="rolesForm">
                 @csrf
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">

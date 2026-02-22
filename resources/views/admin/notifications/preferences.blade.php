@@ -11,10 +11,6 @@
                 <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-5">Notification Preferences</h2>
             </div>
 
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
-
             <form action="{{ route('admin.notifications.preferences.update') }}" method="POST">
                 @csrf
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">

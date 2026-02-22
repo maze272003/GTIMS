@@ -13,10 +13,6 @@
                 </h2>
             </div>
 
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
-
             @if (session('error'))
                 <div class="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-700">
                     {{ session('error') }}

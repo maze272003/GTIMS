@@ -30,10 +30,6 @@
                 @endif
             </div>
 
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
-
             <div class="space-y-3">
                 @forelse($notifications ?? [] as $notification)
                     @php
