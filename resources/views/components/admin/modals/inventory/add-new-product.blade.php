@@ -12,14 +12,14 @@
         <div class="flex gap-2">
           <div class="w-1/2">
             <label for="generic_name" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Product Name (Generic):</label>
-            <input type="text" name="generic_name" id="generic_name" placeholder="Enter Generic Name" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('generic_name') }}">
+            <input type="text" name="generic_name" id="generic_name" required placeholder="Enter Generic Name" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('generic_name') }}">
             @error('generic_name' , 'addproduct')
               <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
             @enderror
           </div>
           <div class="w-1/2">
             <label for="brand" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Brand Name:</label>
-            <input type="text" name="brand_name" id="brand_name" placeholder="Enter Brand Name" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('brand_name') }}">
+            <input type="text" name="brand_name" id="brand_name" required placeholder="Enter Brand Name" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('brand_name') }}">
             @error('brand_name', 'addproduct')
               <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
             @enderror
@@ -29,14 +29,14 @@
         <div class="flex gap-2 mt-2">
           <div class="w-1/2">
             <label for="form" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Form:</label>
-            <input type="text" name="form" id="form" placeholder="Form" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('form') }}">
+            <input type="text" name="form" id="form" required placeholder="Form" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('form') }}">
             @error('form', 'addproduct')
               <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
             @enderror
           </div>
           <div class="w-1/2">
             <label for="strength" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Strength:</label>
-            <input type="text" name="strength" id="strength" placeholder="500mg" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('strength') }}">
+            <input type="text" name="strength" id="strength" required placeholder="500mg" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('strength') }}">
             @error('strength', 'addproduct')
               <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
             @enderror

@@ -446,34 +446,36 @@ document.addEventListener('DOMContentLoaded', function () {
     focusInventoryRow();
 
     // Confirm Transfer Logic
-    const confirmTransferBtn = document.getElementById('confirm-transfer-btn');
-    if(confirmTransferBtn) {
-        confirmTransferBtn.addEventListener('click', function() {
-            const form = document.getElementById('transfer-form');
-            const qtyInput = document.getElementById('transfer_qty');
-            const availableQty = parseInt(document.getElementById('transfer-available-qty').textContent);
-            
-            if (!qtyInput.value || qtyInput.value <= 0) {
-                 Swal.fire('Error', 'Please enter a valid quantity.', 'error');
-                 return;
-            }
+    if (window.inventoryModalValidation) {
+        window.inventoryModalValidation.bindValidatedModalSubmit({
+            buttonId: 'confirm-transfer-btn',
+            formId: 'transfer-form',
+            confirmIcon: 'warning',
+            confirmText: 'Confirm stock transfer?',
+            confirmButtonText: 'Transfer',
+            validate: () => {
+                const qtyInput = document.getElementById('transfer_qty');
+                const availableQty = parseInt(document.getElementById('transfer-available-qty').textContent, 10);
+                const requestedQty = parseInt(qtyInput?.value, 10);
 
-            if (parseInt(qtyInput.value) > availableQty) {
-                Swal.fire('Error', 'Not enough stock!', 'error');
-                return;
-            }
-
-            Swal.fire({
-                title: 'Are you sure?',
-                text: "Confirm stock transfer?",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Transfer'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    form.submit();
+                if (!requestedQty || requestedQty <= 0) {
+                    return {
+                        title: 'Invalid Quantity',
+                        text: 'Please enter a valid quantity.',
+                        icon: 'error',
+                    };
                 }
-            });
+
+                if (requestedQty > availableQty) {
+                    return {
+                        title: 'Not Enough Stock',
+                        text: 'The requested transfer quantity exceeds available stock.',
+                        icon: 'error',
+                    };
+                }
+
+                return true;
+            }
         });
     }
 });

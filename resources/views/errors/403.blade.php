@@ -3,22 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bawal Dito!</title>
-    <script src="https://cdn.tailwindcss.com"></script> {{-- Or use your app's @vite CSS --}}
+    <title>403 Forbidden</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f7fb;
+            --card: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --danger: #b91c1c;
+            --danger-soft: #fee2e2;
+            --border: #e5e7eb;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            background: radial-gradient(circle at top, #eef2ff 0%, var(--bg) 45%, #eef2f7 100%);
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: var(--text);
+        }
+
+        .card {
+            width: min(680px, 100%);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+            padding: 28px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: var(--danger-soft);
+            color: var(--danger);
+            font-weight: 700;
+            font-size: 13px;
+            letter-spacing: 0.02em;
+        }
+
+        h1 {
+            margin: 16px 0 10px;
+            font-size: clamp(24px, 3vw, 34px);
+            line-height: 1.15;
+        }
+
+        p {
+            margin: 0;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid var(--border);
+            color: var(--text);
+            background: #fff;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+        .btn-secondary:hover { background: #f9fafb; }
+
+        .detail {
+            margin-top: 14px;
+            font-size: 13px;
+            color: #9ca3af;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 flex items-center justify-center h-screen">
-    <div class="text-center p-10 bg-white rounded-lg shadow-xl">
-        <h1 class="text-9xl font-bold text-red-500">403</h1>
-        <h2 class="text-3xl font-semibold text-gray-800 mt-4">Oops! Bawal ka dito.</h2>
-        <p class="text-gray-600 mt-2">Paumanhin, mukhang wala kang permiso para buksan ang page na ito.</p>
-        <div class="mt-8">
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit" class="px-6 py-3 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    Bumalik sa Home at Mag-logout
-                </button>
-            </form>
+<body>
+    <main class="card" role="main" aria-labelledby="error-title">
+        <div class="badge">403 Forbidden</div>
+        <h1 id="error-title">You do not have permission to access this page</h1>
+        <p>
+            Your account is signed in, but it does not have the required permission for this page or action.
+            If you believe this is incorrect, contact your administrator.
+        </p>
+
+        <div class="actions">
+            <a class="btn btn-primary" href="{{ route('dashboard') }}">Go to Dashboard</a>
+            <a class="btn btn-secondary" href="{{ url()->previous() }}">Go Back</a>
         </div>
-    </div>
+
+        @if (!empty($exception?->getMessage()))
+            <p class="detail">{{ $exception->getMessage() }}</p>
+        @endif
+    </main>
 </body>
 </html>

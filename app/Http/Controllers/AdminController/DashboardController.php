@@ -27,7 +27,7 @@ class DashboardController extends Controller
 public function showdashboard(Request $request): View | JsonResponse | RedirectResponse    {
         if (!\Illuminate\Support\Facades\Auth::user()->hasPermission('dashboard.view')) {
         return redirect()->route('admin.orders.index');
-            
+
     }
         // === 0. GET FILTERS WITH DEFAULTS ===
         $inputs = $request->validate([
@@ -51,10 +51,10 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         $filter_product_id = $inputs['filter_product_id'] ?? null;
         $forecast_days = $inputs['forecast_days'] ?? 90;
         $grouping = $inputs['grouping'] ?? 'day';
-        
+
         // Prioritize drilldown, but allow filter_product_id to be set
         $active_product_id = $inputs['drilldown_product_id'] ?? $filter_product_id;
-        
+
         $drilldown_product_id = $inputs['drilldown_product_id'] ?? null;
         $drilldownProduct = $active_product_id ? Product::find($active_product_id) : null;
         $drilldown_product_name = $drilldownProduct->generic_name ?? null;
@@ -100,7 +100,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         if ($request->ajax() || $request->wantsJson()) {
             // Consumption Trend Data (Pass Branch)
             [$consumptionLabels, $consumptionData] = $this->getConsumptionTrend(
-                $dateRange, $active_product_id, $filter_barangay, $grouping, $filter_branch 
+                $dateRange, $active_product_id, $filter_barangay, $grouping, $filter_branch
             );
 
             // Patient Visit Trend Data (Pass Branch)
@@ -218,7 +218,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             $topProducts = $topProductsData->pluck('total_dispensed', 'generic_name');
 
             $hotspotsHtml = view('admin.partials._hotspots_table_body', compact('patientHotspots'))->render();
-            
+
             // Determine Branch Label
             $branchName = $filter_branch ? Branch::find($filter_branch)->name : 'All Branches';
 
@@ -226,7 +226,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
                 'consumptionLabels' => $consumptionLabels,
                 'consumptionData' => $consumptionData,
                 'hotspotsHtml' => $hotspotsHtml,
-                'drilldownProductName' => $drilldown_product_name, 
+                'drilldownProductName' => $drilldown_product_name,
                 'filterTimespanLabel' => $this->getTimespanLabel($timespan, $dateRange),
                 'filterBarangayLabel' => $filter_barangay ?? 'All Barangays',
                 'filterProductLabel' => $drilldownProduct->generic_name ?? 'All Products',
@@ -234,8 +234,8 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
                 'topProducts' => [
                     'labels'    => $topProducts->keys(),
                     'data'      => $topProducts->values(),
-                    'drilldown' => $topProductsData->map(function($item) { 
-                                     return ['label' => $item->generic_name, 'id' => $item->product_id]; 
+                    'drilldown' => $topProductsData->map(function($item) {
+                                     return ['label' => $item->generic_name, 'id' => $item->product_id];
                                  }),
                 ],
                 'barangay' => [
@@ -250,15 +250,15 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         }
 
         // === 4. FULL PAGE LOAD DATA ===
-        
+
         // Consumption & Patient Visit
         [$consumptionLabels, $consumptionData] = $this->getConsumptionTrend(
-            $dateRange, $active_product_id, $filter_barangay, $grouping, $filter_branch 
+            $dateRange, $active_product_id, $filter_barangay, $grouping, $filter_branch
         );
         [$patientVisitLabels, $patientVisitData] = $this->getPatientVisitTrend(
             $dateRange, $filter_barangay, $drilldownProduct, $grouping, $filter_branch
         );
-        
+
         // Barangay Data for Stacked Chart
         $barangayCategoryData = Patientrecords::whereBetween('date_dispensed', [$dateRange->start, $dateRange->end])
             ->join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
@@ -333,7 +333,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
 
         $totalStockItems = (clone $invQuery)->sum('quantity');
         $lowStockProducts = (clone $invQuery)->where('quantity', '>', 0)->where('quantity', '<=', 100)->distinct('product_id')->count();
-        
+
         $patientsTodayQuery = Patientrecords::whereDate('date_dispensed', Carbon::today());
         if($filter_branch) {
             $patientsTodayQuery->where('branch_id', $filter_branch);
@@ -413,9 +413,9 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
 
         // Data for Filters
         $filter_products = Product::where('is_archived', 0)->orderBy('generic_name')->get(['id', 'generic_name', 'brand_name']);
-        
+
         // Load all branches for the dropdown
-        $filter_branches = Branch::all(); 
+        $filter_branches = Branch::all();
 
         $filter_barangays = Patientrecords::join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
             ->when($filter_branch, fn($q) => $q->where('patientrecords.branch_id', $filter_branch)) // <--- Limit barangays to selected branch
@@ -448,7 +448,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             'kpiCards', 'urgent_low_stock', 'urgent_expiring_soon', 'forecast',
             'consumptionLabels', 'consumptionData',
             'topProducts', 'topProductsData',
-            'barangays', 'barangayStackedData', 
+            'barangays', 'barangayStackedData',
             'filter_products', 'filter_barangays', 'filter_branches', // <--- PASS BRANCHES
             'drilldown_product_name', 'inputs',
             'seasonalLabels', 'seasonalData', 'selectedSeasonalProduct',
@@ -456,7 +456,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             'patientHotspots',
             'patientVisitLabels',
             'patientVisitData'
-        ) + [ 
+        ) + [
             'filterTimespanLabel' => $this->getTimespanLabel($timespan, $dateRange),
             'filterBarangayLabel' => $filter_barangay ?? 'All Barangays',
             'filterProductLabel' => $drilldownProduct->generic_name ?? 'All Products',
@@ -706,22 +706,22 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
          $query = ProductMovement::where('type', 'OUT')
              ->where('product_id', $product_id)
              ->where('created_at', '>=', $startDate)
-             ->groupBy('date_group') 
-             ->orderBy('date_group', 'asc') 
-             ->select( 
+             ->groupBy('date_group')
+             ->orderBy('date_group', 'asc')
+             ->select(
                  DB::raw("DATE_FORMAT(created_at, '%Y-%m') as date_group"),
                  DB::raw('SUM(quantity) as total_quantity')
              )
-             ->get() 
-             ->pluck('total_quantity', 'date_group'); 
+             ->get()
+             ->pluck('total_quantity', 'date_group');
 
-        if ($query->isEmpty() && !$alignLabels) { 
+        if ($query->isEmpty() && !$alignLabels) {
             return [[], []];
         }
 
         $labels = [];
         $data = [];
-        $endDate = Carbon::now()->startOfMonth(); 
+        $endDate = Carbon::now()->startOfMonth();
 
         if ($alignLabels) {
             $period = collect($alignLabels)->map(function($l) {
@@ -730,20 +730,20 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
                 } catch (\Exception $e) {
                     return null;
                 }
-            })->filter()->unique(); 
+            })->filter()->unique();
 
             if ($period->isEmpty()) {
-                if ($query->isEmpty()) return [[],[]]; 
+                if ($query->isEmpty()) return [[],[]];
                 $periodStartDate = Carbon::parse($query->keys()->first() . '-01');
-                if ($periodStartDate->gt($endDate)) $periodStartDate = $endDate->copy(); 
+                if ($periodStartDate->gt($endDate)) $periodStartDate = $endDate->copy();
                 $period = CarbonPeriod::create($periodStartDate, '1 month', $endDate);
-                $alignLabels = null; 
+                $alignLabels = null;
             } else {
                 $period = CarbonPeriod::create($period->min(), '1 month', $period->max());
             }
 
-        } else { 
-            if ($query->isEmpty()) return [[],[]]; 
+        } else {
+            if ($query->isEmpty()) return [[],[]];
             $periodStartDate = Carbon::parse($query->keys()->first() . '-01');
             if ($periodStartDate->lt($threeYearsAgo)) {
                 $periodStartDate = $threeYearsAgo;
@@ -754,22 +754,22 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             $period = CarbonPeriod::create($periodStartDate, '1 month', $endDate);
         }
 
-        if ($period) { 
+        if ($period) {
             foreach ($period as $date) {
                 $key = $date->format('Y-m');
-                if (!$alignLabels) { 
+                if (!$alignLabels) {
                     $labels[] = $date->format('M Y');
                 }
                 $data[] = $query[$key] ?? 0;
             }
         }
 
-        if ($alignLabels && $period) { 
+        if ($alignLabels && $period) {
             $labels = [];
             foreach($period as $date) {
                 $labels[] = $date->format('M Y');
             }
-        } elseif ($alignLabels) { 
+        } elseif ($alignLabels) {
             $labels = $alignLabels;
         }
 
@@ -779,7 +779,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
     // Added $branch_id parameter
     private function calculateStockForecast($daysOfHistory = 90, $branch_id = null)
     {
-        if ($daysOfHistory <= 0) $daysOfHistory = 90; 
+        if ($daysOfHistory <= 0) $daysOfHistory = 90;
 
         // 1. Consumption (Filtered by Branch)
         $consumptionQuery = ProductMovement::where('type', 'OUT')
@@ -807,7 +807,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         if ($branch_id) {
             $currentStockQuery->where('branch_id', $branch_id);
         }
-        
+
         $currentStock = $currentStockQuery
             ->groupBy('product_id')
             ->select('product_id', DB::raw("SUM(quantity) as current_quantity"))
@@ -822,7 +822,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             if (!isset($products[$product_id])) continue;
 
             $totalConsumed = $consumption[$product_id] ?? 0;
-            $avgDailyUsage = ($daysOfHistory > 0) ? $totalConsumed / $daysOfHistory : 0; 
+            $avgDailyUsage = ($daysOfHistory > 0) ? $totalConsumed / $daysOfHistory : 0;
 
             if ($avgDailyUsage > 0) {
                 $daysRemaining = floor($stock / max(0.01, $avgDailyUsage));
@@ -878,116 +878,237 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         ];
     }
 
+//     public function getAiAnalysis(Request $request): JsonResponse
+//     {
+//         $validated = $request->validate([
+//             'product_name' => 'required|string',
+//             'seasonal_data' => 'required|array',
+//             'seasonal_data.*.label' => 'required|string',
+//             'seasonal_data.*.data' => 'required|numeric',
+//             'compare_product_name' => 'nullable|string',
+//             'compare_data' => 'nullable|array',
+//             'compare_data.*.label' => 'required_with:compare_product_name|string',
+//             'compare_data.*.data' => 'required_with:compare_product_name|numeric',
+//         ]);
+
+//         $apiKey = env("GEMINI_API_KEY"); // Best practice: use env
+//         if (!$apiKey) {
+//             // Fallback hardcoded key if env not set (matches your previous code)
+//             $apiKey = "AIzaSyCr5K_DdA0RRvRLo7_sDfG-gB1ToVd51L8";
+//         }
+
+//         if (!$apiKey) {
+//             Log::error('GEMINI_API_KEY is not set.');
+//             return response()->json(['error' => 'AI analysis is not configured on the server.'], 500);
+//         }
+
+//         $productName = $validated['product_name'];
+
+//         $dataString = collect($validated['seasonal_data'])->map(function ($item) {
+//             return "- {$item['label']}: {$item['data']}";
+//         })->join("\n");
+
+//         $systemInstruction = "You are a helpful and concise data analyst for a public health clinic in the Philippines. **Crucially, output MUST be generated as raw HTML (e.g., <h2>, <table>, <tr>, <td>) with CSS classes and inline styles ONLY for structure (e.g., border, padding).** Use **<strong>** tags for bolding product names (e.g., <strong>{$productName}</strong>). Respond in clear HTML paragraphs or tables, DO NOT use Markdown, DO NOT use lists/bullet points.";
+
+//         $userQuery = "{$systemInstruction}\n\nAnalyze the following monthly dispensation data (items dispensed per month) for the product '{$productName}':\n\n{$dataString}\n\n";
+
+//         $tableStyle = 'width: 100%; border-collapse: collapse; margin-top: 15px;';
+//         $headerStyle = 'background-color: #f3f4f6; padding: 10px; border: 1px solid #e5e7eb; text-align: left; font-weight: bold;';
+//         $cellStyle = 'padding: 10px; border: 1px solid #e5e7eb; vertical-align: top;';
+
+//         if (!empty($validated['compare_product_name'])) {
+//             $compareName = $validated['compare_product_name'];
+//             $compareString = collect($validated['compare_data'])->map(function ($item) {
+//                 return "- {$item['label']}: {$item['data']}";
+//             })->join("\n");
+
+//             $userQuery .= "For comparison, here is the data for '{$compareName}':\n\n{$compareString}\n\n";
+
+//             $userQuery .= "Please follow this exact structure, using raw HTML:
+// <h2>🤝 Product Comparison</h2>
+// Generate a single HTML table (style='{$tableStyle}') with header cells (style='{$headerStyle}') and data cells (style='{$cellStyle}'). The table must have columns for 'Product', 'Overall Trend', 'Peak Months', and 'Trough/Zero Months'.
+
+// <h2>💡 Insights & Drivers</h2>
+// Provide a <div> block with HTML paragraphs summarizing the **primary differences** and **similarities** between the products' demand drivers, linking to environmental or public health factors.
+
+// <h2>📈 Predictive Recommendations</h2>
+// Provide a <div> block with HTML paragraphs containing a separate, clear, predictive recommendation for managing stock for *each* product: **<strong>{$productName}</strong>** and **<strong>{$compareName}</strong>**.";
+
+//         } else {
+//             $userQuery .= "Based ONLY on the data provided, structure your response using raw HTML with the following sections:
+// <h2>📊 Key Observations & Trends</h2>
+// <p>Summarize the overall demand pattern and list the notable <strong>peaks</strong> (highest demand months/data points) and <strong>troughs</strong> (lowest or zero demand months/data points).</p>
+// <h2>💡 Contextual Insights</h2>
+// <p>Suggest potential reasons *why* these trends might be happening in the Philippines context (e.g., linking to rainy season, flu season, general health campaigns). Analyze the impact of 'zero dispensation' events on inventory management vs. patient need.</p>
+// <h2>📈 Predictive Recommendation</h2>
+// <p>Provide a single, clear, predictive recommendation for managing stock for **<strong>{$productName}</strong>** (e.g., 'Proactively increase stock levels by 20% from December to February to prepare for the annual peak.').</p>";
+//         }
+
+//         $model = 'gemini-2.5-flash';
+//         $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
+
+//         $payload = [
+//             'contents' => [
+//                 [
+//                     'role' => 'user',
+//                     'parts' => [
+//                         ['text' => $userQuery]
+//                     ]
+//                 ]
+//             ],
+//         ];
+
+//         try {
+//             $response = Http::timeout(60)
+//                 ->post($apiUrl . '?key=' . $apiKey, $payload);
+
+//             if (!$response->successful()) {
+//                 Log::error('Gemini API request failed', ['status' => $response->status(), 'body' => $response->json()]);
+//                 $errorBody = data_get($response->json(), 'error.message', 'The AI service failed to respond.');
+//                 return response()->json(['error' => $errorBody], $response->status());
+//             }
+
+//             $text = data_get($response->json(), 'candidates.0.content.parts.0.text');
+
+//             if ($text) {
+//                  $text = str_replace(['**', '*'], '', $text);
+//                 return response()->json(['analysis' => trim($text)]);
+//             } else {
+//                 $finishReason = data_get($response->json(), 'candidates.0.finishReason');
+//                 Log::error('Gemini API gave no content', ['reason' => $finishReason, 'response' => $response->json()]);
+//                 if ($finishReason === 'SAFETY') {
+//                     return response()->json(['error' => 'The AI analysis was blocked due to safety settings.'], 400);
+//                 }
+//                 return response()->json(['error' => 'No valid response received from the AI analysis service.'], 500);
+//             }
+
+//         } catch (\Illuminate\Http\Client\ConnectionException $e) {
+//             Log::error('Connection Error calling Gemini API: ' . $e->getMessage());
+//             return response()->json(['error' => 'Could not connect to the AI analysis service. Please check the network connection.'], 503);
+//         } catch (\Exception $e) {
+//             Log::error('Error calling Gemini API: ' . $e->getMessage());
+//             return response()->json(['error' => 'An unexpected error occurred while contacting the AI analysis service.'], 500);
+//         }
+//     }
+
     public function getAiAnalysis(Request $request): JsonResponse
-    {
-        $validated = $request->validate([
-            'product_name' => 'required|string',
-            'seasonal_data' => 'required|array',
-            'seasonal_data.*.label' => 'required|string',
-            'seasonal_data.*.data' => 'required|numeric',
-            'compare_product_name' => 'nullable|string',
-            'compare_data' => 'nullable|array',
-            'compare_data.*.label' => 'required_with:compare_product_name|string',
-            'compare_data.*.data' => 'required_with:compare_product_name|numeric',
-        ]);
+{
+    $validated = $request->validate([
+        'product_name' => 'required|string',
+        'seasonal_data' => 'required|array',
+        'seasonal_data.*.label' => 'required|string',
+        'seasonal_data.*.data' => 'required|numeric',
+        'compare_product_name' => 'nullable|string',
+        'compare_data' => 'nullable|array',
+        'compare_data.*.label' => 'required_with:compare_product_name|string',
+        'compare_data.*.data' => 'required_with:compare_product_name|numeric',
+    ]);
 
-        $apiKey = env("GEMINI_API_KEY"); // Best practice: use env
-        if (!$apiKey) {
-            // Fallback hardcoded key if env not set (matches your previous code)
-            $apiKey = "AIzaSyCr5K_DdA0RRvRLo7_sDfG-gB1ToVd51L8"; 
-        }
-        
-        if (!$apiKey) {
-            Log::error('GEMINI_API_KEY is not set.');
-            return response()->json(['error' => 'AI analysis is not configured on the server.'], 500);
-        }
+    $productName = $validated['product_name'];
 
-        $productName = $validated['product_name'];
-        
-        $dataString = collect($validated['seasonal_data'])->map(function ($item) {
+    $dataString = collect($validated['seasonal_data'])->map(function ($item) {
+        return "- {$item['label']}: {$item['data']}";
+    })->join("\n");
+
+    $tableStyle  = 'width: 100%; border-collapse: collapse; margin-top: 15px;';
+    $headerStyle = 'background-color: #f3f4f6; padding: 10px; border: 1px solid #e5e7eb; text-align: left; font-weight: bold;';
+    $cellStyle   = 'padding: 10px; border: 1px solid #e5e7eb; vertical-align: top;';
+
+    // Keep your "HTML only" instruction, but make it stronger for local/ollama models.
+    $systemInstruction =
+        "You are a helpful and concise data analyst for a public health clinic in the Philippines. " .
+        "OUTPUT MUST BE RAW HTML ONLY. " .
+        "Do NOT output Markdown. Do NOT use bullet lists. Do NOT wrap in ``` fences. " .
+        "Use only these tags: <h2>, <div>, <p>, <table>, <thead>, <tbody>, <tr>, <th>, <td>, <strong>, <br>. " .
+        "Use inline styles ONLY for table borders/padding/spacing. " .
+        "Bold product names using <strong> (e.g., <strong>{$productName}</strong>).";
+
+    $userQuery = "{$systemInstruction}\n\n" .
+        "Analyze the following monthly dispensation data (items dispensed per month) for the product '{$productName}':\n\n" .
+        "{$dataString}\n\n";
+
+    if (!empty($validated['compare_product_name'])) {
+        $compareName = $validated['compare_product_name'];
+
+        $compareString = collect($validated['compare_data'] ?? [])->map(function ($item) {
             return "- {$item['label']}: {$item['data']}";
         })->join("\n");
 
-        $systemInstruction = "You are a helpful and concise data analyst for a public health clinic in the Philippines. **Crucially, output MUST be generated as raw HTML (e.g., <h2>, <table>, <tr>, <td>) with CSS classes and inline styles ONLY for structure (e.g., border, padding).** Use **<strong>** tags for bolding product names (e.g., <strong>{$productName}</strong>). Respond in clear HTML paragraphs or tables, DO NOT use Markdown, DO NOT use lists/bullet points.";
+        $userQuery .= "For comparison, here is the data for '{$compareName}':\n\n{$compareString}\n\n";
 
-        $userQuery = "{$systemInstruction}\n\nAnalyze the following monthly dispensation data (items dispensed per month) for the product '{$productName}':\n\n{$dataString}\n\n";
-
-        $tableStyle = 'width: 100%; border-collapse: collapse; margin-top: 15px;';
-        $headerStyle = 'background-color: #f3f4f6; padding: 10px; border: 1px solid #e5e7eb; text-align: left; font-weight: bold;';
-        $cellStyle = 'padding: 10px; border: 1px solid #e5e7eb; vertical-align: top;';
-
-        if (!empty($validated['compare_product_name'])) {
-            $compareName = $validated['compare_product_name'];
-            $compareString = collect($validated['compare_data'])->map(function ($item) {
-                return "- {$item['label']}: {$item['data']}";
-            })->join("\n");
-
-            $userQuery .= "For comparison, here is the data for '{$compareName}':\n\n{$compareString}\n\n";
-            
-            $userQuery .= "Please follow this exact structure, using raw HTML:
-<h2>🤝 Product Comparison</h2>
-Generate a single HTML table (style='{$tableStyle}') with header cells (style='{$headerStyle}') and data cells (style='{$cellStyle}'). The table must have columns for 'Product', 'Overall Trend', 'Peak Months', and 'Trough/Zero Months'.
-
-<h2>💡 Insights & Drivers</h2>
-Provide a <div> block with HTML paragraphs summarizing the **primary differences** and **similarities** between the products' demand drivers, linking to environmental or public health factors.
-
-<h2>📈 Predictive Recommendations</h2>
-Provide a <div> block with HTML paragraphs containing a separate, clear, predictive recommendation for managing stock for *each* product: **<strong>{$productName}</strong>** and **<strong>{$compareName}</strong>**.";
-
-        } else {
-            $userQuery .= "Based ONLY on the data provided, structure your response using raw HTML with the following sections:
-<h2>📊 Key Observations & Trends</h2>
-<p>Summarize the overall demand pattern and list the notable <strong>peaks</strong> (highest demand months/data points) and <strong>troughs</strong> (lowest or zero demand months/data points).</p>
-<h2>💡 Contextual Insights</h2>
-<p>Suggest potential reasons *why* these trends might be happening in the Philippines context (e.g., linking to rainy season, flu season, general health campaigns). Analyze the impact of 'zero dispensation' events on inventory management vs. patient need.</p>
-<h2>📈 Predictive Recommendation</h2>
-<p>Provide a single, clear, predictive recommendation for managing stock for **<strong>{$productName}</strong>** (e.g., 'Proactively increase stock levels by 20% from December to February to prepare for the annual peak.').</p>";
-        }
-
-        $model = 'gemini-2.5-flash';
-        $apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent";
-
-        $payload = [
-            'contents' => [
-                [
-                    'role' => 'user',
-                    'parts' => [
-                        ['text' => $userQuery]
-                    ]
-                ]
-            ],
-        ];
-
-        try {
-            $response = Http::timeout(60)
-                ->post($apiUrl . '?key=' . $apiKey, $payload); 
-
-            if (!$response->successful()) {
-                Log::error('Gemini API request failed', ['status' => $response->status(), 'body' => $response->json()]);
-                $errorBody = data_get($response->json(), 'error.message', 'The AI service failed to respond.');
-                return response()->json(['error' => $errorBody], $response->status());
-            }
-
-            $text = data_get($response->json(), 'candidates.0.content.parts.0.text');
-
-            if ($text) {
-                 $text = str_replace(['**', '*'], '', $text);
-                return response()->json(['analysis' => trim($text)]);
-            } else {
-                $finishReason = data_get($response->json(), 'candidates.0.finishReason');
-                Log::error('Gemini API gave no content', ['reason' => $finishReason, 'response' => $response->json()]);
-                if ($finishReason === 'SAFETY') {
-                    return response()->json(['error' => 'The AI analysis was blocked due to safety settings.'], 400);
-                }
-                return response()->json(['error' => 'No valid response received from the AI analysis service.'], 500);
-            }
-
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            Log::error('Connection Error calling Gemini API: ' . $e->getMessage());
-            return response()->json(['error' => 'Could not connect to the AI analysis service. Please check the network connection.'], 503);
-        } catch (\Exception $e) {
-            Log::error('Error calling Gemini API: ' . $e->getMessage());
-            return response()->json(['error' => 'An unexpected error occurred while contacting the AI analysis service.'], 500);
-        }
+        $userQuery .= "Please follow this exact structure, using raw HTML:\n" .
+            "<h2>🤝 Product Comparison</h2>\n" .
+            "Generate a single HTML table (style='{$tableStyle}') with header cells (style='{$headerStyle}') and data cells (style='{$cellStyle}'). " .
+            "The table must have columns for 'Product', 'Overall Trend', 'Peak Months', and 'Trough/Zero Months'.\n\n" .
+            "<h2>💡 Insights & Drivers</h2>\n" .
+            "Provide a <div> block with HTML paragraphs summarizing the primary differences and similarities.\n\n" .
+            "<h2>📈 Predictive Recommendations</h2>\n" .
+            "Provide a <div> block with separate predictive recommendations for <strong>{$productName}</strong> and <strong>{$compareName}</strong>.";
+    } else {
+        $userQuery .= "Based ONLY on the data provided, structure your response using raw HTML with the following sections:\n" .
+            "<h2>📊 Key Observations & Trends</h2>\n" .
+            "<p>Summarize the overall demand pattern and identify notable <strong>peaks</strong> and <strong>troughs</strong>.</p>\n" .
+            "<h2>💡 Contextual Insights</h2>\n" .
+            "<p>Suggest potential reasons in the Philippines context. Explain impact of zero dispensation on inventory vs patient need.</p>\n" .
+            "<h2>📈 Predictive Recommendation</h2>\n" .
+            "<p>Provide one clear predictive recommendation for managing stock for <strong>{$productName}</strong>.</p>";
     }
+
+    // ===== Ollama settings =====
+    $baseUrl = rtrim(env('OLLAMA_BASE_URL', 'https://ai-api.hostcluster.site'), '/');
+    $model   = env('OLLAMA_MODEL', 'gpt-oss:120b-cloud'); // choice #1
+
+    $endpoint = $baseUrl . '/api/generate';
+
+    // Ollama request payload
+    $payload = [
+        'model'  => $model,
+        'prompt' => $userQuery,
+        'stream' => false,
+
+        // Optional tuning (safe defaults)
+        'options' => [
+            'temperature' => 0.3,
+        ],
+    ];
+
+    try {
+        $response = Http::timeout(90)
+            ->acceptJson()
+            ->post($endpoint, $payload);
+
+        if (!$response->successful()) {
+            Log::error('Ollama API request failed', [
+                'status' => $response->status(),
+                'body'   => $response->json(),
+            ]);
+
+            // Some proxies return text not json
+            $raw = $response->body();
+            return response()->json([
+                'error' => 'AI service failed: ' . ($raw ?: 'Unknown error')
+            ], $response->status());
+        }
+
+        // Standard Ollama response: { response: "...", ... }
+        $text = data_get($response->json(), 'response');
+
+        if (!$text) {
+            Log::error('Ollama returned no response text', ['body' => $response->json()]);
+            return response()->json(['error' => 'No valid response received from AI service.'], 500);
+        }
+
+        // Clean up any accidental markdown fences or bullets (defensive)
+        $text = preg_replace('/```[\s\S]*?```/m', '', $text);
+        $text = str_replace(['**', '*'], '', $text);
+
+        return response()->json(['analysis' => trim($text)]);
+    } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        Log::error('Connection Error calling Ollama API: ' . $e->getMessage());
+        return response()->json(['error' => 'Could not connect to AI analysis service.'], 503);
+    } catch (\Exception $e) {
+        Log::error('Error calling Ollama API: ' . $e->getMessage());
+        return response()->json(['error' => 'Unexpected error while contacting AI analysis service.'], 500);
+    }
+}
 }

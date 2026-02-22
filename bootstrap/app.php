@@ -1,9 +1,11 @@
 <?php
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -39,5 +41,21 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $render403 = static function ($exception) {
+            return response()->view('errors.403', [
+                'exception' => $exception,
+            ], 403);
+        };
+
+        $exceptions->render(function (AuthorizationException $exception, Request $request) use ($render403) {
+            return $render403($exception);
+        });
+
+        $exceptions->render(function (HttpExceptionInterface $exception, Request $request) use ($render403) {
+            if ($exception->getStatusCode() !== 403) {
+                return null;
+            }
+
+            return $render403($exception);
+        });
     })->create();

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Inventory;
+use App\Models\Branch;
 use App\Models\HistoryLog; // <-- added
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth; // <-- added
@@ -13,7 +14,7 @@ use App\Models\ProductMovement; // <-- ADD THIS
 
 class InventoryController extends Controller
 {
-    
+
     // show inventory
     // Inside App\Http\Controllers\AdminController\InventoryController.php
 
@@ -43,6 +44,7 @@ public function showinventory(Request $request)
     // 1. Common Data
     $products = Product::where('is_archived', 0)->get();
     $archiveproducts = Product::where('is_archived', 1)->get();
+    $branches = Branch::whereIn('id', [1, 2])->orderBy('id')->get();
     $inventorycount = Inventory::where('is_archived', '!=', 1)->get(); // Count all active
 
     // 2. RHU 1 Query Setup
@@ -74,7 +76,7 @@ public function showinventory(Request $request)
     if ($focusedInventory && $focusBranch === 1) {
         $query1->where('id', $focusedInventory->id);
     }
-    
+
     // Paginate RHU 1 (explicit page name 'page_rhu1')
     $inventories_rhu1 = $query1->with('product')
         ->orderBy('expiry_date', 'asc')
@@ -119,7 +121,7 @@ public function showinventory(Request $request)
     if ($request->ajax()) {
         // Retrieve which branch is being requested. Default to 1.
         $branch = $request->input('branch', 1);
-        
+
         // Select the correct dataset based on the requested branch
         $selectedInventories = ($branch == 2) ? $inventories_rhu2 : $inventories_rhu1;
 
@@ -133,6 +135,7 @@ public function showinventory(Request $request)
     return view('admin.inventory', [
         'products' => $products,
         'archiveproducts' => $archiveproducts,
+        'branches' => $branches,
         'inventorycount' => $inventorycount,
         'inventories_rhu1' => $inventories_rhu1,
         'inventories_rhu2' => $inventories_rhu2,
@@ -149,7 +152,7 @@ public function showinventory(Request $request)
         ]);
 
         $productId = $request->input('product_id');
-        
+
         $archivedstocks = Inventory::where('is_archived', 1)
             ->where('product_id', $productId)
             ->orderBy('expiry_date', 'desc')
@@ -162,7 +165,7 @@ public function showinventory(Request $request)
             foreach ($archivedstocks as $key => $stock) {
                 $rowNumber = ($archivedstocks->currentPage() - 1) * $archivedstocks->perPage() + $key + 1;
                 $expiryDate = Carbon::parse($stock->expiry_date)->format('M d, Y');
-                
+
                 $html .= "<tr class=\"hover:bg-gray-50\">
                             <td class=\"text-left p-3\">{$rowNumber}</td>
                             <td class=\"text-left font-semibold text-gray-700\">{$stock->batch_number}</td>
@@ -174,7 +177,7 @@ public function showinventory(Request $request)
 
         return response()->json([
             'html' => $html,
-            'has_more_pages' => $archivedstocks->hasMorePages(), 
+            'has_more_pages' => $archivedstocks->hasMorePages(),
         ]);
     }
 
@@ -186,7 +189,7 @@ public function showinventory(Request $request)
             'form' => 'min:3|max:120|required',
             'strength' => 'min:3|max:120|required',
         ], [
-            'generic_name.required.message' => 'Generic name is required.',
+            'generic_name.required' => 'Generic name is required.',
             'brand_name.required.message' => 'Brand name is required.',
             'form.required.message' => 'Form is required.',
             'strength.required.message' => 'Strength is required.',
@@ -209,7 +212,7 @@ public function showinventory(Request $request)
 
         return to_route('admin.inventory')->with('success', 'Product added successfully.');
     }
-    
+
     // UPDATE PRODUCT
 
     public function updateProduct(Request $request) {
@@ -323,22 +326,26 @@ public function showinventory(Request $request)
 
         return to_route('admin.inventory')->with('success', 'Product unarchived successfully.');
     }
-    
+
     // ADD STOCK
     public function addStock(Request $request) {
         $validated = $request->validateWithBag( 'addstock', [
             'product_id' => 'required|exists:products,id',
-            'branch_id' => 'required|in:1,2',
+            'branch_id' => 'required|integer|exists:branches,id',
             'batchnumber' => 'required|min:3|max:120',
             'quantity' => 'required|numeric',
             'expiry' => 'required|date',
         ], [
             'product_id.required'=> 'Product ID is required.',
             'branch_id.required'=> 'Branch ID is required.',
+            'branch_id.in'=> 'Please select a valid branch.',
+            'branch_id.exists'=> 'The selected branch does not exist.',
             'batchnumber.required'=> 'Batch number is required.',
             'quantity.required'=> 'Quantity is required.',
             'expiry.required'=> 'Expiry date is required.',
         ]);
+
+        $branchName = Branch::find($validated['branch_id'])?->name ?? ('Branch #' . $validated['branch_id']);
 
         $existingStock = Inventory::where('product_id', $validated['product_id'])
             ->where('batch_number', $validated['batchnumber'])
@@ -374,7 +381,7 @@ public function showinventory(Request $request)
             // logging for quantity addition
             HistoryLog::create([
                 'action' => 'STOCK ADDED',
-                'description' => "Added additional stock (+{$plannedQty}) in batch no. {$existingStock->batch_number} (Product: {$product->generic_name} {$product->brand_name} [{$product->form} - {$product->strength}]). From {$oldQty} to {$addedQty}.",
+                'description' => "Added additional stock (+{$plannedQty}) in {$branchName}, batch no. {$existingStock->batch_number} (Product: {$product->generic_name} {$product->brand_name} [{$product->form} - {$product->strength}]). From {$oldQty} to {$addedQty}.",
                 'user_id' => $user?->id,
                 'user_name' => $user?->name ?? 'System',
                 'metadata' => [
@@ -413,7 +420,7 @@ public function showinventory(Request $request)
 
             HistoryLog::create([
                 'action' => 'STOCK ADDED',
-                'description' => "Created a new batch for {$prod->generic_name} {$prod->brand_name} ({$prod->form} - {$prod->strength}). Batch No. {$addstock->batch_number} with a qty of {$qty}. Expires in: {$expry}.",
+                'description' => "Created a new batch for {$prod->generic_name} {$prod->brand_name} ({$prod->form} - {$prod->strength}) in {$branchName}. Batch No. {$addstock->batch_number} with a qty of {$qty}. Expires in: {$expry}.",
                 'user_id' => $user?->id,
                 'user_name' => $user?->name ?? 'System',
                 'metadata' => [
