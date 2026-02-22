@@ -14,6 +14,7 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         @if(session('success'))
+            {{-- @json() uses JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT for XSS-safe output --}}
             if (typeof gtToast !== 'undefined') gtToast.success(@json(session('success')));
         @endif
 

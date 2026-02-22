@@ -13,7 +13,7 @@
     $variants = [
         'primary'   => 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm',
         'secondary' => 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-gray-500 shadow-sm',
-        'danger'    => 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm',
+        'danger'    => 'bg-red-700 text-white hover:bg-red-800 focus:ring-red-600 shadow-sm',
         'success'   => 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500 shadow-sm',
         'outline'   => 'bg-transparent text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-gray-400',
         'ghost'     => 'bg-transparent text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-gray-400',
