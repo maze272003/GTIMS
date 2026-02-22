@@ -23,61 +23,37 @@
       {{-- 1. KPI CARDS --}}
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {{-- Total Stock --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Total Stock (Items)</p>
-              <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">
-                {{ number_format($kpiCards['totalStockItems']) }}
-              </p>
-            </div>
-            <div class="bg-blue-100 p-4 rounded-full">
-              <i class="fa-regular fa-boxes-stacked text-2xl text-blue-600"></i>
-            </div>
-          </div>
-        </div>
+        <x-stat-card
+          label="Total Stock (Items)"
+          :value="number_format($kpiCards['totalStockItems'])"
+          icon="fa-regular fa-boxes-stacked"
+          icon-bg="bg-blue-100 dark:bg-blue-900/30"
+          icon-color="text-blue-600 dark:text-blue-400"
+        />
         {{-- Low Stock --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Low Stock Products</p>
-              <p class="text-3xl font-bold text-orange-600 mt-2">
-                {{ $kpiCards['lowStockProducts'] }}
-              </p>
-            </div>
-            <div class="bg-orange-100 p-4 rounded-full">
-              <i class="fa-regular fa-exclamation text-2xl text-orange-600"></i>
-            </div>
-          </div>
-        </div>
+        <x-stat-card
+          label="Low Stock Products"
+          :value="$kpiCards['lowStockProducts']"
+          icon="fa-regular fa-exclamation"
+          icon-bg="bg-orange-100 dark:bg-orange-900/30"
+          icon-color="text-orange-600 dark:text-orange-400"
+        />
         {{-- Expiring Soon --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Batches Expiring Soon</p>
-              <p class="text-3xl font-bold text-yellow-600 mt-2">
-                {{ $kpiCards['expiringIn30Days'] }}
-              </p>
-            </div>
-            <div class="bg-yellow-100 p-4 rounded-full">
-              <i class="fa-regular fa-clock text-2xl text-yellow-600"></i>
-            </div>
-          </div>
-        </div>
+        <x-stat-card
+          label="Batches Expiring Soon"
+          :value="$kpiCards['expiringIn30Days']"
+          icon="fa-regular fa-clock"
+          icon-bg="bg-yellow-100 dark:bg-yellow-900/30"
+          icon-color="text-yellow-600 dark:text-yellow-400"
+        />
         {{-- Patients Today --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Patients Today</p>
-              <p class="text-3xl font-bold text-green-600 mt-2">
-                {{ $kpiCards['patientsToday'] }}
-              </p>
-            </div>
-            <div class="bg-green-100 p-4 rounded-full">
-              <i class="fa-regular fa-user-group text-2xl text-green-600"></i>
-            </div>
-          </div>
-        </div>
+        <x-stat-card
+          label="Patients Today"
+          :value="$kpiCards['patientsToday']"
+          icon="fa-regular fa-user-group"
+          icon-bg="bg-green-100 dark:bg-green-900/30"
+          icon-color="text-green-600 dark:text-green-400"
+        />
       </div>
       {{-- End KPI Cards --}}
 

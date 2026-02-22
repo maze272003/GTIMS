@@ -11,14 +11,10 @@
                     </p>
                     <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Hold Management</h2>
                 </div>
-                <a href="{{ route('admin.holds.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition-all duration-200">
+                <a href="{{ route('admin.holds.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm font-medium text-sm transition-all duration-200">
                     <i class="fa-solid fa-plus mr-2"></i> Create Hold
                 </a>
             </div>
-
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
 
             {{-- Filters --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
@@ -52,7 +48,7 @@
                             @endisset
                         </select>
                     </div>
-                    <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-4 py-2.5 rounded-lg text-sm transition">
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm font-medium transition shadow-sm">
                         <i class="fa-solid fa-filter mr-1"></i> Filter
                     </button>
                     <a href="{{ route('admin.holds.index') }}" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2.5 rounded-lg text-sm transition hover:bg-gray-300 dark:hover:bg-gray-600">
@@ -82,22 +78,26 @@
                                     <td class="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">#{{ $hold->id }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ $hold->branch->name ?? '-' }}</td>
                                     <td class="px-6 py-4 text-sm">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                            @if($hold->type === 'reservation') bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300
-                                            @elseif($hold->type === 'quarantine') bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
-                                            @else bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 @endif">
-                                            {{ ucfirst($hold->type) }}
-                                        </span>
+                                        @if($hold->type === 'reservation')
+                                            <x-badge variant="info">{{ ucfirst($hold->type) }}</x-badge>
+                                        @elseif($hold->type === 'quarantine')
+                                            <x-badge variant="warning">{{ ucfirst($hold->type) }}</x-badge>
+                                        @else
+                                            <x-badge variant="danger">{{ ucfirst($hold->type) }}</x-badge>
+                                        @endif
                                     </td>
                                     <td class="px-6 py-4 text-sm">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                            @if($hold->status === 'approved') bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300
-                                            @elseif($hold->status === 'pending') bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
-                                            @elseif($hold->status === 'released') bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300
-                                            @elseif($hold->status === 'expired') bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300
-                                            @else bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 @endif">
-                                            {{ ucfirst($hold->status) }}
-                                        </span>
+                                        @if($hold->status === 'approved')
+                                            <x-badge variant="success">{{ ucfirst($hold->status) }}</x-badge>
+                                        @elseif($hold->status === 'pending')
+                                            <x-badge variant="warning">{{ ucfirst($hold->status) }}</x-badge>
+                                        @elseif($hold->status === 'released')
+                                            <x-badge variant="info">{{ ucfirst($hold->status) }}</x-badge>
+                                        @elseif($hold->status === 'expired')
+                                            <x-badge variant="default">{{ ucfirst($hold->status) }}</x-badge>
+                                        @else
+                                            <x-badge variant="danger">{{ ucfirst($hold->status) }}</x-badge>
+                                        @endif
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ $hold->reason_code ?? '-' }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ $hold->creator->name ?? '-' }}</td>

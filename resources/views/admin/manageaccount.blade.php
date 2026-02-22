@@ -9,13 +9,6 @@
 
             <div id="toast-container" class="fixed top-24 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
-            @if(session('success'))
-                <script>document.addEventListener('DOMContentLoaded', () => showToast("{{ session('success') }}", 'success'));</script>
-            @endif
-            @if($errors->any())
-                <script>document.addEventListener('DOMContentLoaded', () => showToast("Please check the form for errors.", 'error'));</script>
-            @endif
-
             <nav class="flex mb-6" aria-label="Breadcrumb">
                 <ol class="inline-flex items-center space-x-1 md:space-x-3">
                     <li class="inline-flex items-center">

@@ -62,7 +62,7 @@
 
                 @if(isset($roles) && isset($permissions) && count($roles) > 0 && count($permissions) > 0)
                     <div class="flex justify-end gap-3 pb-10">
-                        <button type="button" id="submitRolesBtn" class="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition">
+                        <button type="button" id="submitRolesBtn" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition">
                             <i class="fa-solid fa-save mr-1"></i> Update Permissions
                         </button>
                     </div>

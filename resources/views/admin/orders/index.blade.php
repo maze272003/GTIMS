@@ -14,7 +14,7 @@
                 </div>
                 {{-- Create Button: Only for users with orders.create permission --}}
                 @if(auth()->user()->hasPermission('orders.create'))
-                    <a href="{{ route('admin.orders.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition-all duration-200">
+                    <a href="{{ route('admin.orders.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm font-medium text-sm transition-all duration-200">
                         <i class="fa-solid fa-plus mr-2"></i> Create New Order
                     </a>
                 @endif
@@ -72,23 +72,19 @@
                                     </td>
                                     <td class="px-6 py-4">
                                         @if($order->status == 'pending_admin')
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
+                                            <x-badge variant="warning">
                                                 <span class="w-2 h-2 mr-1 bg-yellow-500 rounded-full animate-pulse"></span>
                                                 Waiting Admin
-                                            </span>
+                                            </x-badge>
                                         @elseif($order->status == 'pending_finance')
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                                            <x-badge variant="info">
                                                 <span class="w-2 h-2 mr-1 bg-blue-500 rounded-full animate-pulse"></span>
                                                 Waiting Finance
-                                            </span>
+                                            </x-badge>
                                         @elseif($order->status == 'approved')
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
-                                                Approved
-                                            </span>
+                                            <x-badge variant="success">Approved</x-badge>
                                         @elseif($order->status == 'rejected')
-                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
-                                                Rejected
-                                            </span>
+                                            <x-badge variant="danger">Rejected</x-badge>
                                         @endif
                                     </td>
                                     <td class="px-6 py-4 text-center">
@@ -172,11 +168,6 @@
             </div>
         </main>
     </div>
-
-    {{-- Success Alert --}}
-    @if (session('success'))
-        <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-    @endif
 
     {{-- SweetAlert Confirmation for All Actions --}}
     <script>

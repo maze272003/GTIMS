@@ -54,7 +54,7 @@
 
                 <div class="flex justify-end gap-3 pb-10">
                     <a href="{{ route('admin.orders.index') }}" class="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg bg-white hover:bg-gray-50 transition">Cancel</a>
-                    <button type="button" id="submitOrderBtn" class="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition">
+                    <button type="button" id="submitOrderBtn" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition">
                         Submit Order for Approval
                     </button>
                 </div>

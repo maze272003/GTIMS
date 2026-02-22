@@ -134,7 +134,7 @@
                         Cancel
                     </a>
                     <button type="button" id="submitHoldBtn"
-                        class="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition">
+                        class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition">
                         Submit Hold
                     </button>
                 </div>

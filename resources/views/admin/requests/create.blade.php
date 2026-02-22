@@ -83,7 +83,7 @@
 
                 <div class="flex justify-end gap-3 pb-10">
                     <a href="{{ route('admin.requests.index') }}" class="px-6 py-2.5 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</a>
-                    <button type="button" id="submitRequestBtn" class="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition">
+                    <button type="button" id="submitRequestBtn" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition">
                         Submit Request
                     </button>
                 </div>

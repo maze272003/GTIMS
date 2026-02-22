@@ -191,7 +191,7 @@
                         <form action="{{ route('admin.requests.comment', $inventoryRequest->id) }}" method="POST" class="flex gap-2">
                             @csrf
                             <input type="text" name="body" required placeholder="Add a comment..." class="flex-1 border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500">
-                            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg text-sm transition">
+                            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition">
                                 <i class="fa-solid fa-paper-plane"></i>
                             </button>
                         </form>
@@ -222,7 +222,7 @@
                         <form action="{{ route('admin.requests.attach', $inventoryRequest->id) }}" method="POST" enctype="multipart/form-data" class="flex gap-2">
                             @csrf
                             <input type="file" name="attachment" required class="flex-1 text-sm text-gray-700 dark:text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-red-50 file:text-red-700 hover:file:bg-red-100 dark:file:bg-red-900 dark:file:text-red-300">
-                            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg text-sm transition">
+                            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition">
                                 <i class="fa-solid fa-upload"></i>
                             </button>
                         </form>

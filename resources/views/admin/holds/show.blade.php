@@ -57,23 +57,26 @@
 
                     <div>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Type</p>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            @if($hold->type === 'reservation') bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300
-                            @elseif($hold->type === 'quarantine') bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
-                            @else bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 @endif">
-                            {{ ucfirst($hold->type) }}
-                        </span>
+                        @if($hold->type === 'reservation')
+                            <x-badge variant="info">{{ ucfirst($hold->type) }}</x-badge>
+                        @elseif($hold->type === 'quarantine')
+                            <x-badge variant="warning">{{ ucfirst($hold->type) }}</x-badge>
+                        @else
+                            <x-badge variant="danger">{{ ucfirst($hold->type) }}</x-badge>
+                        @endif
                     </div>
 
                     <div>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Status</p>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            @if($hold->status === 'approved') bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300
-                            @elseif($hold->status === 'pending') bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
-                            @elseif($hold->status === 'released') bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300
-                            @else bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 @endif">
-                            {{ ucfirst($hold->status) }}
-                        </span>
+                        @if($hold->status === 'approved')
+                            <x-badge variant="success">{{ ucfirst($hold->status) }}</x-badge>
+                        @elseif($hold->status === 'pending')
+                            <x-badge variant="warning">{{ ucfirst($hold->status) }}</x-badge>
+                        @elseif($hold->status === 'released')
+                            <x-badge variant="info">{{ ucfirst($hold->status) }}</x-badge>
+                        @else
+                            <x-badge variant="default">{{ ucfirst($hold->status) }}</x-badge>
+                        @endif
                     </div>
 
                     <div>

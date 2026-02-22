@@ -161,7 +161,7 @@
                             </select>
                         </div>
                         <div class="flex gap-2 lg:col-span-4">
-                            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm">
+                            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm">
                                 <i class="fa-solid fa-filter mr-1"></i> Apply Filters
                             </button>
                             <a href="{{ route('admin.lowstock.index') }}" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg text-sm transition hover:bg-gray-300 dark:hover:bg-gray-600">

@@ -12,9 +12,7 @@
                     <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-3">
                         Notifications
                         @if(isset($unreadCount) && $unreadCount > 0)
-                            <span class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 text-sm font-medium px-2.5 py-0.5 rounded-full">
-                                {{ $unreadCount }} unread
-                            </span>
+                            <x-badge variant="danger" size="md">{{ $unreadCount }} unread</x-badge>
                         @endif
                     </h2>
                 </div>
