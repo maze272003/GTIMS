@@ -1077,9 +1077,11 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
     ];
 
     try {
-        $response = Http::timeout(90)
-            ->acceptJson()
-            ->post($endpoint, $payload);
+        $response = Http::retry(2, 500))
+            ->timeout(180)
+              ->connectTimeout(10)
+              ->acceptJson()
+              ->post($endpoint, $payload);
 
         if (!$response->successful()) {
             Log::error('Ollama API request failed', [
