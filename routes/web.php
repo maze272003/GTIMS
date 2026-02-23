@@ -25,8 +25,8 @@ Route::get('/', function () {
     return view('auth.login');
 });
 
-Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])->name('otp.send');
-Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])->name('otp.verify');
+Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])->middleware('throttle:5,1')->name('otp.send');
+Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])->middleware('throttle:5,1')->name('otp.verify');
 Route::get('/verify-account/{id}', [ManageaccountController::class, 'verifyAccount'])
     ->name('account.verify')
     ->middleware('signed');
