@@ -26,7 +26,7 @@ class ProductMovementRepository extends BaseRepository implements ProductMovemen
         $sort = strtolower((string) ($filters['sort'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
 
         $query = $this->model->newQuery()
-            ->with(['product', 'user', 'inventory'])
+            ->with(['product', 'user', 'inventory.branch'])
             ->orderBy('created_at', $sort);
 
         if ($search !== '') {

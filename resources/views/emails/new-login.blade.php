@@ -11,7 +11,7 @@
             <td style="padding: 20px 0;">
                 <table align="center" border="0" cellpadding="0" cellspacing="0" width="600" style="border-collapse: collapse; border: 1px solid #e2e8f0; background-color: #ffffff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
                     <tr>
-                        <td align="center" style="padding: 30px 20px 25px 20px; background-color: #dc2626; color: #ffffff;"> <img src="{{ asset('images/gtlogo.png') }}" alt="Logo" width="90" style="display: block; margin: 0 auto;">
+                        <td align="center" style="padding: 30px 20px 25px 20px; background-color: #dc2626; color: #ffffff;"> <img src="{{ url('images/gtlogo.png') }}" alt="Logo" width="90" style="display: block; margin: 0 auto;">
                             <h1 style="margin: 10px 0 0 0; font-size: 22px; font-weight: 600;">Security Alert</h1>
                             <p style="margin: 5px 0 0 0; font-size: 16px;">Inventory Management System</p>
                         </td>

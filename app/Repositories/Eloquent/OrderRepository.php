@@ -21,7 +21,7 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
     public function paginateWithFilters(?string $status = null, int $perPage = 20): LengthAwarePaginator
     {
         return $this->model
-            ->with(['items.product', 'creator'])
+            ->with(['items.product', 'user'])
             ->when($status, fn ($q, $s) => $q->where('status', $s))
             ->latest()
             ->paginate($perPage);
@@ -29,7 +29,7 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
 
     public function findWithItems(int $id): Order
     {
-        return $this->model->with(['items.product', 'creator'])->findOrFail($id);
+        return $this->model->with(['items.product', 'user'])->findOrFail($id);
     }
 
     public function getPendingCount(string $status): int
