@@ -4,7 +4,7 @@
   $filterInputs = $inputs ?? []; 
 @endphp
 <x-app-layout>
-<body class="bg-gray-50">
+<body class="bg-gray-50 dark:bg-gray-900">
 
   {{-- Sidebar --}}
   <x-admin.sidebar/>
@@ -15,8 +15,7 @@
     {{-- @if(in_array(auth()->user()->user_level_id, [1, 2, 3, 4]) && auth()->user()->branch_id != 2) --}}
     <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
       {{-- Breadcrumb --}}
-      <div class="mb-6 pt-16 flex flex-col gap-2">
-        <a class="text-sm text-gray-600 dark:text-gray-400" href="{{ route('admin.dashboard') }}"><i class="fa-regular fa-home mr-2"></i>Dashboard</a>
+      <div class="mb-6 pt-16">
         <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">Analytics Dashboard</p>
         <p class="text-sm text-gray-600 dark:text-gray-400">Welcome! Here's your clinic's predictive overview.</p>
       </div>
@@ -24,11 +23,11 @@
       {{-- 1. KPI CARDS --}}
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {{-- Total Stock --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm text-gray-600 font-medium">Total Stock (Items)</p>
-              <p class="text-3xl font-bold text-gray-900 mt-2">
+              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Total Stock (Items)</p>
+              <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">
                 {{ number_format($kpiCards['totalStockItems']) }}
               </p>
             </div>
@@ -38,10 +37,10 @@
           </div>
         </div>
         {{-- Low Stock --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm text-gray-600 font-medium">Low Stock Products</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Low Stock Products</p>
               <p class="text-3xl font-bold text-orange-600 mt-2">
                 {{ $kpiCards['lowStockProducts'] }}
               </p>
@@ -52,10 +51,10 @@
           </div>
         </div>
         {{-- Expiring Soon --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm text-gray-600 font-medium">Batches Expiring Soon</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Batches Expiring Soon</p>
               <p class="text-3xl font-bold text-yellow-600 mt-2">
                 {{ $kpiCards['expiringIn30Days'] }}
               </p>
@@ -66,10 +65,10 @@
           </div>
         </div>
         {{-- Patients Today --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm text-gray-600 font-medium">Patients Today</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Patients Today</p>
               <p class="text-3xl font-bold text-green-600 mt-2">
                 {{ $kpiCards['patientsToday'] }}
               </p>
@@ -87,14 +86,14 @@
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
         
         {{-- STOCK DEPLETION FORECAST --}}
-        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200">
+        <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
             {{-- Header with Filter --}}
-          <div class="p-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 class="text-lg font-semibold text-gray-900">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
                 <i class="fa-regular fa-chart-line-down text-red-600 mr-2"></i>Stock Depletion Forecast
               </h3>
-              <p class="text-sm text-gray-500">Predicts run-out based on recent consumption.</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Predicts run-out based on recent consumption.</p>
             </div>
               {{-- Forecast History Filter (Moved Here) --}}
             <div class="mt-2 sm:mt-0">
@@ -105,8 +104,8 @@
                         <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                     @endif
                   @endforeach
-                  <label for="forecast_days_select" class="text-sm font-medium text-gray-700 whitespace-nowrap">History:</label>
-                  <select name="forecast_days" id="forecast_days_select" class="pl-2 pr-8 py-1 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                  <label for="forecast_days_select" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">History:</label>
+                  <select name="forecast_days" id="forecast_days_select" class="pl-2 pr-8 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
                     <option value="30" @selected( ($filterInputs['forecast_days'] ?? 90) == 30)>30 Days</option>
                     <option value="60" @selected( ($filterInputs['forecast_days'] ?? 90) == 60)>60 Days</option>
                     <option value="90" @selected( ($filterInputs['forecast_days'] ?? 90) == 90)>90 Days</option>
@@ -117,8 +116,8 @@
           </div>
           {{-- Table --}}
           <div class="overflow-y-auto h-96 relative"> {{-- Added relative for loader --}}
-            <table class="w-full text-sm text-left text-gray-500">
-              <thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0">
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+              <thead class="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-100 dark:bg-gray-700 sticky top-0">
                 <tr>
                   <th scope="col" class="px-6 py-3">Product</th>
                   <th scope="col" class="px-6 py-3 text-center">Days Remaining</th>
@@ -136,45 +135,45 @@
         </div>
 
         {{-- URGENT ALERTS --}}
-        <div class="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div class="p-4 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
               <i class="fa-regular fa-triangle-exclamation text-orange-600 mr-2"></i>Actionable Alerts
             </h3>
-            <p class="text-sm text-gray-500">Items needing immediate attention.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Items needing immediate attention.</p>
           </div>
           <div class="p-4 overflow-y-auto h-96">
             {{-- Low Stock --}}
             <h4 class="font-semibold text-orange-600">Critical Low Stock (<= 100)</h4>
-            <ul class="divide-y divide-gray-200 mt-2">
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700 mt-2">
               @forelse($urgent_low_stock as $item)
                 <li class="py-2 flex justify-between items-center">
                   <div>
-                    <p class="font-medium text-sm text-gray-800">{{ $item->product->generic_name }}</p>
-                    <p class="text-xs text-gray-500">{{ $item->batch_number }}</p>
+                    <p class="font-medium text-sm text-gray-800 dark:text-gray-200">{{ $item->product->generic_name }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item->batch_number }}</p>
                   </div>
                   <span class="font-bold text-sm text-orange-600">{{ $item->quantity }} left</span>
                 </li>
               @empty
-                <li class="py-2 text-sm text-gray-500">No products are critically low.</li>
+                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No products are critically low.</li>
               @endforelse
             </ul>
 
             {{-- Expiring Soon --}}
             <h4 class="font-semibold text-yellow-600 mt-4">Expiring in 30 Days</h4>
-            <ul class="divide-y divide-gray-200 mt-2">
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700 mt-2">
               @forelse($urgent_expiring_soon as $item)
                 <li class="py-2 flex justify-between items-center">
                   <div>
-                    <p class="font-medium text-sm text-gray-800">{{ $item->product->generic_name }}</p>
-                    <p class="text-xs text-gray-500">{{ $item->batch_number }}</p>
+                    <p class="font-medium text-sm text-gray-800 dark:text-gray-200">{{ $item->product->generic_name }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item->batch_number }}</p>
                   </div>
                   <span class="font-bold text-sm text-yellow-600">
                     {{ Carbon::parse($item->expiry_date)->format('M d, Y') }}
                   </span>
                 </li>
               @empty
-                <li class="py-2 text-sm text-gray-500">No batches are expiring soon.</li>
+                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No batches are expiring soon.</li>
               @endforelse
             </ul>
           </div>
@@ -184,17 +183,17 @@
       {{-- End Predictive & Urgent --}}
 
       {{-- 0. CHART FILTERS --}}
-      <div class="my-6 bg-white rounded-xl shadow-sm border border-gray-200">
+      <div class="my-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
         {{-- Drill-down Indicator --}}
-        <div class="drilldown-indicator p-4 bg-blue-50 border-b border-blue-200 flex items-center justify-between" style="display: {{ $drilldown_product_name ? 'flex' : 'none' }};">
+        <div class="drilldown-indicator p-4 bg-blue-50 dark:bg-blue-900 border-b border-blue-200 dark:border-blue-400 flex items-center justify-between" style="display: {{ $drilldown_product_name ? 'flex' : 'none' }};">
           <div class="flex items-center">
             <i class="fa-regular fa-filter-list text-blue-600 mr-3"></i>
-            <span class="text-sm font-medium text-blue-800">
+            <span class="text-sm font-medium text-blue-800 dark:text-blue-200">
               Drill-Down Active: Showing chart data for <strong id="drilldown-indicator-name">{{ $drilldown_product_name ?? '' }}</strong>.
             </span>
           </div>
             {{-- Updated link to use AJAX clear function --}}
-          <a href="#" id="clear-drilldown-ajax" class="px-3 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-600 rounded-full hover:bg-blue-100">Clear Drill-Down</a>
+          <a href="#" id="clear-drilldown-ajax" class="px-3 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-600 rounded-full hover:bg-blue-100 dark:bg-gray-700 dark:text-blue-300 dark:border-blue-400 dark:hover:bg-gray-600">Clear Drill-Down</a>
         </div>
         
         {{-- Main Filter Form --}}
@@ -211,8 +210,8 @@
               
               {{-- Timespan --}}
               <div>
-                <label for="filter_timespan" class="block text-sm font-medium text-gray-700 mb-1">Time Period</label>
-                <select name="filter_timespan" id="filter_timespan" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                <label for="filter_timespan" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time Period</label>
+                <select name="filter_timespan" id="filter_timespan" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
                   <option value="7d"    @selected( ($filterInputs['filter_timespan'] ?? '30d') == '7d')>Last 7 Days</option>
                   <option value="30d"  @selected( ($filterInputs['filter_timespan'] ?? '30d') == '30d')>Last 30 Days</option>
                   <option value="90d"  @selected( ($filterInputs['filter_timespan'] ?? '30d') == '90d')>Last 90 Days</option>
@@ -224,8 +223,8 @@
 
               {{-- <--- NEW: BRANCH FILTER ---/> --}}
               <div>
-                <label for="filter_branch" class="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                <select name="filter_branch" id="filter_branch" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                <label for="filter_branch" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Branch</label>
+                <select name="filter_branch" id="filter_branch" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
                   <option value="">All Branches</option>
                   @foreach($filter_branches as $branch)
                     <option value="{{ $branch->id }}" @selected(($filterInputs['filter_branch'] ?? '') == $branch->id)>
@@ -237,8 +236,8 @@
 
               {{-- Barangay Filter --}}
               <div>
-                <label for="filter_barangay" class="block text-sm font-medium text-gray-700 mb-1">Barangay</label>
-                <select name="filter_barangay" id="filter_barangay" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                <label for="filter_barangay" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Barangay</label>
+                <select name="filter_barangay" id="filter_barangay" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
                   <option value="">All Barangays</option>
                   @foreach($filter_barangays as $barangay)
                     <option value="{{ $barangay }}" @selected( ($filterInputs['filter_barangay'] ?? '') == $barangay)>
@@ -250,8 +249,8 @@
               
               {{-- Product Filter --}}
               <div>
-                <label for="filter_product_id" class="block text-sm font-medium text-gray-700 mb-1">Product</label>
-                <select name="filter_product_id" id="filter_product_id" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                <label for="filter_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product</label>
+                <select name="filter_product_id" id="filter_product_id" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
                   <option value="">All Products</option>
                   @foreach($filter_products as $product)
                     <option value="{{ $product->id }}" @selected( ($filterInputs['filter_product_id'] ?? '') == $product->id)>
@@ -263,8 +262,8 @@
 
               {{-- Grouping (Moved to next row/auto-placed) --}}
               <div>
-                <label for="grouping" class="block text-sm font-medium text-gray-700 mb-1">Group Trend By</label>
-                <select name="grouping" id="grouping" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                <label for="grouping" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group Trend By</label>
+                <select name="grouping" id="grouping" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
                   <option value="day" @selected( ($filterInputs['grouping'] ?? 'day') == 'day')>Day</option>
                   <option value="week" @selected( ($filterInputs['grouping'] ?? 'day') == 'week')>Week</option>
                   <option value="month" @selected( ($filterInputs['grouping'] ?? 'day') == 'month')>Month</option>
@@ -278,12 +277,12 @@
           <div id="custom_dates_container" class="p-6 pt-0 {{ ($filterInputs['filter_timespan'] ?? '30d') == 'custom' ? '' : 'hidden' }}">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label for="filter_start" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                <input type="date" name="filter_start" id="filter_start" value="{{ $filterInputs['filter_start'] ?? '' }}" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                <label for="filter_start" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
+                <input type="date" name="filter_start" id="filter_start" value="{{ $filterInputs['filter_start'] ?? '' }}" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
               </div>
               <div>
-                <label for="filter_end" class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                <input type="date" name="filter_end" id="filter_end" value="{{ $filterInputs['filter_end'] ?? '' }}" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                <label for="filter_end" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
+                <input type="date" name="filter_end" id="filter_end" value="{{ $filterInputs['filter_end'] ?? '' }}" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
               </div>
             </div>
           </div>
@@ -291,7 +290,7 @@
           {{-- Form Actions --}}
           <div class="px-6 pb-4 flex justify-end items-center gap-x-3">
               {{-- This button reloads the page to clear ALL state, which is correct --}}
-            <button type="button" onclick="clearAllFilters()" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">Clear Filters</button>
+            <button type="button" onclick="clearAllFilters()" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300">Clear Filters</button>
             <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">Apply Filters</button>
           </div>
         </form>
@@ -301,11 +300,11 @@
       {{-- 3. CONSUMPTION CHARTS --}}
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         {{-- Consumption Trend --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
               {{-- Title updates dynamically via JS --}}
-            <h3 id="consumptionChartTitle" class="text-lg font-semibold text-gray-900">Dispensation Trend (Items)</h3>
-            <div id="consumptionChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 rounded-lg">
+            <h3 id="consumptionChartTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Dispensation Trend (Items)</h3>
+            <div id="consumptionChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
               <button data-type="line" class="chart-toggle active-toggle">
                 <i class="fa-regular fa-chart-line text-sm"></i>
               </button>
@@ -315,17 +314,17 @@
             </div>
           </div>
           {{-- Subtitle for filters --}}
-          <p id="consumptionChartSubtitle" class="text-sm text-gray-500 mb-4"></p>
+          <p id="consumptionChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p>
           <div class="relative chart-container"> {{-- Constrained Height --}}
             <canvas id="consumptionChart"></canvas>
           </div>
         </div>
 
         {{-- Top Products --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
-            <h3 class="text-lg font-semibold text-gray-900">Top 10 Most Dispensed</h3>
-            <div id="topProductsChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 rounded-lg">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Top 10 Most Dispensed</h3>
+            <div id="topProductsChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
               <button data-type="bar" class="chart-toggle active-toggle">
                 <i class="fa-regular fa-chart-bar text-sm"></i>
               </button>
@@ -335,8 +334,8 @@
             </div>
           </div>
             {{-- Subtitle for filters --}}
-          <p id="topProductsChartSubtitle" class="text-sm text-gray-500 mb-1"></p>
-          <p class="text-sm text-gray-500 mb-3">Click on a product (bar chart only) to drill-down</p>
+          <p id="topProductsChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-1"></p>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Click on a product (bar chart only) to drill-down</p>
           <div class="relative chart-container"> {{-- Constrained Height --}}
             <canvas id="topProductsChart"></canvas>
           </div>
@@ -348,22 +347,22 @@
       {{-- 4. PATIENT CHARTS --}}
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         {{-- Patients by Barangay (Stacked Bar) --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900 mb-1">Patients by Barangay & Category</h3>
-          <p id="barangayChartSubtitle" class="text-sm text-gray-500 mb-4"></p>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Patients by Barangay & Category</h3>
+          <p id="barangayChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p>
           <div class="relative chart-container"> {{-- Constrained Height --}}
             <canvas id="barangayChart"></canvas>
           </div>
         </div>
 
         {{-- Patient Visit Trend Chart --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
           {{-- Title updates dynamically --}}
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
-            <h3 id="patientVisitChartTitle" class="text-lg font-semibold text-gray-900">Patient Visit Trend</h3>
+            <h3 id="patientVisitChartTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Patient Visit Trend</h3>
             
             {{-- ADDED TOGGLE --}}
-            <div id="patientVisitChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 rounded-lg">
+            <div id="patientVisitChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
               <button data-type="line" class="chart-toggle active-toggle">
                 <i class="fa-regular fa-chart-line text-sm"></i>
               </button>
@@ -374,7 +373,7 @@
             {{-- END TOGGLE --}}
 
           </div>
-          <p id="patientVisitChartSubtitle" class="text-sm text-gray-500 mb-4"></p>
+          <p id="patientVisitChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p>
           <div class="relative chart-container"> {{-- Constrained Height --}}
             <canvas id="patientVisitChart"></canvas>
           </div>
@@ -387,7 +386,7 @@
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         
         {{-- Product Seasonal Trend --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
             {{-- Added ID to form, removed action/method --}}
           <form id="seasonal-filter-form">
               {{-- Persist existing CHART filters --}}
@@ -401,16 +400,16 @@
             
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
               <div>
-                <h3 class="text-lg font-semibold text-gray-900">Product Seasonal Trend</h3>
-                <p class="text-sm text-gray-500">View & compare monthly dispensation (up to 3 yrs).</p>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Product Seasonal Trend</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">View & compare monthly dispensation (up to 3 yrs).</p>
               </div>
               <button type="submit" class="mt-2 sm:mt-0 px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">Update Chart</button>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label for="seasonal_product_id" class="block text-sm font-medium text-gray-700 mb-1">Product 1</label>
-                <select name="seasonal_product_id" id="seasonal_product_id" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                <label for="seasonal_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product 1</label>
+                <select name="seasonal_product_id" id="seasonal_product_id" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
                   @foreach($filter_products as $product)
                       {{-- Ensure $selectedSeasonalProduct is not null before accessing id --}}
                     <option value="{{ $product->id }}" @selected( ($filterInputs['seasonal_product_id'] ?? ($selectedSeasonalProduct->id ?? null)) == $product->id)>
@@ -420,8 +419,8 @@
                 </select>
               </div>
               <div>
-                <label for="compare_product_id" class="block text-sm font-medium text-gray-700 mb-1">Product 2 (Compare)</label>
-                <select name="compare_product_id" id="compare_product_id" class="w-full pl-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                <label for="compare_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product 2 (Compare)</label>
+                <select name="compare_product_id" id="compare_product_id" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
                   <option value="">None</option>
                   @foreach($filter_products as $product)
                       {{-- Avoid comparing a product with itself --}}
@@ -449,12 +448,12 @@
         </div>
 
         {{-- Patient Dispensation Hotspots --}}
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <h3 class="text-lg font-semibold text-gray-900 mb-1">Dispensation Hotspots</h3>
-           <p id="hotspotsSubtitle" class="text-sm text-gray-500 mb-4"></p> {{-- Dynamic Subtitle --}}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Dispensation Hotspots</h3>
+           <p id="hotspotsSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p> {{-- Dynamic Subtitle --}}
            <div class="overflow-y-auto h-96 relative"> {{-- Added relative for loader --}}
-            <table class="w-full text-sm text-left text-gray-500">
-              <thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0">
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+              <thead class="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-100 dark:bg-gray-700 sticky top-0">
                 <tr>
                   <th scope="col" class="px-6 py-3">Barangay</th>
                   <th scope="col" class="px-6 py-3">Category</th>
@@ -488,15 +487,15 @@
 
   {{-- AI Response Modal --}}
   <div id="ai-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 hidden">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl">
-      <div class="flex items-center justify-between p-4 border-b">
-        <h3 class="text-lg font-semibold text-gray-900">AI Trend Analysis</h3>
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl">
+      <div class="flex items-center justify-between p-4 border-b dark:border-gray-700">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">AI Trend Analysis</h3>
         <button id="close-ai-modal" class="text-gray-400 hover:text-gray-600">
           <i class="fa-regular fa-xmark text-2xl"></i>
         </button>
       </div>
       <div class="p-6">
-        <div id="ai-response-content" class="text-gray-700 space-y-3 prose prose-sm max-h-[70vh] overflow-y-auto"> {{-- Added scroll --}}
+        <div id="ai-response-content" class="text-gray-700 dark:text-gray-300 space-y-3 prose prose-sm max-h-[70vh] overflow-y-auto"> {{-- Added scroll --}}
           {{-- AI Response will be injected here --}}
         </div>
       </div>
@@ -518,6 +517,64 @@
     Chart.register(window.ChartZoom);
   </script>
 
+  <script>
+    // --- DARK MODE SUPPORT FOR CHARTS ---
+    function isDarkMode() {
+      return document.documentElement.classList.contains('dark');
+    }
+
+    function getChartColors() {
+      const dark = isDarkMode();
+      return {
+        gridColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+        tickColor: dark ? '#9CA3AF' : '#6B7280',
+        legendColor: dark ? '#D1D5DB' : '#374151',
+      };
+    }
+
+    function applyDarkModeToCharts() {
+      const colors = getChartColors();
+      Chart.defaults.color = colors.tickColor;
+      Chart.defaults.borderColor = colors.gridColor;
+      Chart.defaults.plugins.legend.labels.color = colors.legendColor;
+      Chart.defaults.plugins.title.color = colors.legendColor;
+
+      // Update all existing charts
+      Object.values(window.myCharts || {}).forEach(chart => {
+        if (!chart) return;
+        if (chart.options.scales) {
+          Object.values(chart.options.scales).forEach(scale => {
+            if (scale.ticks) scale.ticks.color = colors.tickColor;
+            if (scale.title) scale.title.color = colors.tickColor;
+            scale.grid = scale.grid || {};
+            scale.grid.color = colors.gridColor;
+          });
+        }
+        if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+          chart.options.plugins.legend.labels.color = colors.legendColor;
+        }
+        chart.update('none');
+      });
+    }
+
+    // Apply defaults immediately before chart initialization
+    (function() {
+      const colors = getChartColors();
+      Chart.defaults.color = colors.tickColor;
+      Chart.defaults.borderColor = colors.gridColor;
+    })();
+
+    // Watch for dark mode toggle
+    const observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(mutation) {
+        if (mutation.attributeName === 'class') {
+          applyDarkModeToCharts();
+        }
+      });
+    });
+    observer.observe(document.documentElement, { attributes: true });
+  </script>
+
   {{-- Add a new CSS style for the toggles --}}
   <style>
     .chart-toggle {
@@ -533,6 +590,13 @@
       background-color: #ffffff; /* white */
       color: #3b82f6; /* blue-500 */
       box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); /* shadow-sm */
+    }
+    html.dark .chart-toggle {
+      color: #9CA3AF;
+    }
+    html.dark .chart-toggle.active-toggle {
+      background-color: #374151;
+      color: #60A5FA;
     }
       /* Fix for chart container height */
     .chart-container {
@@ -657,7 +721,7 @@ const distinctPieColors = [
    function toggleChartType(chartId, newType) {
         const chart = window.myCharts[chartId];
         const originalConfig = window.originalChartConfigs[chartId];
-        if (!chart || !originalConfig) { console.error('Chart or config not found for', chartId); return; }
+        if (!chart || !originalConfig) { return; }
 
         // --- START FIX ---
         // 1. Get the CURRENT data from the live chart instance
@@ -835,8 +899,7 @@ const distinctPieColors = [
            window.history.pushState({}, '', url);
 
     } catch (error) {
-           console.error("Drilldown failed:", error);
-           alert(`Could not update charts: ${error.message}`);
+           gtToast.error('Could not update charts. Please try again.');
     } finally {
            hideLoader('consumptionChart');
            hideLoader('barangayChart');
@@ -989,8 +1052,7 @@ const distinctPieColors = [
                 throw new Error('Invalid JSON response from server');
             }
         } catch (error) {
-            console.error('Forecast update failed:', error);
-            alert('Could not update forecast table.');
+            gtToast.error('Could not update forecast table.');
         } finally {
             hideLoader('forecast-table-body');
         }
@@ -1100,8 +1162,7 @@ const distinctPieColors = [
             window.history.pushState({}, '', url);
 
         } catch (error) {
-            console.error('Main charts update failed:', error);
-            alert('Could not update charts.');
+            gtToast.error('Could not update charts.');
         } finally {
             // Hide all loaders
             hideLoader('consumptionChart');
@@ -1212,8 +1273,7 @@ const distinctPieColors = [
             window.history.pushState({}, '', url);
 
         } catch (error) {
-            console.error('Seasonal chart update failed:', error);
-            alert('Could not update seasonal chart.');
+            gtToast.error('Could not update seasonal chart.');
         } finally {
             hideLoader('seasonalChart');
         }
@@ -1623,21 +1683,18 @@ const distinctPieColors = [
           const result = await response.json();
 
           if (!response.ok) {
-            // Log the detailed error from the server
-             console.error('AI Analysis Error:', result);
-            throw new Error(result.error || `Server Error: ${response.status} ${response.statusText}`);
+            throw new Error(result.error || 'Server Error: ' + response.status);
           }
 
           if (result.analysis) {
             aiResponseContent.innerHTML = result.analysis;
           } else {
-             console.error('AI Analysis Error: No analysis content in response', result);
              throw new Error('No valid analysis received from the server.');
           }
 
         } catch (error) {
-             console.error('AI Analysis Fetch Failed:', error);
-           aiResponseContent.innerHTML = `<p class="text-red-600 font-semibold">Sorry, the analysis could not be completed.</p><p class="text-sm text-gray-500 mt-2">${error.message}</p>`;
+           aiResponseContent.innerHTML = '<p class="text-red-600 font-semibold">Sorry, the analysis could not be completed.</p><p class="text-sm text-gray-500 mt-2">' + error.message + '</p>';
+           gtToast.error('AI analysis failed. Please try again.');
         } finally {
           aiButton.disabled = false;
           aiButtonText.textContent = 'Get AI Analysis of this Trend';

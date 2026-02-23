@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use App\Models\UserLevel;
 use App\Models\Branch;
+use App\Models\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -26,6 +27,10 @@ class AuthenticationTest extends TestCase
         // Kung may factory ka, pwede mong gamitin ang UserLevel::factory()->create()
         $level = UserLevel::create(['name' => 'admin']);
         $branch = Branch::create(['name' => 'Head Office']);
+
+        // Create and assign dashboard.view permission for the admin level
+        $perm = Permission::create(['name' => 'dashboard.view', 'group' => 'Dashboard']);
+        $level->permissions()->sync([$perm->id]);
 
         // 2. Create Verified User
         $user = User::factory()->create([

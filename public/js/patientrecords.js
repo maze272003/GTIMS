@@ -76,8 +76,8 @@ document.addEventListener('DOMContentLoaded', function () {
             // Update Browser URL Bar
             window.history.pushState(null, '', url);
         })
-        .catch(error => {
-            console.error('Error fetching data:', error);
+        .catch(function () {
+            if (typeof gtToast !== 'undefined') gtToast.error('Failed to load patient records.');
             tableContainer.style.opacity = '1';
             // Optional: Show error message in table
         });

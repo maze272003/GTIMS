@@ -15,10 +15,9 @@ class CheckAdminAccess
      */
     public function handle(Request $request, Closure $next): Response
 {
-    // Dapat level 1 O 2
-    if (auth()->check() && in_array(auth()->user()->user_level_id, [1, 2])) {
+    if (auth()->check() && auth()->user()->hasPermission('inventory.edit')) {
         return $next($request);
     }
-    abort(403, 'Access Denied. Admins and Superadmins only.');
+    abort(403, 'Access Denied. You do not have the required permission.');
 }
 }

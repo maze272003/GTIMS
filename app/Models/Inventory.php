@@ -42,4 +42,19 @@ class Inventory extends Model
     {
         return $this->branch?->name ?? 'Unknown Branch';
     }
+
+    public function holdItems()
+    {
+        return $this->hasMany(HoldItem::class);
+    }
+
+    public function getAvailableQuantityAttribute(): int
+    {
+        $held = $this->holdItems()
+            ->whereHas('hold', function ($q) {
+                $q->whereIn('status', ['pending', 'approved']);
+            })
+            ->sum('quantity');
+        return max(0, $this->quantity - $held);
+    }
 }

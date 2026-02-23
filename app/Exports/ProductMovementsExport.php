@@ -145,11 +145,19 @@ class ProductMovementsExport implements
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                 ]);
 
-                // Combined Footer: Exported By + Generated on — at the very bottom
-                $userName = Auth::user()->name ?? 'Guest';
-                $generatedAt = now()->format('F d, Y \a\t h:i:s A');
-                $footerText = "Exported By: {$userName} | Generated on {$generatedAt}";
+                // Exported By + Generated Date — RIGHT AFTER TITLE (Row 17)
+                $user = Auth::user()?->name ?? 'Guest';
+                $generatedAt = now()->format('M d, Y h:i A');
+                $exportInfo = "Exported By: $user";
 
+                $sheet->mergeCells('A17:J17');
+                $sheet->setCellValue('A17', $exportInfo);
+                $sheet->getStyle('A17')->applyFromArray([
+                    'font' => ['italic' => true, 'size' => 11, 'color' => ['rgb' => '6B7280']],
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+                ]);
+
+                // Only Generated Timestamp at the very bottom
                 $footerRow = $highestRow + 3;
 
                 $sheet->mergeCells("A{$footerRow}:J{$footerRow}");

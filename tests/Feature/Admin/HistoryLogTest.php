@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Models\User;
 use App\Models\UserLevel;
 use App\Models\Branch;
+use App\Models\Permission;
 use App\Models\HistoryLog;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,6 +23,13 @@ class HistoryLogTest extends TestCase
 
         $level = UserLevel::create(['name' => 'admin']);
         $branch = Branch::create(['name' => 'Head Office']);
+
+        // Create and assign permissions needed for admin routes
+        $perms = collect([
+            'inventory.edit', 'inventory.view', 'inventory.add', 'inventory.archive', 'inventory.transfer',
+            'historylog.view', 'dashboard.view', 'movements.view',
+        ])->map(fn ($name) => Permission::create(['name' => $name, 'group' => 'test']));
+        $level->permissions()->sync($perms->pluck('id'));
 
         $this->adminUser = User::factory()->create([
             'email_verified_at' => now(),
@@ -95,19 +103,21 @@ class HistoryLogTest extends TestCase
     public function test_filter_by_date_range_works()
     {
         // Arrange: Gumamit ng explicit dates para iwas sa timezone issues ng SQLite
-        HistoryLog::create([
+        $oldLog = HistoryLog::create([
             'action' => 'Old Log', 
             'user_name' => 'A', 
             'description' => 'desc',
-            'created_at' => Carbon::parse('2023-01-01 10:00:00') // Malayong past
         ]);
+        $oldLog->created_at = Carbon::parse('2023-01-01 10:00:00');
+        $oldLog->save();
 
-        HistoryLog::create([
+        $newLog = HistoryLog::create([
             'action' => 'New Log', 
             'user_name' => 'B', 
             'description' => 'desc',
-            'created_at' => Carbon::parse('2023-10-01 10:00:00') // Target date
         ]);
+        $newLog->created_at = Carbon::parse('2023-10-01 10:00:00');
+        $newLog->save();
 
         // Act: Filter para lang sa October 1, 2023
         $from = '2023-10-01';

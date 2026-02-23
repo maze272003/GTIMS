@@ -3,6 +3,33 @@ body, html, input, button, select, textarea {
             font-family: 'Inter', sans-serif;
         }
 
+/* Accessibility: visible focus outlines */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Mobile-first: ensure proper tap target sizes */
+@media (max-width: 640px) {
+    button, a, [role="button"] {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    table {
+        font-size: 0.8125rem;
+    }
+}
+
+/* Responsive tables: horizontal scroll on small screens */
+.overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+}
+
 .modal {
     animation: fadeInScale 0.3s ease-in-out;
 }
@@ -122,4 +149,21 @@ body, html, input, button, select, textarea {
         transform: translateX(0);
         opacity: 1;
     }
+
+/* ========== Driver.js Tour Custom Styles ========== */
+.gtims-tour-popover .driver-popover {
+    font-family: 'Inter', sans-serif;
+}
+
+.gtims-tour-popover .driver-popover-title {
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.gtims-tour-popover .driver-popover-description {
+    font-size: 0.875rem;
+    color: #4b5563;
+    line-height: 1.5;
+}
 }

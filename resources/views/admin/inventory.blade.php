@@ -17,21 +17,7 @@
             </div>
 
             @if (session('success'))
-                <div id="successAlert" class="w3 fixed top-24 right-5 border-l-4 border-green-500 bg-white text-green-500 py-3 px-6 rounded-lg shadow-lg z-101 flex items-center gap-3 z-50">
-                    <i class="fa-solid fa-circle-check text-2xl"></i>
-                    <div>
-                        <p class="font-bold">Success!</p>
-                        <p id="successMessage" class="text-black">{{ session('success') }}</p>
-                    </div>
-                </div>
-                <script>
-                    setTimeout(() => {
-                        const alert = document.getElementById('successAlert');
-                        if (alert) {
-                            alert.remove();
-                        }
-                    }, 3000);
-                </script>
+                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
             @endif
 
             {{-- Summary Cards --}}
@@ -98,7 +84,7 @@
             {{-- Buttons --}}
             @if (auth()->user()->branch_id != 2)
                 <div class="mt-6 flex flex-wrap gap-3 w-full justify-end mb-8">
-                    @if (auth()->user()->user_level_id != 4)
+                    @if (auth()->user()->hasPermission('inventory.add'))
                     <button id="addnewproductbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
                         <i class="fa-regular fa-plus mr-2"></i> Register New Product
                     </button>
@@ -146,7 +132,11 @@
                     @endif
                 </div>
                 <div class="overflow-x-auto" id="rhu1-container">
-                    @include('admin.partials._inventory_table', ['inventories' => $inventories_rhu1, 'branch' => 1])
+                    @include('admin.partials._inventory_table', [
+                        'inventories' => $inventories_rhu1,
+                        'branch' => 1,
+                        'focusInventoryId' => $focusInventoryId ?? null,
+                    ])
                 </div>
             </div>
 
@@ -182,7 +172,11 @@
                     </form>
                 </div>
                 <div class="overflow-x-auto" id="rhu2-container">
-                    @include('admin.partials._inventory_table', ['inventories' => $inventories_rhu2, 'branch' => 2])
+                    @include('admin.partials._inventory_table', [
+                        'inventories' => $inventories_rhu2,
+                        'branch' => 2,
+                        'focusInventoryId' => $focusInventoryId ?? null,
+                    ])
                 </div>
             </div>
         </main>
@@ -271,7 +265,7 @@
 {{-- Note: I assumed the Transfer Modal is in a component. If not, paste it here --}}
 
 <script src="{{ asset('js/inventory.js') }}"></script>
-<script>window.successMessage = @json(session('success'));</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // Error Handling for Modals
@@ -290,6 +284,24 @@ document.addEventListener('DOMContentLoaded', function () {
     @endif
 
     const baseUrl = '{{ route("admin.inventory") }}';
+    const focusInventoryId = @json($focusInventoryId ?? null);
+    const focusBranch = @json($focusBranch ?? null);
+
+    function focusInventoryRow() {
+        if (!focusInventoryId || !focusBranch) return;
+
+        const row = document.getElementById(`inventory-row-${focusInventoryId}`);
+        const branchContainer = document.getElementById(`rhu${focusBranch}-container`);
+
+        if (!row || !branchContainer) return;
+
+        branchContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setTimeout(() => {
+            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            row.style.outline = '2px solid rgb(239 68 68)';
+            row.style.outlineOffset = '-2px';
+        }, 150);
+    }
 
     // Debounce function
     const debounce = (func, delay) => {
@@ -332,6 +344,7 @@ document.addEventListener('DOMContentLoaded', function () {
             
             // Re-attach listeners for buttons inside the newly loaded table
             attachTableListeners(branch);
+            focusInventoryRow();
 
             // Update export hidden fields
             document.getElementById(`export-search-rhu${branch}`).value = search;
@@ -390,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 .then(html => {
                     container.innerHTML = html;
                     attachTableListeners(branch);
+                    focusInventoryRow();
                 });
         });
     });
@@ -433,87 +447,39 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Initial attachment on page load
     attachTransferButtonListeners();
+    focusInventoryRow();
 
     // Confirm Transfer Logic
-    const confirmTransferBtn = document.getElementById('confirm-transfer-btn');
-    if(confirmTransferBtn) {
-        confirmTransferBtn.addEventListener('click', function() {
-            const form = document.getElementById('transfer-form');
-            const qtyInput = document.getElementById('transfer_qty');
-            const availableQty = parseInt(document.getElementById('transfer-available-qty').textContent);
-            
-            if (!qtyInput.value || qtyInput.value <= 0) {
-                 Swal.fire({
-                    title: 'Error',
-                    text: 'Please enter a valid quantity.',
-                    icon: 'error',
-                    customClass: {
-                        container: 'swal-container',
-                        popup: 'swal-popup',
-                        title: 'swal-title',
-                        htmlContainer: 'swal-content',
-                        confirmButton: 'swal-confirm-button',
-                        cancelButton: 'swal-cancel-button'
-                    }
-                 });
-                 return;
-            }
+    if (window.inventoryModalValidation) {
+        window.inventoryModalValidation.bindValidatedModalSubmit({
+            buttonId: 'confirm-transfer-btn',
+            formId: 'transfer-form',
+            confirmIcon: 'warning',
+            confirmText: 'Confirm stock transfer?',
+            confirmButtonText: 'Transfer',
+            validate: () => {
+                const qtyInput = document.getElementById('transfer_qty');
+                const availableQty = parseInt(document.getElementById('transfer-available-qty').textContent, 10);
+                const requestedQty = parseInt(qtyInput?.value, 10);
 
-            if (parseInt(qtyInput.value) > availableQty) {
-                Swal.fire({
-                    title: 'Error',
-                    text: 'Not enough stock!',
-                    icon: 'error',
-                    customClass: {
-                        container: 'swal-container',
-                        popup: 'swal-popup',
-                        title: 'swal-title',
-                        htmlContainer: 'swal-content',
-                        confirmButton: 'swal-confirm-button',
-                        cancelButton: 'swal-cancel-button'
-                    }
-                 });
-                 return;
-            }
+                if (!requestedQty || requestedQty <= 0) {
+                    return {
+                        title: 'Invalid Quantity',
+                        text: 'Please enter a valid quantity.',
+                        icon: 'error',
+                    };
+                }
 
-            Swal.fire({
-                title: 'Are you sure?',
-                text: "Please confirm if you want to proceed.",
-                icon: 'info',
-                showCancelButton: true,
-                cancelButtonText: 'Cancel',
-                confirmButtonText: 'Confirm',
-                allowOutsideClick: false,
-                customClass: {
-                    container: 'swal-container',
-                    popup: 'swal-popup',
-                    title: 'swal-title',
-                    htmlContainer: 'swal-content',
-                    confirmButton: 'swal-confirm-button',
-                    cancelButton: 'swal-cancel-button',
-                    icon: 'swal-icon'
+                if (requestedQty > availableQty) {
+                    return {
+                        title: 'Not Enough Stock',
+                        text: 'The requested transfer quantity exceeds available stock.',
+                        icon: 'error',
+                    };
                 }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Processing...',
-                        text: "Please wait, your request is being processed.",
-                        allowOutsideClick: false,
-                        customClass: {
-                            container: 'swal-container',
-                            popup: 'swal-popup',
-                            title: 'swal-title',
-                            htmlContainer: 'swal-content',
-                            cancelButton: 'swal-cancel-button',
-                            icon: 'swal-icon'
-                        },
-                        didOpen: () => {
-                            Swal.showLoading();
-                        }
-                    });
-                    form.submit();
-                }
-            });
+
+                return true;
+            }
         });
     }
 });

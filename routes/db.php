@@ -4,7 +4,11 @@ use Symfony\Component\Process\Process;
 
 Route::get('/dangerous-db-reset', function () {
 
-    // 1. Security Check
+    // 1. Security Check — Only allow in local environment
+    if (!app()->environment('local')) {
+        abort(403, 'This route is only available in local environment.');
+    }
+
     if (request()->query('key') !== 'resetdb') {
         abort(403, 'Unauthorized action.');
     }

@@ -11,19 +11,33 @@
       @csrf
       @method('POST')
       <input type="hidden" id="selected-product-id" name="product_id" value="{{ old('product_id') }}">
-      <input type="hidden" id="selected-branch-id" name="branch_id" value="1">
+
+      <div class="w-full mt-2">
+        <label for="branch_id" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Target Branch:</label>
+        <select name="branch_id" id="branch_id" required class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+          <option value="">Select Branch</option>
+          @foreach (($branches ?? []) as $branch)
+            <option value="{{ $branch->id }}" {{ (string) old('branch_id') === (string) $branch->id ? 'selected' : '' }}>
+              {{ $branch->name }}
+            </option>
+          @endforeach
+        </select>
+        @error('branch_id', 'addstock')
+          <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
+        @enderror
+      </div>
 
       <div class="flex gap-2 mt-2">
         <div class="w-1/2">
           <label for="batchnumber" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Batch Number:</label>
-          <input type="text" name="batchnumber" id="batchnumber" placeholder="Enter Batch Number" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('batchnumber') }}">
+          <input type="text" name="batchnumber" id="batchnumber" required placeholder="Enter Batch Number" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('batchnumber') }}">
           @error('batchnumber', 'addstock')
             <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
           @enderror
         </div>
         <div class="w-1/2">
           <label for="quantity" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Quantity:</label>
-          <input type="number" name="quantity" id="quantity" placeholder="Enter Quantity" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('quantity') }}">
+          <input type="number" name="quantity" id="quantity" required placeholder="Enter Quantity" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('quantity') }}">
           @error('quantity', 'addstock')
             <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
           @enderror
@@ -32,7 +46,7 @@
 
       <div class="w-full mt-2">
         <label for="expiry" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Expiry Date:</label>
-        <input type="date" name="expiry" id="expiry" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" value="{{ old('expiry') }}">
+        <input type="date" name="expiry" id="expiry" required class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100" value="{{ old('expiry') }}">
         @error('expiry', 'addstock')
           <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
         @enderror
@@ -45,75 +59,3 @@
     </form>
   </div>
 </div>
-
-<script>
-  document.getElementById('addstockbtn').addEventListener('click', function() {
-    const form = document.getElementById('addstockform');
-    const inputs = form.querySelectorAll('input[type="text"], input[type="number"], input[type="date"]');
-    let allFilled = true;
-
-    inputs.forEach(input => {
-      if (input.value.trim() === '') {
-        allFilled = false;
-      }
-    });
-
-    if (!allFilled) {
-      Swal.fire({
-        title: 'Incomplete Form',
-        text: 'Please fill in all required fields before submitting.',
-        icon: 'warning',
-        confirmButtonText: 'OK',
-        allowOutsideClick: false,
-        customClass: {
-          container: 'swal-container',
-          popup: 'swal-popup',
-          title: 'swal-title',
-          htmlContainer: 'swal-content',
-          confirmButton: 'swal-confirm-button',
-          icon: 'swal-icon'
-        }
-      });
-      return;
-    }
-
-    Swal.fire({
-      title: 'Are you sure?',
-      text: "Please confirm if you want to proceed.",
-      icon: 'info',
-      showCancelButton: true,
-      cancelButtonText: 'Cancel',
-      confirmButtonText: 'Confirm',
-      allowOutsideClick: false,
-      customClass: {
-        container: 'swal-container',
-        popup: 'swal-popup',
-        title: 'swal-title',
-        htmlContainer: 'swal-content',
-        confirmButton: 'swal-confirm-button',
-        cancelButton: 'swal-cancel-button',
-        icon: 'swal-icon'
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        Swal.fire({
-          title: 'Processing...',
-          text: "Please wait, your request is being processed.",
-          allowOutsideClick: false,
-          customClass: {
-            container: 'swal-container',
-            popup: 'swal-popup',
-            title: 'swal-title',
-            htmlContainer: 'swal-content',
-            cancelButton: 'swal-cancel-button',
-            icon: 'swal-icon'
-          },
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        });
-        form.submit();
-      }
-    });
-  });
-</script>

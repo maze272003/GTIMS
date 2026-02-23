@@ -2,9 +2,10 @@
     <table class="w-full text-sm text-left">
         <thead class="sticky top-0 bg-gray-200 dark:bg-gray-700">
             <tr>
-                <th class="p-3 text-gray-700 dark:text-gray-300 uppercase font-bold">#</th>
-                @if(in_array(auth()->user()->user_level_id, [1, 2]))
-                    <th class="p-3 text-gray-700 dark:text-gray-300 uppercase font-bold">Branch</th>
+                <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">#</th>
+                
+                @if(auth()->user()->hasPermission('patients.manage'))
+                    <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Branch</th>
                 @endif
                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase font-bold">Resident Details</th>
                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase font-bold text-center">Category</th>
@@ -13,16 +14,21 @@
             </tr>
         </thead>
         <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            @forelse ($patientrecords as $record)
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-                    data-record-id="{{ $record->id }}"
-                    data-patient-name="{{ $record->patient_name }}"
-                    data-barangay-id="{{ $record->barangay_id }}"
-                    data-purok="{{ $record->purok }}"
-                    data-category="{{ $record->category }}"
-                    data-date-dispensed="{{ $record->date_dispensed->format('Y-m-d') }}"
-                    {{-- Pre-load medications as JSON for the View Modal --}}
-                    data-medications="{{ json_encode($record->dispensedMedications->map(function($m){
+            @if ($patientrecords->isEmpty())
+                <tr>
+                    <td colspan="{{ auth()->user()->hasPermission('patients.manage') ? 6 : 5 }}" class="p-3 text-center text-sm text-gray-500 dark:text-gray-400">No records found.</td>
+                </tr>
+            @else
+                @foreach ($patientrecords as $patientrecord)
+                {{-- Note: I retained your data attributes here --}}
+                <tr data-record-id="{{ $patientrecord->id }}"
+                    data-patient-name="{{ $patientrecord->patient_name }}"
+                    data-barangay-id="{{ $patientrecord->barangay_id }}"
+                    data-barangay="{{ $patientrecord->barangay->barangay_name ?? '' }}"
+                    data-purok="{{ $patientrecord->purok }}"
+                    data-category="{{ $patientrecord->category }}"
+                    data-date-dispensed="{{ $patientrecord->date_dispensed->format('Y-m-d') }}"
+                    data-medications="{{ json_encode($patientrecord->dispensedMedications->map(function ($med) {
                         return [
                             'batch' => $m->batch_number,
                             'medication' => $m->generic_name,
@@ -31,12 +37,18 @@
                             'strength' => $m->strength,
                             'quantity' => $m->quantity
                         ];
-                    })) }}"
-                >
-                    <td class="p-3">{{ $loop->iteration + ($patientrecords->currentPage() - 1) * $patientrecords->perPage() }}</td>
+                    })->toArray()) }}">
                     
-                    @if(in_array(auth()->user()->user_level_id, [1, 2]))
-                        <td class="p-3"><span class="px-2 py-1 bg-gray-100 rounded text-xs font-bold">{{ $record->branch->name ?? 'N/A' }}</span></td>
+                    <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-left">
+                        {{ $loop->iteration + ($patientrecords->currentPage() - 1) * $patientrecords->perPage() }}
+                    </td>
+
+                    @if(auth()->user()->hasPermission('patients.manage'))
+                        <td class="p-3 text-sm text-gray-700 dark:text-gray-300 text-left">
+                            <span class="px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded text-xs font-semibold">
+                                {{ $patientrecord->branch->name ?? 'N/A' }}
+                            </span>
+                        </td>
                     @endif
 
                     <td class="p-3">
@@ -62,12 +74,15 @@
                         <button type="button" class="view-medications-btn bg-blue-100 text-blue-700 p-2 rounded hover:bg-blue-600 hover:text-white transition">
                             <i class="fa-regular fa-eye mr-1"></i> View
                         </button>
-
-                        {{-- Edit Button (Protected) --}}
-                        @if (auth()->user()->user_level_id != 4 && (in_array(auth()->user()->user_level_id, [1, 2]) || auth()->user()->branch_id == $record->branch_id))
-                            <button type="button" class="editrecordbtn bg-emerald-100 text-emerald-700 p-2 rounded hover:bg-emerald-600 hover:text-white transition">
-                                <i class="fa-regular fa-pen-to-square mr-1"></i> Edit
-                            </button>
+                        @if (auth()->user()->hasPermission('patients.manage'))
+                            @if(auth()->user()->hasPermission('patients.manage') || auth()->user()->branch_id == $patientrecord->branch_id)
+                                <button class="editrecordbtn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
+                                    <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
+                                </button>
+                                {{-- <button class="deleterecordbtn bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 dark:hover:bg-red-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
+                                    <i class="fa-regular fa-trash mr-1"></i>Delete
+                                </button> --}}
+                            @endif
                         @endif
                     </td>
                 </tr>

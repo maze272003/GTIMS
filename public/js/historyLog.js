@@ -74,7 +74,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 attachPagination();
                 attachSort();
             })
-            .catch(err => console.error('AJAX error:', err))
+            .catch(function () {
+                if (typeof gtToast !== 'undefined') gtToast.error('Failed to load history data.');
+            })
             .finally(() => setTimeout(hideLoader, 200));
     }
 

@@ -7,11 +7,32 @@ use App\Models\User;
 use App\Models\Product;
 use App\Models\Inventory;
 use App\Models\ProductMovement;
+use App\Models\UserLevel;
+use App\Models\Branch;
+use App\Models\Permission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class InventoryControllerTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function createAdminUser(): User
+    {
+        $level = UserLevel::firstOrCreate(['name' => 'admin']);
+        $branch = Branch::firstOrCreate(['name' => 'RHU 1']);
+
+        $perms = collect([
+            'inventory.view', 'inventory.add', 'inventory.edit',
+            'inventory.archive', 'inventory.transfer', 'dashboard.view',
+        ])->map(fn ($name) => Permission::firstOrCreate(['name' => $name], ['group' => 'test']));
+        $level->permissions()->syncWithoutDetaching($perms->pluck('id'));
+
+        return User::factory()->create([
+            'email_verified_at' => now(),
+            'user_level_id' => $level->id,
+            'branch_id' => $branch->id,
+        ]);
+    }
 
     /**
      * Test that adding NEW stock creates an 'IN' movement record.
@@ -20,7 +41,7 @@ class InventoryControllerTest extends TestCase
     {
         $this->withoutExceptionHandling();
         // 1. Create a user and product
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $product = Product::factory()->create([
             'generic_name' => 'Paracetamol', 
             'brand_name' => 'Biogesic',
@@ -39,7 +60,7 @@ class InventoryControllerTest extends TestCase
         // 3. Call the Route (Assuming route name is 'admin.inventory.addStock')
         // Adjust the route name if yours is different in web.php
         $response = $this->actingAs($user)
-                         ->post(route('admin.inventory.addStock'), $formData);
+                         ->post(route('admin.inventory.addstock'), $formData);
 
         // 4. Assert Redirect & Success
         $response->assertRedirect(route('admin.inventory'));
@@ -68,7 +89,7 @@ class InventoryControllerTest extends TestCase
      */
     public function test_add_stock_existing_batch_creates_movement_log()
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $product = Product::factory()->create();
         
         // Create existing inventory
@@ -89,7 +110,7 @@ class InventoryControllerTest extends TestCase
             'expiry' => '2026-01-01',
         ];
 
-        $this->actingAs($user)->post(route('admin.inventory.addStock'), $formData);
+        $this->actingAs($user)->post(route('admin.inventory.addstock'), $formData);
 
         // Assert Inventory Updated to 70
         $this->assertDatabaseHas('inventories', [
@@ -113,7 +134,7 @@ class InventoryControllerTest extends TestCase
      */
     public function test_edit_stock_updates_quantity_and_logs_movement()
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $product = Product::factory()->create();
         
         // Start with 100 items
@@ -122,7 +143,7 @@ class InventoryControllerTest extends TestCase
             'branch_id' => 1,
             'batch_number' => 'BATCH-EDIT',
             'quantity' => 100,
-            'expiry_date' => '2026-01-01',
+            'expiry_date' => now()->addYear()->format('Y-m-d'),
             'is_archived' => 2
         ]);
 
@@ -131,10 +152,10 @@ class InventoryControllerTest extends TestCase
             'inventory_id' => $inventory->id,
             'batchnumber' => 'BATCH-EDIT',
             'quantity' => 80, 
-            'expiry' => '2026-01-01',
+            'expiry' => now()->addYear()->format('Y-m-d'),
         ];
 
-        $this->actingAs($user)->post(route('admin.inventory.editStock'), $formData);
+        $this->actingAs($user)->put(route('admin.inventory.editstock'), $formData);
 
         // Assert Movement Log (Should be OUT because quantity decreased)
         $this->assertDatabaseHas('product_movements', [
@@ -152,7 +173,7 @@ class InventoryControllerTest extends TestCase
      */
     public function test_transfer_stock_creates_two_movements()
     {
-        $user = User::factory()->create();
+        $user = $this->createAdminUser();
         $product = Product::factory()->create();
         
         // Source: RHU 1 has 50 items
@@ -171,7 +192,7 @@ class InventoryControllerTest extends TestCase
             'destination_branch' => 2, // Send to RHU 2
         ];
 
-        $this->actingAs($user)->post(route('admin.inventory.transferStock'), $formData);
+        $this->actingAs($user)->post(route('admin.inventory.transferstock'), $formData);
 
         // 1. Check Source Inventory reduced
         $this->assertDatabaseHas('inventories', [

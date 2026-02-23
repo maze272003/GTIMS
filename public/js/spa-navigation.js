@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
         } catch (error) {
-            console.error('Failed to load page:', error);
+            if (typeof gtToast !== 'undefined') gtToast.error('Failed to load the page. Redirecting...');
             window.location.href = url;
         }
     };
@@ -146,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             targetPathname = new URL(url).pathname;
         } catch (e) {
-            console.error('Invalid URL:', url);
             targetPathname = '/';
         }
 

@@ -65,4 +65,18 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Branch::class);
     }
+
+    public function hasPermission(string $permissionName): bool
+    {
+        if (!$this->level) {
+            return false;
+        }
+
+        // Use cached permissions to avoid repeated queries
+        if (!$this->relationLoaded('level') || !$this->level->relationLoaded('permissions')) {
+            $this->load('level.permissions');
+        }
+
+        return $this->level->permissions->contains('name', $permissionName);
+    }
 }

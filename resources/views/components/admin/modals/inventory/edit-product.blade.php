@@ -13,14 +13,14 @@
             <div class="flex gap-2">
                 <div class="w-1/2">
                     <label for="edit-product" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Product Name (Generic):</label>
-                    <input type="text" name="generic_name" id="edit-product" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('generic_name') }}" placeholder="Enter Generic Name">
+                    <input type="text" name="generic_name" id="edit-product" required class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('generic_name') }}" placeholder="Enter Generic Name">
                     @error('generic_name', 'updateproduct')
                         <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
                     @enderror
                 </div>
                 <div class="w-1/2">
                     <label for="edit-brand" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Brand Name:</label>
-                    <input type="text" name="brand_name" id="edit-brand" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('brand_name') }}" placeholder="Enter Brand Name">
+                    <input type="text" name="brand_name" id="edit-brand" required class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('brand_name') }}" placeholder="Enter Brand Name">
                     @error('brand_name', 'updateproduct')
                         <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
                     @enderror
@@ -29,14 +29,14 @@
             <div class="flex gap-2 mt-2">
                 <div class="w-1/2">
                     <label for="edit-form" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Form:</label>
-                    <input type="text" name="form" id="edit-form" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('form') }}" placeholder="Vials">
+                    <input type="text" name="form" id="edit-form" required class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('form') }}" placeholder="Vials">
                     @error('form', 'updateproduct')
                         <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
                     @enderror
                 </div>
                 <div class="w-1/2">
                     <label for="edit-strength" class="text-sm font-semibold text-gray-600 dark:text-gray-300">Strength:</label>
-                    <input type="text" name="strength" id="edit-strength" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('strength') }}" placeholder="500mg">
+                    <input type="text" name="strength" id="edit-strength" required class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400" value="{{ old('strength') }}" placeholder="500mg">
                     @error('strength', 'updateproduct')
                         <p class="text-red-600 dark:text-red-400 text-sm mt-1 error-message">{{ $message }}</p>
                     @enderror
@@ -49,75 +49,3 @@
         </form>
     </div>
 </div>
-
-<script>
-    document.getElementById('editproductbtn').addEventListener('click', function() {
-    const form = document.getElementById('edit-product-form');
-    const inputs = form.querySelectorAll('input[type="text"], input[type="number"], input[type="date"]');
-    let allFilled = true;
-
-    inputs.forEach(input => {
-      if (input.value.trim() === '') {
-        allFilled = false;
-      }
-    });
-
-    if (!allFilled) {
-      Swal.fire({
-        title: 'Incomplete Form',
-        text: 'Please fill in all required fields before submitting.',
-        icon: 'warning',
-        confirmButtonText: 'OK',
-        allowOutsideClick: false,
-        customClass: {
-          container: 'swal-container',
-          popup: 'swal-popup',
-          title: 'swal-title',
-          htmlContainer: 'swal-content',
-          confirmButton: 'swal-confirm-button',
-          icon: 'swal-icon'
-        }
-      });
-      return;
-    }
-
-    Swal.fire({
-      title: 'Are you sure?',
-      text: "Please confirm if you want to proceed.",
-      icon: 'info',
-      showCancelButton: true,
-      cancelButtonText: 'Cancel',
-      confirmButtonText: 'Confirm',
-      allowOutsideClick: false,
-      customClass: {
-        container: 'swal-container',
-        popup: 'swal-popup',
-        title: 'swal-title',
-        htmlContainer: 'swal-content',
-        confirmButton: 'swal-confirm-button',
-        cancelButton: 'swal-cancel-button',
-        icon: 'swal-icon'
-      }
-    }).then((result) => {
-      if (result.isConfirmed) {
-        Swal.fire({
-          title: 'Processing...',
-          text: "Please wait, your request is being processed.",
-          allowOutsideClick: false,
-          customClass: {
-            container: 'swal-container',
-            popup: 'swal-popup',
-            title: 'swal-title',
-            htmlContainer: 'swal-content',
-            cancelButton: 'swal-cancel-button',
-            icon: 'swal-icon'
-          },
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        });
-        form.submit();
-      }
-    });
-  });
-</script>

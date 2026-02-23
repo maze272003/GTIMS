@@ -10,10 +10,9 @@ class CheckDoctorAccess
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Dapat level 4 lang
-        if (auth()->check() && auth()->user()->user_level_id == 4) {
+        if (auth()->check() && auth()->user()->hasPermission('patients.view')) {
             return $next($request);
         }
-        abort(403, 'Access Denied. Doctors only.');
+        abort(403, 'Access Denied. You do not have the required permission.');
     }
 }

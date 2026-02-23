@@ -4,7 +4,7 @@
         <x-admin.header/>
         
         {{-- Check for Authorization --}}
-        @if(in_array(auth()->user()->user_level_id, [1, 2, 3, 4]))
+        @if(auth()->user()->hasPermission('patients.view'))
             {{-- AUTHORIZED VIEW --}}
             <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
                 
@@ -35,19 +35,7 @@
                 </div>
 
                 @if (session('success'))
-                    <div id="successAlert" class="fixed top-24 right-5 border-l-4 border-green-500 bg-white text-green-500 py-3 px-6 rounded-lg shadow-lg z-50 flex items-center gap-3">
-                        <i class="fa-solid fa-circle-check text-2xl"></i>
-                        <div>
-                            <p class="font-bold">Success!</p>
-                            <p id="successMessage" class="text-black">{{ session('success') }}</p>
-                        </div>
-                    </div>
-                    <script>
-                        setTimeout(() => {
-                            const alert = document.getElementById('successAlert');
-                            if (alert) alert.remove();
-                        }, 3000);
-                    </script>
+                    <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
                 @endif
 
                 {{-- STATS CARDS --}}
@@ -82,8 +70,8 @@
                     </div>
                 </div>
 
-                @if (auth()->user()->user_level_id == 1 || auth()->user()->user_level_id == 2)
-                    <div class="mt-6 flex flex-col sm:flex-row gap-3 w-full justify-end mb-4">
+                @if (auth()->user()->hasPermission('patients.manage'))
+                    <div class="mt-6 flex flex-col sm:flex-row gap-3 w-full justify-end">
                         <button id="adddispensationbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
                             <i class="fa-regular fa-plus mr-2"></i> Record New Dispensation
                         </button>
@@ -102,22 +90,23 @@
                             <input type="text" id="patientrecords-search-input" placeholder="Search records..." class="w-full pl-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400">
                         </div>
 
-                        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-                            {{-- === ADMIN FILTER DROPDOWN === --}}
-                            @if(in_array(auth()->user()->user_level_id, [1, 2]) && isset($branches)) 
-                                <form method="GET" action="{{ route('admin.patientrecords') }}" class="flex items-center">
-                                    <div class="relative">
-                                        <select name="branch_filter" onchange="this.form.submit()" class="pl-3 p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer">
-                                            <option value="all" {{ ($currentFilter ?? 'all') == 'all' ? 'selected' : '' }}>All Branches</option>
-                                            @foreach($branches as $branch)
-                                                <option value="{{ $branch->id }}" {{ ($currentFilter ?? '') == $branch->id ? 'selected' : '' }}>
-                                                    {{ $branch->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                </form>
-                            @endif
+                            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                {{-- === ADMIN FILTER DROPDOWN === --}}
+                                @if(auth()->user()->hasPermission('patients.manage') && isset($branches)) 
+                                    <form method="GET" action="{{ route('admin.patientrecords') }}" class="flex items-center">
+                                        <div class="relative">
+                                            <i class="fa-regular fa-filter absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 text-xs"></i>
+                                            <select name="branch_filter" onchange="this.form.submit()" class="pl-8 p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer">
+                                                <option value="all" {{ ($currentFilter ?? 'all') == 'all' ? 'selected' : '' }}>All Branches</option>
+                                                @foreach($branches as $branch)
+                                                    <option value="{{ $branch->id }}" {{ ($currentFilter ?? '') == $branch->id ? 'selected' : '' }}>
+                                                        {{ $branch->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                        </div>
+                                    </form>
+                                @endif
 
                             {{-- NEW FILTER MODAL BUTTON --}}
                             <button type="button" id="openFilterModal" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
@@ -164,7 +153,7 @@
 
                         <form id="filterForm" class="space-y-5">
                             {{-- Preserve branch filter for Admin --}}
-                            @if(in_array(auth()->user()->user_level_id, [1, 2]))
+                            @if(auth()->user()->hasPermission('patients.manage'))
                                 <input type="hidden" name="branch_filter" value="{{ request('branch_filter', 'all') }}">
                             @endif
 
@@ -438,5 +427,5 @@
     </div>
 
     <script src="{{ asset('js/patientrecords.js') }}"></script>
-    <script>window.successMessage = @json(session('success'));</script>
+    
 </x-app-layout>

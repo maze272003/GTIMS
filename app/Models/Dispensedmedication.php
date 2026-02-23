@@ -17,6 +17,7 @@ class Dispensedmedication extends Model
         'strength',
         'form',
         'quantity',
+        'barangay_id',
     ];
 
     public function patientrecord()

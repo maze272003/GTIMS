@@ -2,16 +2,16 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\Facades\Gate;
-use App\Models\User;
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\URL;
-use Illuminate\Auth\Events\Login;
-use Illuminate\Auth\Events\Failed;
-use Illuminate\Auth\Events\Logout;
-
 use App\Listeners\LogUserLogin;
 use App\Listeners\LogUserLoginFailed;
+use App\Listeners\LogUserLogout;
+use Illuminate\Auth\Events\Failed;
+use Illuminate\Auth\Events\Login;
+use Illuminate\Auth\Events\Logout;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,24 +28,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-         $hosting = env('APP_HOSTING', 'local'); // default to 'local'
+        $shouldForceHttps = app()->environment('production')
+            || request()->isSecure()
+            || request()->header('X-Forwarded-Proto') === 'https'
+            || str_starts_with((string) config('app.url'), 'https://');
 
-        // Detect Cloudflare tunnel / proxy (X-Forwarded-Proto)
-        if ($hosting === 'cloudflare') {
-            if (request()->header('X-Forwarded-Proto') === 'https') {
-                URL::forceScheme('https');
-            }
-        }
-
-        // Detect Hostinger environment (direct HTTPS)
-        elseif ($hosting === 'hostinger') {
-            if (request()->isSecure()) {
-                URL::forceScheme('https');
-            }
-        }
-
-        // (Optional) Always force HTTPS in production
-        elseif (app()->environment('production')) {
+        if ($shouldForceHttps) {
             URL::forceScheme('https');
         }
         // $this->registerPolicies();
@@ -82,5 +70,15 @@ class AppServiceProvider extends ServiceProvider
         
         // (Wala na dito 'yung 'be-admin' at 'be-encoder' GATES
         // dahil pinalitan na natin ng 'can-access-admin-panel')
+
+        // Register Blade directive for permission-based rendering
+        Blade::if('haspermission', function (string $permission) {
+            return auth()->check() && auth()->user()->hasPermission($permission);
+        });
+
+        // Explicit event wiring for auth activity listeners.
+        Event::listen(Login::class, LogUserLogin::class);
+        Event::listen(Logout::class, LogUserLogout::class);
+        Event::listen(Failed::class, LogUserLoginFailed::class);
     }
 }

@@ -19,6 +19,114 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    const swalClasses = {
+        container: 'swal-container',
+        popup: 'swal-popup',
+        title: 'swal-title',
+        htmlContainer: 'swal-content',
+        confirmButton: 'swal-confirm-button',
+        cancelButton: 'swal-cancel-button',
+        icon: 'swal-icon'
+    };
+
+    function inventorySwal(options = {}) {
+        return Swal.fire({
+            allowOutsideClick: false,
+            ...options,
+            customClass: {
+                ...swalClasses,
+                ...(options.customClass || {})
+            }
+        });
+    }
+
+    function getRequiredFields(form) {
+        return Array.from(form.querySelectorAll('input[required], select[required], textarea[required]'))
+            .filter((field) => !field.disabled);
+    }
+
+    function hasMissingRequiredFields(form) {
+        return getRequiredFields(form).some((field) => String(field.value ?? '').trim() === '');
+    }
+
+    function showIncompleteFormAlert() {
+        return inventorySwal({
+            title: 'Incomplete Form',
+            text: 'Please fill in all required fields before submitting.',
+            icon: 'warning',
+            confirmButtonText: 'OK'
+        });
+    }
+
+    function showProcessingAlert() {
+        return inventorySwal({
+            title: 'Processing...',
+            text: 'Please wait, your request is being processed.',
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+    }
+
+    function bindValidatedModalSubmit({
+        buttonId,
+        formId,
+        confirmTitle = 'Are you sure?',
+        confirmText = 'Please confirm if you want to proceed.',
+        confirmIcon = 'info',
+        confirmButtonText = 'Confirm',
+        cancelButtonText = 'Cancel',
+        validate = null,
+    }) {
+        const button = document.getElementById(buttonId);
+        const form = document.getElementById(formId);
+
+        if (!button || !form) return;
+
+        button.addEventListener('click', async function () {
+            if (hasMissingRequiredFields(form)) {
+                await showIncompleteFormAlert();
+                return;
+            }
+
+            if (typeof validate === 'function') {
+                const validationResult = validate({ form, button });
+
+                if (validationResult !== true) {
+                    const errorState = validationResult || {};
+                    await inventorySwal({
+                        title: errorState.title || 'Validation Error',
+                        text: errorState.text || 'Please check your input values.',
+                        icon: errorState.icon || 'error',
+                        confirmButtonText: errorState.confirmButtonText || 'OK',
+                    });
+                    return;
+                }
+            }
+
+            const result = await inventorySwal({
+                title: confirmTitle,
+                text: confirmText,
+                icon: confirmIcon,
+                showCancelButton: true,
+                cancelButtonText,
+                confirmButtonText,
+            });
+
+            if (!result.isConfirmed) return;
+
+            showProcessingAlert();
+            form.submit();
+        });
+    }
+
+    window.inventoryModalValidation = {
+        bindValidatedModalSubmit,
+        inventorySwal,
+        showProcessingAlert,
+        showIncompleteFormAlert,
+    };
+
     // --- EVENT DELEGATION (Ito ang solusyon sa Bugs) ---
     // Lahat ng click events sa loob ng table ay dito dadaan.
     // Kahit mag-AJAX ka, gagana pa rin ito.
@@ -226,79 +334,29 @@ document.addEventListener('DOMContentLoaded', function () {
             
             // Note: Simple implementation. Add scroll listener logic here if you want infinite scroll
         } catch (error) {
-            console.error('Error:', error);
+            if (typeof gtToast !== 'undefined') gtToast.error('Error loading archived stocks.');
             if(container) container.innerHTML = '<tr><td colspan="4" class="text-red-500 p-4 text-center">Error loading data</td></tr>';
         }
     }
 
-    // --- SWEET ALERT FORMS ---
-    document.getElementById('add-product-btn').addEventListener('click', function() {
-        const form = document.getElementById('add-product-form');
-        const inputs = form.querySelectorAll('input[type="text"], input[type="number"], input[type="date"]');
+    // --- CONSOLIDATED MODAL VALIDATION / CONFIRM SUBMIT ---
+    bindValidatedModalSubmit({
+        buttonId: 'add-product-btn',
+        formId: 'add-product-form',
+    });
 
-        let allFilled = true;
-        inputs.forEach(input => {
-            if (input.value.trim() === '') {
-                allFilled = false;
-            }
-        });
+    bindValidatedModalSubmit({
+        buttonId: 'addstockbtn',
+        formId: 'addstockform',
+    });
 
-        if (!allFilled) {
-            Swal.fire({
-                title: 'Incomplete Form',
-                text: 'Please fill in all required fields before submitting.',
-                icon: 'warning',
-                confirmButtonText: 'OK',
-                allowOutsideClick: false,
-                customClass: {
-                    container: 'swal-container',
-                    popup: 'swal-popup',
-                    title: 'swal-title',
-                    htmlContainer: 'swal-content',
-                    confirmButton: 'swal-confirm-button',
-                    icon: 'swal-icon'
-                }
-            });
-            return;
-        }
+    bindValidatedModalSubmit({
+        buttonId: 'editproductbtn',
+        formId: 'edit-product-form',
+    });
 
-        Swal.fire({
-            title: 'Are you sure?',
-            text: "Please confirm if you want to proceed.",
-            icon: 'info',
-            showCancelButton: true,
-            cancelButtonText: 'Cancel',
-            confirmButtonText: 'Confirm',
-            allowOutsideClick: false,
-            customClass: {
-                container: 'swal-container',
-                popup: 'swal-popup',
-                title: 'swal-title',
-                htmlContainer: 'swal-content',
-                confirmButton: 'swal-confirm-button',
-                cancelButton: 'swal-cancel-button',
-                icon: 'swal-icon'
-            }
-        }).then((result) => {
-            if (result.isConfirmed) {
-                Swal.fire({
-                    title: 'Processing...',
-                    text: "Please wait, your request is being processed.",
-                    allowOutsideClick: false,
-                    customClass: {
-                        container: 'swal-container',
-                        popup: 'swal-popup',
-                        title: 'swal-title',
-                        htmlContainer: 'swal-content',
-                        cancelButton: 'swal-cancel-button',
-                        icon: 'swal-icon'
-                    },
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                form.submit();
-            }
-        });
+    bindValidatedModalSubmit({
+        buttonId: 'editstockbtn',
+        formId: 'editstockform',
     });
 });
