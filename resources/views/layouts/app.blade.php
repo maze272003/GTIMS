@@ -83,8 +83,8 @@
         {{-- Auto Logout (Idle Warning + Countdown) --}}
         <script>
             // ====== CONFIG (seconds) ======
-            const SECONDS_BEFORE_WARNING = 50; // idle seconds before showing warning
-            const SECONDS_TO_COUNTDOWN  = 50; // countdown seconds before auto logout
+            const SECONDS_BEFORE_WARNING = 2000; // idle seconds before showing warning
+            const SECONDS_TO_COUNTDOWN  = 200; // countdown seconds before auto logout
 
             let idleTimer = null;
             let isLoggingOut = false;
