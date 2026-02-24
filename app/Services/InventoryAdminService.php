@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth; // <-- added
 use App\Models\ProductMovement; // <-- ADD THIS
 use App\Repositories\Interfaces\InventoryAdminRepositoryInterface;
+use App\Tenancy\TenantContext;
 
 class InventoryAdminService
 {

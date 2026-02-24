@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\NewLoginNotification;
 use App\Models\User;
 use App\Repositories\Interfaces\UserRepositoryInterface;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -16,7 +17,7 @@ class AuthSessionService
     ) {
     }
 
-    public function getAuthenticatedRedirectUrl(): ?string
+    public function getAuthenticatedRedirectUrl(?TenantContext $tenantContext = null): ?string
     {
         if (!Auth::check()) {
             return null;
@@ -25,15 +26,21 @@ class AuthSessionService
         /** @var User $user */
         $user = Auth::user();
 
-        return $this->getRedirectUrl($user) ?? route('admin.dashboard');
+        return $this->getRedirectUrl($user, $tenantContext) ?? route('admin.dashboard');
     }
 
-    public function getRedirectUrl(User $user): ?string
+    public function getRedirectUrl(User $user, ?TenantContext $tenantContext = null): ?string
     {
         if (is_null($user->level)) {
             return null;
         }
 
+        // If tenant context is available, generate tenant-scoped routes
+        if ($tenantContext && !$tenantContext->isPlatform()) {
+            return $this->getTenantRedirectUrl($user, $tenantContext);
+        }
+
+        // Moderator / legacy admin redirect
         if ($user->hasPermission('dashboard.view')) {
             return route('admin.dashboard');
         }
@@ -78,7 +85,40 @@ class AuthSessionService
         return null;
     }
 
-    public function canAccessApplication(User $user): array
+    /**
+     * Generate a tenant-scoped redirect URL based on user permissions.
+     */
+    protected function getTenantRedirectUrl(User $user, TenantContext $tenantContext): ?string
+    {
+        $slugParams = [
+            'provinceSlug' => $tenantContext->provinceSlug,
+            'barangaySlug' => $tenantContext->barangaySlug,
+        ];
+
+        if ($user->hasPermission('dashboard.view')) {
+            return route('tenant.dashboard', $slugParams);
+        }
+
+        if ($user->hasPermission('orders.view')) {
+            return route('tenant.orders.index', $slugParams);
+        }
+
+        if ($user->hasPermission('inventories.view')) {
+            return route('tenant.inventory', $slugParams);
+        }
+
+        if ($user->hasPermission('requests.view')) {
+            return route('tenant.requests.index', $slugParams);
+        }
+
+        if ($user->hasPermission('suppliers.view')) {
+            return route('tenant.suppliers.index', $slugParams);
+        }
+
+        return null;
+    }
+
+    public function canAccessApplication(User $user, ?TenantContext $tenantContext = null): array
     {
         if (is_null($user->email_verified_at)) {
             return [
@@ -96,7 +136,7 @@ class AuthSessionService
             ];
         }
 
-        $redirectUrl = $this->getRedirectUrl($user);
+        $redirectUrl = $this->getRedirectUrl($user, $tenantContext);
         if (!$redirectUrl) {
             return [
                 'ok' => false,
@@ -124,4 +164,3 @@ class AuthSessionService
         $this->userRepository->updateLoginMetadata($user->id, $currentIp);
     }
 }
-

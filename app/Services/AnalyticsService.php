@@ -7,6 +7,7 @@ use App\Models\LowStockSetting;
 use App\Models\ReorderRule;
 use App\Models\Product;
 use App\Models\Inventory;
+use App\Tenancy\TenantContext;
 
 class AnalyticsService
 {
@@ -17,9 +18,17 @@ class AnalyticsService
         $this->availabilityService = $availabilityService;
     }
 
-    public function getRequestSLAMetrics(?\Carbon\Carbon $from = null, ?\Carbon\Carbon $to = null): array
+    public function getRequestSLAMetrics(?\Carbon\Carbon $from = null, ?\Carbon\Carbon $to = null, ?TenantContext $tenantContext = null): array
     {
         $query = IncomingRequest::query();
+
+        if ($tenantContext && !$tenantContext->isPlatform()) {
+            $query->where('province_id', $tenantContext->provinceId);
+            if ($tenantContext->isBarangay()) {
+                $query->where('barangay_id', $tenantContext->barangayId);
+            }
+        }
+
         if ($from) $query->where('created_at', '>=', $from);
         if ($to) $query->where('created_at', '<=', $to);
 
@@ -70,10 +79,16 @@ class AnalyticsService
         return $metrics;
     }
 
-    public function getReorderSuggestions(?int $branchId = null): array
+    public function getReorderSuggestions(?int $branchId = null, ?TenantContext $tenantContext = null): array
     {
         $rules = ReorderRule::with(['product', 'preferredSupplier'])
-            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($tenantContext && !$tenantContext->isPlatform(), function ($q) use ($tenantContext) {
+                $q->where('province_id', $tenantContext->provinceId);
+                if ($tenantContext->isBarangay()) {
+                    $q->where('barangay_id', $tenantContext->barangayId);
+                }
+            })
+            ->when(!$tenantContext && $branchId, fn($q) => $q->where('branch_id', $branchId))
             ->get();
 
         $suggestions = [];
@@ -81,7 +96,8 @@ class AnalyticsService
         foreach ($rules as $rule) {
             $available = $this->availabilityService->getAvailable(
                 $rule->product_id,
-                $rule->branch_id
+                $rule->branch_id,
+                $tenantContext
             );
 
             if ($available <= $rule->reorder_point) {
@@ -106,13 +122,9 @@ class AnalyticsService
     }
 
     /**
-     * Get low stock alerts across branches (or single branch if $branchId is provided).
-     *
-     * Returns array items with keys:
-     * inventory_id, product_id, branch_id, batch_number, product_name,
-     * branch_name, current_stock, threshold, on_hand, held
+     * Get low stock alerts, optionally scoped by tenant or branch.
      */
-    public function getLowStockAlerts(?int $branchId = null): array
+    public function getLowStockAlerts(?int $branchId = null, ?TenantContext $tenantContext = null): array
     {
         $globalThreshold = (int) (LowStockSetting::where('is_global', true)->value('threshold') ?? 100);
         $rules = LowStockSetting::where('is_global', false)->get(['product_id', 'branch_id', 'threshold']);
@@ -121,7 +133,13 @@ class AnalyticsService
         $inventoryQuery = Inventory::query()
             ->where('is_archived', false)
             ->whereHas('product', fn($q) => $q->where('is_archived', false))
-            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($tenantContext && !$tenantContext->isPlatform(), function ($q) use ($tenantContext) {
+                $q->where('province_id', $tenantContext->provinceId);
+                if ($tenantContext->isBarangay()) {
+                    $q->where('barangay_id', $tenantContext->barangayId);
+                }
+            })
+            ->when(!$tenantContext && $branchId, fn($q) => $q->where('branch_id', $branchId))
             ->with([
                 'product:id,generic_name,brand_name',
                 'branch:id,name',
@@ -141,7 +159,7 @@ class AnalyticsService
             $available = max(0, (int) $batch->quantity - $held);
             $threshold = $this->resolveThreshold(
                 (int) $batch->product_id,
-                (int) $batch->branch_id,
+                (int) ($batch->branch_id ?? 0),
                 $ruleMap,
                 $globalThreshold
             );
@@ -150,7 +168,7 @@ class AnalyticsService
                 $alerts[] = [
                     'inventory_id'  => (int) $batch->id,
                     'product_id'    => (int) $batch->product_id,
-                    'branch_id'     => (int) $batch->branch_id,
+                    'branch_id'     => (int) ($batch->branch_id ?? 0),
                     'batch_number'  => $batch->batch_number,
                     'product_name'  => $batch->product?->generic_name
                         ?? $batch->product?->brand_name
@@ -169,7 +187,7 @@ class AnalyticsService
         return $alerts;
     }
 
-    public function getStockKPIs(?int $branchId = null): array
+    public function getStockKPIs(?int $branchId = null, ?TenantContext $tenantContext = null): array
     {
         $products = Product::where('is_archived', false)->get();
 
@@ -178,8 +196,8 @@ class AnalyticsService
         $totalAvailable = 0;
 
         foreach ($products as $product) {
-            $onHand = $this->availabilityService->getOnHand($product->id, $branchId);
-            $held = $this->availabilityService->getHeldQuantity($product->id, $branchId);
+            $onHand = $this->availabilityService->getOnHand($product->id, $branchId, $tenantContext);
+            $held = $this->availabilityService->getHeldQuantity($product->id, $branchId, $tenantContext);
             $totalOnHand += $onHand;
             $totalHeld += $held;
             $totalAvailable += max(0, $onHand - $held);

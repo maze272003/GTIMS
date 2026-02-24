@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\NewUserCredentials;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\URL;
 
 class ManageAccountAdminService

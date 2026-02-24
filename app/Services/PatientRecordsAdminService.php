@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Dispensedmedication;
 use Illuminate\Support\Facades\Auth;
 use App\Repositories\Interfaces\PatientRecordsRepositoryInterface;
+use App\Tenancy\TenantContext;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;

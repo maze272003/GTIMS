@@ -2,19 +2,18 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
-class Barangay extends Model
+class Province extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'barangay_name',
-        'province_id',
+        'name',
         'slug',
+        'code',
         'is_active',
-        'external_code',
         'settings_json',
     ];
 
@@ -26,19 +25,14 @@ class Barangay extends Model
         ];
     }
 
-    public function province()
+    public function barangays()
     {
-        return $this->belongsTo(Province::class);
-    }
-
-    public function patientrecords()
-    {
-        return $this->hasMany(Patientrecords::class);
+        return $this->hasMany(Barangay::class);
     }
 
     public function memberships()
     {
         return $this->morphMany(TenantMembership::class, 'scope', 'scope_type', 'scope_id')
-            ->where('scope_type', 'barangay');
+            ->where('scope_type', 'province');
     }
 }

@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Inventory extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantScoped;
 
     protected $fillable = [
         'product_id',
@@ -15,7 +16,9 @@ class Inventory extends Model
         'batch_number',
         'quantity',
         'expiry_date',
-        'is_archived'
+        'is_archived',
+        'province_id',
+        'barangay_id',
     ];
 
     protected $casts = [
