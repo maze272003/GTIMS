@@ -25,7 +25,7 @@
                                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Contact Person</th>
                                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Email</th>
                                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Phone</th>
-                                <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide text-center">Products</th>
+                                <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide text-center">Batches</th>
                                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide text-center">Actions</th>
                             </tr>
                         </thead>
@@ -41,7 +41,7 @@
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ $supplier->phone ?? '-' }}</td>
                                     <td class="px-6 py-4 text-sm text-center">
-                                        <x-badge variant="info">{{ $supplier->products_count ?? $supplier->products->count() ?? 0 }}</x-badge>
+                                        <x-badge variant="info">{{ $supplier->products_count ?? $supplier->supplierProducts->count() ?? 0 }}</x-badge>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <a href="{{ route('admin.suppliers.edit', $supplier->id) }}" class="p-2 rounded-lg bg-blue-100 text-blue-700 text-sm hover:bg-blue-200 transition" title="Edit">

@@ -48,6 +48,18 @@ class Inventory extends Model
         return $this->hasMany(HoldItem::class);
     }
 
+    public function supplierProducts()
+    {
+        return $this->hasMany(SupplierProduct::class);
+    }
+
+    public function suppliers()
+    {
+        return $this->belongsToMany(Supplier::class, 'supplier_products')
+            ->withPivot('lead_time_days', 'unit_cost')
+            ->withTimestamps();
+    }
+
     public function getAvailableQuantityAttribute(): int
     {
         $held = $this->holdItems()

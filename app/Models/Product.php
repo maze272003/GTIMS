@@ -52,8 +52,23 @@ class Product extends Model
 
     public function suppliers()
     {
-        return $this->belongsToMany(Supplier::class, 'supplier_products')
-            ->withPivot('lead_time_days', 'unit_cost')
-            ->withTimestamps();
+        return Supplier::query()
+            ->select('suppliers.*')
+            ->join('supplier_products', 'supplier_products.supplier_id', '=', 'suppliers.id')
+            ->join('inventories', 'inventories.id', '=', 'supplier_products.inventory_id')
+            ->where('inventories.product_id', $this->id)
+            ->distinct();
+    }
+
+    public function supplierProducts()
+    {
+        return $this->hasManyThrough(
+            SupplierProduct::class,
+            Inventory::class,
+            'product_id',
+            'inventory_id',
+            'id',
+            'id'
+        );
     }
 }

@@ -3,6 +3,8 @@
 namespace Tests\Unit\Repositories;
 
 use Tests\TestCase;
+use App\Models\Branch;
+use App\Models\Inventory;
 use App\Models\Supplier;
 use App\Models\Product;
 use App\Models\SupplierProduct;
@@ -81,52 +83,67 @@ class SupplierRepositoryTest extends TestCase
         $this->assertCount(2, $paginated->items());
     }
 
-    public function test_find_with_products(): void
+    public function test_find_with_inventory_links(): void
     {
         $supplier = Supplier::create(['name' => 'Supplier With Products']);
         $product = Product::factory()->create();
+        $branch = Branch::factory()->create(['name' => 'RHU 1']);
+        $inventory = Inventory::factory()->create([
+            'product_id' => $product->id,
+            'branch_id' => $branch->id,
+        ]);
 
         SupplierProduct::create([
             'supplier_id' => $supplier->id,
-            'product_id' => $product->id,
+            'inventory_id' => $inventory->id,
             'lead_time_days' => 5,
         ]);
 
-        $found = $this->repository->findWithProducts($supplier->id);
-        $this->assertTrue($found->relationLoaded('products'));
-        $this->assertCount(1, $found->products);
+        $found = $this->repository->findWithInventoryLinks($supplier->id);
+        $this->assertTrue($found->relationLoaded('supplierProducts'));
+        $this->assertCount(1, $found->supplierProducts);
     }
 
-    public function test_link_product(): void
+    public function test_link_inventory(): void
     {
         $supplier = Supplier::create(['name' => 'Linker']);
         $product = Product::factory()->create();
+        $branch = Branch::factory()->create(['name' => 'RHU 1']);
+        $inventory = Inventory::factory()->create([
+            'product_id' => $product->id,
+            'branch_id' => $branch->id,
+        ]);
 
-        $this->repository->linkProduct($supplier->id, $product->id, 7, 15.50);
+        $this->repository->linkInventory($supplier->id, $inventory->id, 7, 15.50);
 
         $this->assertDatabaseHas('supplier_products', [
             'supplier_id' => $supplier->id,
-            'product_id' => $product->id,
+            'inventory_id' => $inventory->id,
             'lead_time_days' => 7,
         ]);
     }
 
-    public function test_unlink_product(): void
+    public function test_unlink_inventory(): void
     {
         $supplier = Supplier::create(['name' => 'Unlinker']);
         $product = Product::factory()->create();
+        $branch = Branch::factory()->create(['name' => 'RHU 1']);
+        $inventory = Inventory::factory()->create([
+            'product_id' => $product->id,
+            'branch_id' => $branch->id,
+        ]);
 
         SupplierProduct::create([
             'supplier_id' => $supplier->id,
-            'product_id' => $product->id,
+            'inventory_id' => $inventory->id,
             'lead_time_days' => 3,
         ]);
 
-        $this->repository->unlinkProduct($supplier->id, $product->id);
+        $this->repository->unlinkInventory($supplier->id, $inventory->id);
 
         $this->assertDatabaseMissing('supplier_products', [
             'supplier_id' => $supplier->id,
-            'product_id' => $product->id,
+            'inventory_id' => $inventory->id,
         ]);
     }
 }

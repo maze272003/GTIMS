@@ -9,22 +9,22 @@ use Illuminate\Database\Eloquent\Collection;
 interface SupplierRepositoryInterface extends RepositoryInterface
 {
     /**
-     * Get all suppliers with product count, paginated.
+     * Get all suppliers with linked inventory count, paginated.
      */
     public function paginateWithProductCount(int $perPage = 20): LengthAwarePaginator;
 
     /**
-     * Get a supplier with its associated products loaded.
+     * Get a supplier with its linked inventory batches loaded.
      */
-    public function findWithProducts(int $id): Supplier;
+    public function findWithInventoryLinks(int $id): Supplier;
 
     /**
-     * Link a product to a supplier.
+     * Link an inventory batch to a supplier.
      */
-    public function linkProduct(int $supplierId, int $productId, int $leadTimeDays, ?float $unitCost = null): void;
+    public function linkInventory(int $supplierId, int $inventoryId, ?int $leadTimeDays = null, ?float $unitCost = null): void;
 
     /**
-     * Unlink a product from a supplier.
+     * Unlink an inventory batch from a supplier.
      */
-    public function unlinkProduct(int $supplierId, int $productId): void;
+    public function unlinkInventory(int $supplierId, int $inventoryId): void;
 }

@@ -156,8 +156,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('/', [SupplierController::class, 'store'])->name('store');
                 Route::get('/{supplier}/edit', [SupplierController::class, 'edit'])->name('edit');
                 Route::put('/{supplier}', [SupplierController::class, 'update'])->name('update');
-                Route::post('/{supplier}/link-product', [SupplierController::class, 'linkProduct'])->name('link-product');
-                Route::delete('/{supplier}/unlink-product/{product}', [SupplierController::class, 'unlinkProduct'])->name('unlink-product');
+                Route::post('/{supplier}/link-inventory', [SupplierController::class, 'linkInventory'])->name('link-inventory');
+                Route::delete('/{supplier}/unlink-inventory/{inventory}', [SupplierController::class, 'unlinkInventory'])->name('unlink-inventory');
             });
 
             // == Audit Events Routes ==

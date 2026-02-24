@@ -14,11 +14,11 @@ return new class extends Migration
         Schema::create('supplier_products', function (Blueprint $table) {
             $table->id();
             $table->foreignId('supplier_id')->constrained('suppliers')->onDelete('cascade');
-            $table->foreignId('product_id')->constrained('products')->onDelete('cascade');
+            $table->foreignId('inventory_id')->constrained('inventories')->onDelete('cascade');
             $table->integer('lead_time_days')->default(7);
             $table->decimal('unit_cost', 10, 2)->nullable();
             $table->timestamps();
-            $table->unique(['supplier_id', 'product_id']);
+            $table->unique(['supplier_id', 'inventory_id']);
         });
     }
 

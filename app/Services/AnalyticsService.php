@@ -93,9 +93,10 @@ class AnalyticsService
                     'suggested_quantity' => $rule->reorder_quantity,
                     'preferred_supplier' => $rule->preferredSupplier,
                     'lead_time_days' => $rule->preferredSupplier
-                        ? $rule->product->suppliers()
+                        ? $rule->product?->supplierProducts()
                             ->where('supplier_id', $rule->preferred_supplier_id)
-                            ->first()?->pivot?->lead_time_days
+                            ->orderBy('lead_time_days')
+                            ->value('lead_time_days')
                         : null,
                 ];
             }

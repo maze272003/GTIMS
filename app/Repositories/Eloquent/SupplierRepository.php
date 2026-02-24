@@ -16,26 +16,34 @@ class SupplierRepository extends BaseRepository implements SupplierRepositoryInt
 
     public function paginateWithProductCount(int $perPage = 20): LengthAwarePaginator
     {
-        return $this->model->withCount('products')->paginate($perPage);
+        return $this->model
+            ->withCount(['supplierProducts as products_count'])
+            ->paginate($perPage);
     }
 
-    public function findWithProducts(int $id): Supplier
+    public function findWithInventoryLinks(int $id): Supplier
     {
-        return $this->model->with('products')->findOrFail($id);
+        return $this->model
+            ->with([
+                'supplierProducts' => fn ($query) => $query
+                    ->with(['inventory.product', 'inventory.branch'])
+                    ->latest('id'),
+            ])
+            ->findOrFail($id);
     }
 
-    public function linkProduct(int $supplierId, int $productId, int $leadTimeDays, ?float $unitCost = null): void
+    public function linkInventory(int $supplierId, int $inventoryId, ?int $leadTimeDays = null, ?float $unitCost = null): void
     {
         SupplierProduct::updateOrCreate(
-            ['supplier_id' => $supplierId, 'product_id' => $productId],
-            ['lead_time_days' => $leadTimeDays, 'unit_cost' => $unitCost]
+            ['supplier_id' => $supplierId, 'inventory_id' => $inventoryId],
+            ['lead_time_days' => $leadTimeDays ?? 7, 'unit_cost' => $unitCost]
         );
     }
 
-    public function unlinkProduct(int $supplierId, int $productId): void
+    public function unlinkInventory(int $supplierId, int $inventoryId): void
     {
         SupplierProduct::where('supplier_id', $supplierId)
-            ->where('product_id', $productId)
+            ->where('inventory_id', $inventoryId)
             ->delete();
     }
 }

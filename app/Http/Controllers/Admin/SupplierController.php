@@ -5,15 +5,14 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreSupplierRequest;
 use App\Http\Requests\Admin\UpdateSupplierRequest;
+use App\Models\Inventory;
 use App\Repositories\Interfaces\SupplierRepositoryInterface;
-use App\Repositories\Interfaces\ProductRepositoryInterface;
 use Illuminate\Http\Request;
 
 class SupplierController extends Controller
 {
     public function __construct(
-        protected SupplierRepositoryInterface $supplierRepository,
-        protected ProductRepositoryInterface $productRepository
+        protected SupplierRepositoryInterface $supplierRepository
     ) {
     }
 
@@ -37,9 +36,27 @@ class SupplierController extends Controller
 
     public function edit(int $id)
     {
-        $supplier = $this->supplierRepository->findWithProducts($id);
-        $allProducts = $this->productRepository->getActive();
-        return view('admin.suppliers.edit', compact('supplier', 'allProducts'));
+        $supplier = $this->supplierRepository->findWithInventoryLinks($id);
+
+        $linkedInventoryIds = $supplier->supplierProducts->pluck('inventory_id');
+
+        $availableInventories = Inventory::query()
+            ->with(['product', 'branch'])
+            ->where('is_archived', false)
+            ->whereHas('product', fn ($query) => $query->where('is_archived', false))
+            ->when($linkedInventoryIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $linkedInventoryIds))
+            ->orderBy('expiry_date')
+            ->orderBy('batch_number')
+            ->get()
+            ->sortBy(function (Inventory $inventory) {
+                $productLabel = strtolower((string) ($inventory->product?->generic_name ?? $inventory->product?->brand_name ?? ''));
+                $branchLabel = strtolower((string) ($inventory->branch?->name ?? ''));
+
+                return "{$productLabel}|{$branchLabel}|".strtolower((string) $inventory->batch_number);
+            })
+            ->values();
+
+        return view('admin.suppliers.edit', compact('supplier', 'availableInventories'));
     }
 
     public function update(UpdateSupplierRequest $request, int $id)
@@ -48,28 +65,28 @@ class SupplierController extends Controller
         return back()->with('success', 'Supplier updated.');
     }
 
-    public function linkProduct(Request $request, int $supplierId)
+    public function linkInventory(Request $request, int $supplierId)
     {
         $validated = $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'lead_time_days' => 'required|integer|min:1',
+            'inventory_id' => 'required|exists:inventories,id',
+            'lead_time_days' => 'nullable|integer|min:1',
             'unit_cost' => 'nullable|numeric|min:0',
         ]);
 
-        $this->supplierRepository->linkProduct(
+        $this->supplierRepository->linkInventory(
             $supplierId,
-            $validated['product_id'],
-            $validated['lead_time_days'],
+            $validated['inventory_id'],
+            $validated['lead_time_days'] ?? null,
             $validated['unit_cost'] ?? null
         );
 
-        return back()->with('success', 'Product linked to supplier.');
+        return back()->with('success', 'Inventory batch linked to supplier.');
     }
 
-    public function unlinkProduct(int $supplierId, int $productId)
+    public function unlinkInventory(int $supplierId, int $inventoryId)
     {
-        $this->supplierRepository->unlinkProduct($supplierId, $productId);
+        $this->supplierRepository->unlinkInventory($supplierId, $inventoryId);
 
-        return back()->with('success', 'Product unlinked from supplier.');
+        return back()->with('success', 'Inventory batch unlinked from supplier.');
     }
 }
