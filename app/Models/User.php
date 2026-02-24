@@ -66,6 +66,16 @@ class User extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
+    public function tenantMemberships()
+    {
+        return $this->hasMany(TenantMembership::class);
+    }
+
+    public function roleAssignments()
+    {
+        return $this->hasMany(RoleAssignment::class);
+    }
+
     public function hasPermission(string $permissionName): bool
     {
         if (!$this->level) {

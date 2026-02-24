@@ -5,19 +5,25 @@ namespace App\Services;
 use App\Models\Inventory;
 use App\Models\HoldItem;
 use App\Models\ProductMovement;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 class AvailabilityService
 {
     /**
-     * Get on-hand quantity for a product at a branch.
+     * Get on-hand quantity for a product, optionally scoped by tenant or branch.
      */
-    public function getOnHand(int $productId, ?int $branchId = null): int
+    public function getOnHand(int $productId, ?int $branchId = null, ?TenantContext $tenantContext = null): int
     {
         $query = Inventory::where('product_id', $productId)
             ->where('is_archived', false);
 
-        if ($branchId) {
+        if ($tenantContext && !$tenantContext->isPlatform()) {
+            $query->where('province_id', $tenantContext->provinceId);
+            if ($tenantContext->isBarangay()) {
+                $query->where('barangay_id', $tenantContext->barangayId);
+            }
+        } elseif ($branchId) {
             $query->where('branch_id', $branchId);
         }
 
@@ -25,14 +31,19 @@ class AvailabilityService
     }
 
     /**
-     * Get total held/reserved quantity for a product at a branch.
+     * Get total held/reserved quantity for a product, optionally scoped by tenant or branch.
      */
-    public function getHeldQuantity(int $productId, ?int $branchId = null): int
+    public function getHeldQuantity(int $productId, ?int $branchId = null, ?TenantContext $tenantContext = null): int
     {
         $query = HoldItem::where('product_id', $productId)
-            ->whereHas('hold', function ($q) use ($branchId) {
+            ->whereHas('hold', function ($q) use ($branchId, $tenantContext) {
                 $q->whereIn('status', ['pending', 'approved']);
-                if ($branchId) {
+                if ($tenantContext && !$tenantContext->isPlatform()) {
+                    $q->where('province_id', $tenantContext->provinceId);
+                    if ($tenantContext->isBarangay()) {
+                        $q->where('barangay_id', $tenantContext->barangayId);
+                    }
+                } elseif ($branchId) {
                     $q->where('branch_id', $branchId);
                 }
             });
@@ -43,21 +54,27 @@ class AvailabilityService
     /**
      * Get available quantity (on-hand minus held).
      */
-    public function getAvailable(int $productId, ?int $branchId = null): int
+    public function getAvailable(int $productId, ?int $branchId = null, ?TenantContext $tenantContext = null): int
     {
-        return max(0, $this->getOnHand($productId, $branchId) - $this->getHeldQuantity($productId, $branchId));
+        return max(0, $this->getOnHand($productId, $branchId, $tenantContext) - $this->getHeldQuantity($productId, $branchId, $tenantContext));
     }
 
     /**
      * Allocate batches using FEFO (First Expired First Out).
      * Returns array of allocations: [['inventory_id' => X, 'quantity' => Y], ...]
      */
-    public function allocateFEFO(int $productId, int $quantity, ?int $branchId = null): array
+    public function allocateFEFO(int $productId, int $quantity, ?int $branchId = null, ?TenantContext $tenantContext = null): array
     {
         $batches = Inventory::where('product_id', $productId)
             ->where('is_archived', false)
             ->where('quantity', '>', 0)
-            ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
+            ->when($tenantContext && !$tenantContext->isPlatform(), function ($q) use ($tenantContext) {
+                $q->where('province_id', $tenantContext->provinceId);
+                if ($tenantContext->isBarangay()) {
+                    $q->where('barangay_id', $tenantContext->barangayId);
+                }
+            })
+            ->when(!$tenantContext && $branchId, fn($q) => $q->where('branch_id', $branchId))
             ->orderBy('expiry_date', 'asc')
             ->lockForUpdate()
             ->get();

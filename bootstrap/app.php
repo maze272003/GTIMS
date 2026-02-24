@@ -5,6 +5,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -12,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function () {
+            Route::middleware('web')
+                ->group(base_path('routes/tenant.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Respect forwarded headers from reverse proxies (Hostinger / Cloudflare / LB)
@@ -38,6 +43,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'level.mayor'      => \App\Http\Middleware\CheckMayorAccess::class,
             'level.finance'    => \App\Http\Middleware\CheckFinanceAccess::class,
             'permission'       => \App\Http\Middleware\CheckPermission::class,
+            'tenant.resolve'   => \App\Http\Middleware\ResolveTenantFromSlug::class,
+            'tenant.membership' => \App\Http\Middleware\EnforceTenantMembership::class,
+            'tenant.bind'      => \App\Http\Middleware\BindTenantContext::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

@@ -7,6 +7,7 @@ use App\Models\RequestItem;
 use App\Models\RequestStatusHistory;
 use App\Models\AuditEvent;
 use App\Models\IdempotencyKey;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 class RequestWorkflowService
