@@ -7,6 +7,30 @@
         <meta name="user-level" content="{{ auth()->check() ? auth()->user()->user_level_id : '' }}">
         <meta name="user-permissions" content="{{ auth()->check() ? auth()->user()->level?->permissions->pluck('name')->implode(',') : '' }}">
         <title>{{ $title ?? 'General Tinio - Inventory System' }}</title>
+
+        {{-- Prevent light-theme flash before CSS/JS loads by applying saved theme immediately --}}
+        <script>
+            (function () {
+                try {
+                    var savedTheme = localStorage.getItem('theme');
+                    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    var useDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+                    var root = document.documentElement;
+
+                    if (useDark) root.classList.add('dark');
+                    else root.classList.remove('dark');
+
+                    root.style.colorScheme = useDark ? 'dark' : 'light';
+                } catch (e) {
+                    // Ignore localStorage/matchMedia access errors and keep default theme
+                }
+            })();
+        </script>
+        <style>
+            html { background-color: #f9fafb; }
+            html.dark { background-color: #111827; }
+        </style>
+
         @vite(['resources/css/app.css', 'resources/js/app.js'])
         <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.1.0/css/all.css">
         <link rel="icon" type="image/png" href="{{ asset('images/gtlogo.png') }}">
