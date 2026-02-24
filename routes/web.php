@@ -153,6 +153,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::prefix('suppliers')->name('suppliers.')->group(function () {
                 Route::get('/', [SupplierController::class, 'index'])->name('index');
                 Route::get('/create', [SupplierController::class, 'create'])->name('create');
+                Route::get('/export-excel', [SupplierController::class, 'exportExcel'])->name('exportExcel');
                 Route::post('/', [SupplierController::class, 'store'])->name('store');
                 Route::get('/{supplier}/edit', [SupplierController::class, 'edit'])->name('edit');
                 Route::put('/{supplier}', [SupplierController::class, 'update'])->name('update');

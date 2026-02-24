@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Exports\SuppliersExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StoreSupplierRequest;
 use App\Http\Requests\Admin\UpdateSupplierRequest;
 use App\Models\Inventory;
 use App\Repositories\Interfaces\SupplierRepositoryInterface;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
 
 class SupplierController extends Controller
 {
@@ -20,6 +23,16 @@ class SupplierController extends Controller
     {
         $suppliers = $this->supplierRepository->paginateWithProductCount(20);
         return view('admin.suppliers.index', compact('suppliers'));
+    }
+
+    public function exportExcel(Request $request)
+    {
+        $user = $request->user();
+
+        return Excel::download(
+            new SuppliersExport($user),
+            'suppliers_' . Carbon::now()->format('Ymd_His') . '.xlsx'
+        );
     }
 
     public function create()

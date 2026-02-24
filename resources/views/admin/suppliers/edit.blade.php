@@ -134,7 +134,7 @@
                                     <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">{{ $inventory?->quantity ?? '-' }}</td>
                                     <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">{{ optional($inventory?->expiry_date)->format('Y-m-d') ?? '-' }}</td>
                                     <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">{{ $link->lead_time_days ?? '-' }}</td>
-                                    <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">{{ $link->unit_cost ? '?' . number_format((float) $link->unit_cost, 2) : '-' }}</td>
+                                    <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">{{ $link->unit_cost ? 'PHP ' . number_format((float) $link->unit_cost, 2) : '-' }}</td>
                                     <td class="px-4 py-3 text-sm text-center">
                                         <form action="{{ route('admin.suppliers.unlink-inventory', [$supplier->id, $inventory?->id ?? 0]) }}" method="POST" class="inline" id="unlink-form-{{ $link->id }}">
                                             @csrf @method('DELETE')
@@ -162,7 +162,7 @@
                         <div class="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                             <div>
                                 <h3 id="link-inventory-modal-title" class="text-lg font-semibold text-gray-900 dark:text-white">Add Product Batch to Supplier</h3>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Dropdown-only selection from database inventory records.</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Select product/location/batch from database dropdowns, then enter the purchase cost manually.</p>
                             </div>
                             <button type="button" class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" data-modal-close aria-label="Close modal">
                                 <i class="fa-solid fa-xmark text-lg"></i>
@@ -204,8 +204,25 @@
                                     @enderror
                                 </div>
 
+                                <div>
+                                    <label for="supplier-link-cost-input" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cost</label>
+                                    <input
+                                        type="number"
+                                        name="unit_cost"
+                                        id="supplier-link-cost-input"
+                                        min="0"
+                                        step="0.01"
+                                        value="{{ old('unit_cost') }}"
+                                        placeholder="Enter purchase price"
+                                        class="w-full border dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500"
+                                    >
+                                    @error('unit_cost')
+                                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
                                 <div class="rounded-lg border border-blue-100 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 text-xs text-blue-800 dark:text-blue-200">
-                                    New links use the default lead time and optional cost settings unless updated later.
+                                    Select the batch from the dropdowns, then enter the exact purchase cost manually if available.
                                 </div>
                             </div>
 
