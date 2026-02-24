@@ -6,30 +6,38 @@
     'use strict';
 
     // ── Toast Notifications ──────────────────────────────────────────
-    var Toast = typeof Swal !== 'undefined' ? Swal.mixin({
-        toast: true,
-        position: 'top-end',
-        showConfirmButton: false,
-        timer: 4000,
-        timerProgressBar: true,
-        didOpen: function (toast) {
-            toast.addEventListener('mouseenter', Swal.stopTimer);
-            toast.addEventListener('mouseleave', Swal.resumeTimer);
-        }
-    }) : null;
+    function getToast() {
+        if (typeof Swal === 'undefined') return null;
+
+        return Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true,
+            didOpen: function (toast) {
+                toast.addEventListener('mouseenter', Swal.stopTimer);
+                toast.addEventListener('mouseleave', Swal.resumeTimer);
+            }
+        });
+    }
 
     window.gtToast = {
         success: function (msg) {
-            if (Toast) Toast.fire({ icon: 'success', title: msg || 'Done!' });
+            var toast = getToast();
+            if (toast) toast.fire({ icon: 'success', title: msg || 'Done!' });
         },
         error: function (msg) {
-            if (Toast) Toast.fire({ icon: 'error', title: msg || 'Something went wrong.' });
+            var toast = getToast();
+            if (toast) toast.fire({ icon: 'error', title: msg || 'Something went wrong.' });
         },
         warning: function (msg) {
-            if (Toast) Toast.fire({ icon: 'warning', title: msg || 'Warning' });
+            var toast = getToast();
+            if (toast) toast.fire({ icon: 'warning', title: msg || 'Warning' });
         },
         info: function (msg) {
-            if (Toast) Toast.fire({ icon: 'info', title: msg || 'Info' });
+            var toast = getToast();
+            if (toast) toast.fire({ icon: 'info', title: msg || 'Info' });
         }
     };
 

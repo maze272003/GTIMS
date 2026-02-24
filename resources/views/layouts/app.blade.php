@@ -7,33 +7,18 @@
         <meta name="user-level" content="{{ auth()->check() ? auth()->user()->user_level_id : '' }}">
         <meta name="user-permissions" content="{{ auth()->check() ? auth()->user()->level?->permissions->pluck('name')->implode(',') : '' }}">
         <title>{{ $title ?? 'General Tinio - Inventory System' }}</title>
-
-        <script src="https://cdn.tailwindcss.com"></script>
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
         <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.1.0/css/all.css">
         <link rel="icon" type="image/png" href="{{ asset('images/gtlogo.png') }}">
         <link rel="stylesheet" href="{{ asset('css/style.css') }}">
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-        <script src="{{ asset('js/gtims-notify.js') }}"></script>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.4.0/dist/driver.css">
-        <script src="https://cdn.jsdelivr.net/npm/driver.js@1.4.0/dist/driver.js.iife.js"></script>
+        <script src="{{ asset('js/gtims-notify.js') }}" defer></script>
         <script src="{{ asset('js/tour.js') }}" defer></script>
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-        <script>
-            tailwind.config = {
-                darkMode: 'class',
-                theme: {
-                    extend: {
-                        fontFamily: { sans: ['Poppins', 'sans-serif'] },
-                    },
-                },
-            }
-        </script>
 
         <style>
             body, html, input, button, select, textarea {

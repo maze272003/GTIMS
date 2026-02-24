@@ -19,6 +19,7 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
-        "driver.js": "^1.4.0"
+        "driver.js": "^1.4.0",
+        "sweetalert2": "^11.26.20"
     }
 }
