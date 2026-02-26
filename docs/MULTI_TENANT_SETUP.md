@@ -437,6 +437,10 @@ php vendor/bin/phpunit
 - Data isolation in queries
 - Export isolation
 - API rate limiting per tenant
+- Tenant-aware password reset / email verification / invitation links preserve tenant slug context
+- Moderator tenant switching / impersonation keeps session scope isolated and audit logs complete
+- Cache/session invalidation works after role or membership changes
+- Canonical slug redirects work and invalid slugs return expected errors
 
 ## Production Deployment
 
@@ -446,20 +450,27 @@ php vendor/bin/phpunit
 - [ ] Seed provinces and barangays
 - [ ] Create tenant memberships for users
 - [ ] Backfill existing data with tenant keys
+- [ ] Run reconciliation checks (counts + samples) to confirm tenant keys are populated
 - [ ] Configure storage paths
 - [ ] Set up cache namespacing
 - [ ] Enable queue worker with tenant context
 - [ ] Configure rate limiting
 - [ ] Set up monitoring
+- [ ] Validate canonical province/barangay slugs and redirect behavior
+- [ ] Rehearse rollback / restore using a recent backup in staging
+- [ ] Prepare queue worker drain/restart procedure for deployment
+- [ ] Confirm feature-flag rollback switches (if using phased rollout)
 
 ### Deployment Steps
 
 1. Run migrations: `php artisan migrate`
 2. Seed provinces and barangays
 3. Create tenant memberships for users
-4. Test tenant routes
-5. Verify data isolation
-6. Enable production monitoring
+4. Run reconciliation checks for tenant keys and core tenant-owned tables
+5. Test tenant routes (including canonical slug redirects)
+6. Verify data isolation
+7. Restart/drain queue workers with tenant-aware job code loaded
+8. Enable production monitoring
 
 ### Post-Deployment
 
@@ -467,6 +478,10 @@ php vendor/bin/phpunit
 - Review audit logs for cross-tenant access attempts
 - Validate export isolation
 - Check queue job tenant context
+- Run post-cutover reconciliation and null tenant-key scans
+- Verify tenant-aware password reset / invite / email verification links in production
+- Verify cache/session invalidation after role or membership changes
+- Confirm rollback toggles / feature flags can be disabled quickly if needed
 
 ## Troubleshooting
 

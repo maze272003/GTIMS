@@ -23,6 +23,7 @@
                     root.style.colorScheme = useDark ? 'dark' : 'light';
                 } catch (e) {
                     // Ignore localStorage/matchMedia access errors and keep default theme
+                    gtToast?.error('Failed to apply saved theme preference. Using default theme.');
                 }
             })();
         </script>

@@ -1913,6 +1913,10 @@ class BillingService
 - [ ] Backfill user memberships
 - [ ] Backfill role assignments
 - [ ] Run validation scripts
+- [ ] Run pre/post-backfill reconciliation reports (row counts + sampled records) for tenant-owned tables
+- [ ] Validate canonical slug redirects and route/slug collision handling before pilot rollout
+- [ ] Rehearse cutover and rollback in staging using a production-like snapshot
+- [ ] Add alerts for new writes missing tenant keys during dual-write transition
 - [ ] Execute pilot migration
 - [ ] Perform full migration
 - [ ] Add NOT NULL constraints
@@ -1928,6 +1932,9 @@ class BillingService
 - [ ] Data leakage test matrix
 - [ ] Performance testing
 - [ ] Security audit
+- [ ] Test tenant-aware password reset, email verification, and invitation links
+- [ ] Test Moderator tenant switching / impersonation with audit trail and session isolation
+- [ ] Test cache/session invalidation after role or membership changes
 
 ## Phase H: Production Readiness (Weeks 37-40)
 
@@ -1938,6 +1945,10 @@ class BillingService
 - [ ] Set up monitoring dashboards
 - [ ] Document tenant onboarding SOP
 - [ ] Document incident response SOP
+- [ ] Perform backup restore drill and verify tenant-targeted recovery/export procedure
+- [ ] Document queue worker drain/restart procedure for tenant-aware deployments
+- [ ] Configure feature-flag kill switches for staged rollout / rollback
+- [ ] Approve cutover freeze window and rollback trigger criteria
 - [ ] Final security review
 
 ## Rollback and Risk Mitigation Plan
@@ -2314,4 +2325,3 @@ php artisan tenant:test-leakage
 6. Create supporting tables (invitations, suspensions, etc.)
 7. Add indexes
 8. Add foreign key constraints (after backfill)
-
