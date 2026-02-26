@@ -931,6 +931,1015 @@ Deliverables:
 3. rollback plan
 4. final sign-off checklist
 
+## Infrastructure and Storage Isolation
+
+## 1. File Storage Tenant Isolation
+
+All tenant-owned files must be isolated by tenant scope.
+
+### Storage Structure
+
+```
+storage/app/
+├── tenants/
+│   ├── provinces/
+│   │   └── {province_id}/
+│   │       ├── exports/
+│   │       ├── imports/
+│   │       └── documents/
+│   └── barangays/
+│       └── {province_id}/
+│           └── {barangay_id}/
+│               ├── exports/
+│               ├── imports/
+│               ├── attachments/
+│               └── patient_documents/
+```
+
+### Implementation
+
+1. Create `TenantStorageService` for path generation
+2. Override default `Storage::disk()` calls for tenant files
+3. Validate file access belongs to current tenant
+4. Add signed URLs for secure file downloads
+
+```php
+class TenantStorageService
+{
+    public function tenantPath(string $path, TenantContext $ctx): string
+    {
+        if ($ctx->isBarangay()) {
+            return "tenants/barangays/{$ctx->provinceId}/{$ctx->barangayId}/{$path}";
+        }
+        return "tenants/provinces/{$ctx->provinceId}/{$path}";
+    }
+}
+```
+
+## 2. Queue and Job Context Propagation
+
+All queued jobs must carry and restore tenant context.
+
+### Job Base Class
+
+```php
+abstract class TenantAwareJob implements ShouldQueue
+{
+    public int $tenantProvinceId;
+    public ?int $tenantBarangayId;
+    public string $tenantScopeType;
+
+    public function __construct(TenantContext $ctx)
+    {
+        $this->tenantProvinceId = $ctx->provinceId;
+        $this->tenantBarangayId = $ctx->barangayId;
+        $this->tenantScopeType = $ctx->scopeType;
+    }
+
+    protected function getTenantContext(): TenantContext
+    {
+        return new TenantContext(
+            $this->tenantScopeType,
+            $this->tenantProvinceId,
+            $this->tenantBarangayId
+        );
+    }
+}
+```
+
+### Job Middleware
+
+```php
+class SetTenantContextMiddleware
+{
+    public function handle($job, $next)
+    {
+        if ($job instanceof TenantAwareJob) {
+            app()->instance(TenantContext::class, $job->getTenantContext());
+        }
+        $next($job);
+    }
+}
+```
+
+## 3. Cache Tenant Namespacing
+
+All cached data must be namespaced by tenant.
+
+### Cache Key Pattern
+
+```php
+class TenantCacheKey
+{
+    public static function make(string $key, TenantContext $ctx): string
+    {
+        if ($ctx->isBarangay()) {
+            return "tenant:{$ctx->provinceId}:{$ctx->barangayId}:{$key}";
+        }
+        if ($ctx->isProvince()) {
+            return "tenant:{$ctx->provinceId}:*:{$key}";
+        }
+        return "platform:{$key}";
+    }
+}
+```
+
+### Cache Service
+
+```php
+class TenantCacheService
+{
+    public function remember(TenantContext $ctx, string $key, int $ttl, Closure $callback): mixed
+    {
+        return Cache::remember(
+            TenantCacheKey::make($key, $ctx),
+            $ttl,
+            $callback
+        );
+    }
+
+    public function forgetTenant(TenantContext $ctx): void
+    {
+        $pattern = TenantCacheKey::make('*', $ctx);
+        // Use cache tag or pattern-based invalidation
+    }
+}
+```
+
+## 4. Email and Notification Tenant Customization
+
+### Tenant Email Settings
+
+Add to `barangays.settings_json`:
+
+```json
+{
+    "email": {
+        "from_name": "Barangay Malolos Health Center",
+        "from_address": "malolos@health.gov.ph",
+        "reply_to": "malolos-reply@health.gov.ph",
+        "logo_url": "/storage/tenants/.../logo.png"
+    }
+}
+```
+
+### Mailable Tenant Awareness
+
+```php
+abstract class TenantMailable extends Mailable
+{
+    protected TenantContext $tenantContext;
+
+    public function tenantContext(TenantContext $ctx): self
+    {
+        $this->tenantContext = $ctx;
+        return $this;
+    }
+
+    protected function getTenantBranding(): array
+    {
+        $barangay = Barngay::find($this->tenantContext->barangayId);
+        return $barangay->settings_json['email'] ?? [];
+    }
+}
+```
+
+## API and Integration Considerations
+
+## 1. API Versioning for Multi-Tenant
+
+### API Route Structure
+
+```
+/api/v1/tenant/{province}/{barangay}/...
+/api/v1/moderator/...
+```
+
+### API Authentication
+
+1. Use Laravel Sanctum or Passport with tenant-scoped tokens
+2. Store tenant context in token abilities
+3. Validate token tenant matches request tenant
+
+```php
+'abilities' => [
+    'tenant:read',
+    'tenant:write',
+    'province:1',
+    'barangay:5'
+]
+```
+
+## 2. Webhook Configuration Per Tenant
+
+### Webhooks Table
+
+```sql
+CREATE TABLE tenant_webhooks (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    barangay_id BIGINT NULL,
+    event_type VARCHAR(100),
+    endpoint_url VARCHAR(500),
+    secret VARCHAR(100),
+    is_active BOOLEAN,
+    last_triggered_at TIMESTAMP,
+    failure_count INT DEFAULT 0,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+```
+
+### Webhook Events
+
+1. `inventory.low_stock`
+2. `order.created`
+3. `order.completed`
+4. `request.approved`
+5. `patient.dispensed`
+6. `user.invited`
+
+## 3. Tenant Feature Flags
+
+### Feature Flags Table
+
+```sql
+CREATE TABLE tenant_features (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT NULL,
+    barangay_id BIGINT NULL,
+    feature_key VARCHAR(100),
+    enabled BOOLEAN DEFAULT FALSE,
+    settings_json JSON,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+```
+
+### Feature Service
+
+```php
+class TenantFeatureService
+{
+    public function isEnabled(TenantContext $ctx, string $feature): bool
+    {
+        $flag = TenantFeature::where('feature_key', $feature)
+            ->where(function ($q) use ($ctx) {
+                $q->where('barangay_id', $ctx->barangayId)
+                  ->orWhere('province_id', $ctx->provinceId);
+            })
+            ->first();
+
+        return $flag?->enabled ?? config("features.defaults.{$feature}", false);
+    }
+}
+```
+
+## Security and Compliance
+
+## 1. Two-Factor Authentication (2FA) Per Tenant
+
+### 2FA Configuration
+
+```php
+// In tenant settings
+'two_factor' => [
+    'enabled' => true,
+    'required_for_roles' => ['barangay_admin', 'province_admin'],
+    'methods' => ['totp', 'sms'],
+    'remember_device_days' => 30
+]
+```
+
+### Implementation
+
+1. Use Laravel Fortify or custom 2FA
+2. Store 2FA secrets encrypted per user
+3. Validate 2FA on tenant-scoped login
+4. Option to require 2FA for sensitive operations
+
+## 2. Session Security and Tenant Switching
+
+### Session Configuration
+
+```php
+// config/session.php
+'tenant' => [
+    'bind_to_tenant' => true,
+    'invalidate_on_tenant_change' => true,
+    'max_sessions_per_tenant' => 3,
+]
+```
+
+### Session Table Enhancement
+
+```sql
+ALTER TABLE sessions ADD COLUMN tenant_province_id BIGINT NULL;
+ALTER TABLE sessions ADD COLUMN tenant_barangay_id BIGINT NULL;
+ALTER TABLE sessions ADD COLUMN tenant_scope_type VARCHAR(20) NULL;
+```
+
+### Moderator Tenant Switching
+
+```php
+class TenantSwitchService
+{
+    public function switchTo(User $moderator, TenantContext $target): void
+    {
+        if (!$moderator->isModerator()) {
+            throw new UnauthorizedException();
+        }
+
+        session([
+            'tenant.switched_from' => 'platform',
+            'tenant.province_id' => $target->provinceId,
+            'tenant.barangay_id' => $target->barangayId,
+            'tenant.scope_type' => $target->scopeType,
+        ]);
+
+        AuditLog::create([
+            'action' => 'tenant_switch',
+            'user_id' => $moderator->id,
+            'target_province_id' => $target->provinceId,
+            'target_barangay_id' => $target->barangayId,
+        ]);
+    }
+}
+```
+
+## 3. Data Archiving and Retention
+
+### Archiving Strategy
+
+1. Archive inactive tenant data after defined period
+2. Move to cold storage (S3 Glacier equivalent)
+3. Maintain audit trail of archived records
+4. Provide restore functionality for moderators
+
+### Archive Tables
+
+```sql
+CREATE TABLE archived_records (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    barangay_id BIGINT,
+    source_table VARCHAR(100),
+    record_id BIGINT,
+    archived_data JSON,
+    archived_at TIMESTAMP,
+    archived_by BIGINT,
+    retention_until DATE
+);
+```
+
+### Retention Policies
+
+```php
+// Per-tenant retention configuration
+'retention' => [
+    'patient_records' => 365 * 7,    // 7 years
+    'audit_logs' => 365 * 5,          // 5 years
+    'notifications' => 90,            // 90 days
+    'exports' => 30,                  // 30 days
+]
+```
+
+## 4. Compliance Requirements (Data Privacy)
+
+### PII Handling
+
+1. Mark PII fields in models
+2. Encrypt sensitive patient data at rest
+3. Audit all PII access
+4. Support data export for subject access requests
+5. Support data deletion for right to be forgotten
+
+### Compliance Table
+
+```sql
+CREATE TABLE data_subject_requests (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    barangay_id BIGINT,
+    request_type ENUM('access', 'deletion', 'correction', 'portability'),
+    status ENUM('pending', 'processing', 'completed', 'rejected'),
+    requested_by_email VARCHAR(255),
+    verified_at TIMESTAMP NULL,
+    completed_at TIMESTAMP NULL,
+    notes TEXT
+);
+```
+
+## Tenant Usage and Limits
+
+## 1. Usage Quotas Per Tenant
+
+### Quota Configuration
+
+```php
+'quotas' => [
+    'barangay' => [
+        'users' => 10,
+        'inventory_items' => 5000,
+        'patient_records' => 50000,
+        'storage_mb' => 500,
+        'api_calls_daily' => 10000,
+        'exports_monthly' => 100,
+    ],
+    'province' => [
+        'users' => 100,
+        'barangays' => 50,
+        'storage_mb' => 5000,
+        'api_calls_daily' => 100000,
+    ]
+]
+```
+
+### Usage Tracking Table
+
+```sql
+CREATE TABLE tenant_usage (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    barangay_id BIGINT NULL,
+    metric_key VARCHAR(100),
+    metric_value BIGINT,
+    period_start DATE,
+    period_end DATE,
+    updated_at TIMESTAMP
+);
+```
+
+### Usage Service
+
+```php
+class TenantUsageService
+{
+    public function increment(TenantContext $ctx, string $metric, int $count = 1): void
+    {
+        TenantUsage::updateOrCreate(
+            [
+                'province_id' => $ctx->provinceId,
+                'barangay_id' => $ctx->barangayId,
+                'metric_key' => $metric,
+                'period_start' => now()->startOfMonth(),
+            ],
+            ['metric_value' => DB::raw('metric_value + ' . $count)]
+        );
+    }
+
+    public function isOverQuota(TenantContext $ctx, string $metric): bool
+    {
+        $current = $this->getCurrentUsage($ctx, $metric);
+        $limit = $this->getQuotaLimit($ctx, $metric);
+        return $current >= $limit;
+    }
+}
+```
+
+## 2. Tenant Health Monitoring
+
+### Health Metrics
+
+1. Database query performance
+2. Queue job success rate
+3. API response times
+4. Error rates
+5. Storage usage
+6. User activity levels
+
+### Health Check Table
+
+```sql
+CREATE TABLE tenant_health (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    barangay_id BIGINT NULL,
+    check_type VARCHAR(50),
+    status ENUM('healthy', 'degraded', 'unhealthy'),
+    details JSON,
+    checked_at TIMESTAMP
+);
+```
+
+### Health Check Command
+
+```php
+php artisan tenant:health-check
+php artisan tenant:health-check --province=1
+php artisan tenant:health-check --barangay=5
+```
+
+## 3. Incident Response for Tenant Issues
+
+### Incident Types
+
+1. Data breach suspected
+2. Cross-tenant access detected
+3. Tenant data corruption
+4. Service degradation for specific tenant
+5. Security vulnerability exploited
+
+### Incident Response Table
+
+```sql
+CREATE TABLE tenant_incidents (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    barangay_id BIGINT NULL,
+    incident_type VARCHAR(100),
+    severity ENUM('low', 'medium', 'high', 'critical'),
+    status ENUM('open', 'investigating', 'resolved', 'closed'),
+    description TEXT,
+    resolution TEXT,
+    reported_by BIGINT,
+    assigned_to BIGINT NULL,
+    created_at TIMESTAMP,
+    resolved_at TIMESTAMP NULL
+);
+```
+
+### Incident Response Workflow
+
+1. Automated detection via monitoring
+2. Create incident record
+3. Notify moderators
+4. Investigate and document
+5. Apply containment measures
+6. Resolve and post-mortem
+7. Update security measures
+
+## Tenant Onboarding and Offboarding
+
+## 1. New Tenant Onboarding Workflow
+
+### Onboarding Steps
+
+1. **Provisioning** (Moderator initiates)
+   - Create province record
+   - Configure province settings
+   - Set up initial barangays
+   - Create admin user accounts
+   - Send invitation emails
+
+2. **Configuration** (Provincial Admin)
+   - Complete profile setup
+   - Configure province-wide settings
+   - Add additional barangays
+   - Set up suppliers
+   - Import initial inventory (if applicable)
+
+3. **Activation** (Moderator approves)
+   - Review configuration
+   - Enable tenant routes
+   - Activate memberships
+   - Send welcome notification
+
+### Onboarding State Machine
+
+```
+pending -> provisioning -> configured -> review -> active
+           ↓                ↓            ↓
+        cancelled       draft        rejected
+```
+
+### Onboarding Table
+
+```sql
+CREATE TABLE tenant_onboarding (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    status ENUM('pending', 'provisioning', 'configured', 'review', 'active', 'rejected', 'cancelled'),
+    current_step VARCHAR(50),
+    completed_steps JSON,
+    notes TEXT,
+    created_by BIGINT,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    activated_at TIMESTAMP NULL
+);
+```
+
+### Onboarding Checklist
+
+```php
+'onboarding_checklist' => [
+    'province_created' => false,
+    'barangays_added' => false,
+    'admin_accounts_created' => false,
+    'invitations_sent' => false,
+    'settings_configured' => false,
+    'suppliers_added' => false,
+    'inventory_initialized' => false,
+    'review_completed' => false,
+]
+```
+
+## 2. Tenant Deactivation and Suspension Flow
+
+### Suspension Types
+
+1. **Voluntary** - Tenant requests temporary pause
+2. **Payment** - Subscription/billing issue
+3. **Compliance** - Policy violation
+4. **Security** - Security concern
+5. **Administrative** - Moderator decision
+
+### Suspension Process
+
+```php
+class TenantSuspensionService
+{
+    public function suspend(int $provinceId, ?int $barangayId, string $reason, string $type): void
+    {
+        DB::transaction(function () use ($provinceId, $barangayId, $reason, $type) {
+            // Update tenant status
+            $this->updateTenantStatus($provinceId, $barangayId, 'suspended');
+
+            // Revoke all active sessions
+            $this->revokeSessions($provinceId, $barangayId);
+
+            // Suspend memberships
+            $this->suspendMemberships($provinceId, $barangayId);
+
+            // Cancel pending jobs
+            $this->cancelPendingJobs($provinceId, $barangayId);
+
+            // Create audit record
+            $this->createAuditRecord($provinceId, $barangayId, $reason, $type);
+
+            // Send notification
+            $this->notifyAffectedUsers($provinceId, $barangayId, $reason);
+        });
+    }
+
+    public function reactivate(int $provinceId, ?int $barangayId): void
+    {
+        // Reverse suspension steps
+    }
+}
+```
+
+### Suspension Table
+
+```sql
+CREATE TABLE tenant_suspensions (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    barangay_id BIGINT NULL,
+    suspension_type ENUM('voluntary', 'payment', 'compliance', 'security', 'administrative'),
+    reason TEXT,
+    suspended_by BIGINT,
+    suspended_at TIMESTAMP,
+    reactivated_by BIGINT NULL,
+    reactivated_at TIMESTAMP NULL
+);
+```
+
+## 3. Tenant Data Export/Import for Migration
+
+### Export Service
+
+```php
+class TenantExportService
+{
+    public function exportTenantData(TenantContext $ctx, array $options = []): string
+    {
+        $data = [
+            'metadata' => [
+                'exported_at' => now()->toIso8601String(),
+                'province_id' => $ctx->provinceId,
+                'barangay_id' => $ctx->barangayId,
+                'version' => '1.0',
+            ],
+            'province' => $this->exportProvince($ctx->provinceId),
+            'barangays' => $this->exportBarangays($ctx),
+            'users' => $this->exportUsers($ctx),
+            'inventory' => $this->exportInventory($ctx),
+            'patients' => $this->exportPatients($ctx),
+            'orders' => $this->exportOrders($ctx),
+            'suppliers' => $this->exportSuppliers($ctx),
+            // ... other entities
+        ];
+
+        $filename = "tenant_export_{$ctx->provinceId}_" . now()->format('Ymd_His') . '.json';
+        Storage::put("exports/{$filename}", json_encode($data, JSON_PRETTY_PRINT));
+
+        return $filename;
+    }
+}
+```
+
+### Import Service
+
+```php
+class TenantImportService
+{
+    public function importTenantData(string $filePath, array $options = []): ImportResult
+    {
+        $data = json_decode(Storage::get($filePath), true);
+
+        DB::transaction(function () use ($data, $options) {
+            // Validate import data structure
+            $this->validateImportData($data);
+
+            // Map old IDs to new IDs
+            $idMap = [];
+
+            // Import in dependency order
+            $idMap['provinces'] = $this->importProvinces($data['province'], $options);
+            $idMap['barangays'] = $this->importBarangays($data['barangays'], $idMap, $options);
+            $idMap['users'] = $this->importUsers($data['users'], $idMap, $options);
+            // ... continue with dependencies
+        });
+    }
+}
+```
+
+## 4. Tenant Invitation System
+
+### Invitation Flow
+
+1. Admin creates invitation with email and role
+2. System generates unique token
+3. Email sent with tenant-specific invitation link
+4. User accepts invitation and creates account
+5. Membership and role assignment completed
+
+### Invitations Table
+
+```sql
+CREATE TABLE tenant_invitations (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    barangay_id BIGINT NULL,
+    email VARCHAR(255),
+    role_id BIGINT,
+    token VARCHAR(64) UNIQUE,
+    invited_by BIGINT,
+    status ENUM('pending', 'accepted', 'expired', 'cancelled'),
+    expires_at TIMESTAMP,
+    accepted_at TIMESTAMP NULL,
+    accepted_by BIGINT NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+```
+
+### Invitation Service
+
+```php
+class TenantInvitationService
+{
+    public function create(TenantContext $ctx, string $email, int $roleId): TenantInvitation
+    {
+        $invitation = TenantInvitation::create([
+            'province_id' => $ctx->provinceId,
+            'barangay_id' => $ctx->barangayId,
+            'email' => $email,
+            'role_id' => $roleId,
+            'token' => Str::random(64),
+            'invited_by' => Auth::id(),
+            'status' => 'pending',
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        Mail::to($email)->send(new TenantInvitationMail($invitation));
+
+        return $invitation;
+    }
+
+    public function accept(string $token, User $user): void
+    {
+        $invitation = TenantInvitation::where('token', $token)
+            ->where('status', 'pending')
+            ->where('expires_at', '>', now())
+            ->firstOrFail();
+
+        DB::transaction(function () use ($invitation, $user) {
+            // Create membership
+            TenantMembership::create([
+                'user_id' => $user->id,
+                'scope_type' => $invitation->barangay_id ? 'barangay' : 'province',
+                'scope_id' => $invitation->barangay_id ?? $invitation->province_id,
+                'status' => 'active',
+            ]);
+
+            // Create role assignment
+            RoleAssignment::create([
+                'user_id' => $user->id,
+                'role_id' => $invitation->role_id,
+                'scope_type' => $invitation->barangay_id ? 'barangay' : 'province',
+                'scope_id' => $invitation->barangay_id ?? $invitation->province_id,
+            ]);
+
+            // Mark invitation as accepted
+            $invitation->update([
+                'status' => 'accepted',
+                'accepted_at' => now(),
+                'accepted_by' => $user->id,
+            ]);
+        });
+    }
+}
+```
+
+## Billing and Subscription (Future-Ready)
+
+## 1. Subscription Model
+
+### Subscriptions Table
+
+```sql
+CREATE TABLE tenant_subscriptions (
+    id BIGINT PRIMARY KEY,
+    province_id BIGINT,
+    barangay_id BIGINT NULL,
+    plan_id VARCHAR(50),
+    status ENUM('trial', 'active', 'past_due', 'cancelled', 'expired'),
+    billing_cycle ENUM('monthly', 'annual'),
+    current_period_start TIMESTAMP,
+    current_period_end TIMESTAMP,
+    trial_ends_at TIMESTAMP NULL,
+    cancelled_at TIMESTAMP NULL,
+    stripe_subscription_id VARCHAR(255) NULL,
+    stripe_customer_id VARCHAR(255) NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
+```
+
+### Plans Configuration
+
+```php
+'plans' => [
+    'barangay_basic' => [
+        'name' => 'Barangay Basic',
+        'price_monthly' => 0,
+        'price_annual' => 0,
+        'features' => ['inventory', 'patients', 'orders'],
+        'limits' => [
+            'users' => 5,
+            'inventory_items' => 1000,
+            'patient_records' => 5000,
+        ],
+    ],
+    'barangay_pro' => [
+        'name' => 'Barangay Pro',
+        'price_monthly' => 2999,
+        'price_annual' => 29990,
+        'features' => ['inventory', 'patients', 'orders', 'suppliers', 'analytics', 'exports'],
+        'limits' => [
+            'users' => 10,
+            'inventory_items' => 5000,
+            'patient_records' => 50000,
+        ],
+    ],
+    'province_enterprise' => [
+        'name' => 'Province Enterprise',
+        'price_monthly' => 19999,
+        'price_annual' => 199990,
+        'features' => ['all'],
+        'limits' => [
+            'users' => -1,
+            'barangays' => -1,
+            'inventory_items' => -1,
+        ],
+    ],
+]
+```
+
+## 2. Billing Hooks
+
+```php
+class BillingService
+{
+    public function onSubscriptionCreated(TenantSubscription $subscription): void
+    {
+        // Activate tenant
+        // Enable features
+        // Send welcome email
+    }
+
+    public function onSubscriptionPastDue(TenantSubscription $subscription): void
+    {
+        // Send payment reminder
+        // Apply grace period
+    }
+
+    public function onSubscriptionCancelled(TenantSubscription $subscription): void
+    {
+        // Schedule deactivation
+        // Send cancellation notice
+        // Retain data for recovery period
+    }
+
+    public function onSubscriptionExpired(TenantSubscription $subscription): void
+    {
+        // Suspend tenant
+        // Downgrade to limited access
+    }
+}
+```
+
+## Complete Implementation Checklist
+
+## Phase A: Foundation (Weeks 1-4)
+
+- [ ] Create `provinces` table migration
+- [ ] Create `tenant_memberships` table migration
+- [ ] Create `roles` and `role_assignments` table migrations
+- [ ] Update `barangays` table with province linkage
+- [ ] Add tenant columns to all tenant-owned tables
+- [ ] Create `TenantContext` value object
+- [ ] Create `TenantResolver` service
+- [ ] Create tenant resolution middleware
+- [ ] Create tenant membership middleware
+- [ ] Create tenant context binding middleware
+- [ ] Set up `config/tenancy.php`
+- [ ] Create `TenantScoped` model trait
+- [ ] Create route helpers (`tenant_route()`, `moderator_route()`)
+- [ ] Set up moderator route group
+
+## Phase B: Authentication & RBAC (Weeks 5-8)
+
+- [ ] Create moderator login page
+- [ ] Create tenant login page with slug resolution
+- [ ] Implement tenant-aware authentication
+- [ ] Update `AuthSessionService` for tenant redirects
+- [ ] Create tenant-aware password reset
+- [ ] Create invitation system
+- [ ] Implement scoped permission evaluation
+- [ ] Create role assignment management
+- [ ] Migrate from `user_levels` to scoped roles
+- [ ] Add 2FA support (optional)
+
+## Phase C: Core Modules (Weeks 9-16)
+
+- [ ] Refactor `InventoryAdminService` for tenant context
+- [ ] Refactor `PatientRecordsAdminService` for tenant context
+- [ ] Refactor `OrderAdminService` for tenant context
+- [ ] Refactor `RequestWorkflowService` for tenant context
+- [ ] Refactor `ManageAccountAdminService` for tenant context
+- [ ] Refactor `NotificationService` for tenant context
+- [ ] Update all repositories with tenant scopes
+- [ ] Update validation rules for tenant constraints
+- [ ] Add tenant keys to background jobs
+- [ ] Implement tenant-aware exports
+
+## Phase D: Frontend (Weeks 17-20)
+
+- [ ] Create tenant navigation component
+- [ ] Create moderator navigation component
+- [ ] Add tenant badge to layouts
+- [ ] Update all route generation in views
+- [ ] Create role-based menu rendering
+- [ ] Update form dropdowns for tenant filtering
+- [ ] Create tenant onboarding UI
+- [ ] Create tenant settings UI
+
+## Phase E: Dashboards (Weeks 21-24)
+
+- [ ] Create Moderator dashboard
+- [ ] Create Provincial Admin dashboard
+- [ ] Update Barangay Admin dashboard
+- [ ] Implement tenant-aware analytics
+- [ ] Add tenant caching
+
+## Phase F: Data Migration (Weeks 25-30)
+
+- [ ] Create data backfill scripts
+- [ ] Map existing branches to provinces/barangays
+- [ ] Backfill user memberships
+- [ ] Backfill role assignments
+- [ ] Run validation scripts
+- [ ] Execute pilot migration
+- [ ] Perform full migration
+- [ ] Add NOT NULL constraints
+- [ ] Enable FK constraints
+
+## Phase G: Testing & Hardening (Weeks 31-36)
+
+- [ ] Unit tests for tenant resolver
+- [ ] Unit tests for tenant context
+- [ ] Feature tests for tenant isolation
+- [ ] Feature tests for login flows
+- [ ] Feature tests for permissions
+- [ ] Data leakage test matrix
+- [ ] Performance testing
+- [ ] Security audit
+
+## Phase H: Production Readiness (Weeks 37-40)
+
+- [ ] Add tenant health monitoring
+- [ ] Add tenant usage tracking
+- [ ] Add incident response workflows
+- [ ] Create operational runbook
+- [ ] Set up monitoring dashboards
+- [ ] Document tenant onboarding SOP
+- [ ] Document incident response SOP
+- [ ] Final security review
+
 ## Rollback and Risk Mitigation Plan
 
 ## Key Risks
@@ -970,4 +1979,339 @@ The SaaS implementation is complete when all conditions below are true:
 4. Build `provinces`, `barangays` upgrades, and `tenant_memberships` schema first
 5. Implement tenant slug resolver + middleware before touching module logic
 6. Pilot refactor on one module first (recommended: `suppliers` or `inventory`) to establish patterns
+
+## Rate Limiting Strategy
+
+## 1. Per-Tenant Rate Limiting
+
+### Laravel Rate Limiter Configuration
+
+```php
+// App\Providers\AppServiceProvider.php
+
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
+
+public function boot()
+{
+    RateLimiter::for('tenant-api', function (Request $request) {
+        $ctx = app(TenantContext::class);
+        $tenantKey = $ctx->provinceId . ':' . ($ctx->barangayId ?? 'province');
+        return Limit::perMinute(100)->by($tenantKey . ':' . $request->ip());
+    });
+
+    RateLimiter::for('tenant-login', function (Request $request) {
+        $province = $request->route('province');
+        $barangay = $request->route('barangay');
+        $tenantKey = $province . '/' . $barangay;
+        return Limit::perMinute(5)->by($tenantKey . ':' . $request->ip());
+    });
+
+    RateLimiter::for('moderator-api', function (Request $request) {
+        return Limit::perMinute(200)->by($request->user()->id);
+    });
+
+    RateLimiter::for('tenant-export', function (Request $request) {
+        $ctx = app(TenantContext::class);
+        $tenantKey = $ctx->provinceId . ':' . ($ctx->barangayId ?? 'province');
+        return Limit::perHour(10)->by($tenantKey . ':' . $request->user()->id);
+    });
+}
+```
+
+### Route Application
+
+```php
+// routes/tenant.php
+Route::middleware(['throttle:tenant-api'])->group(function () {
+    Route::get('/inventory', [InventoryController::class, 'index']);
+    // ... other tenant API routes
+});
+
+Route::middleware(['throttle:tenant-export'])->group(function () {
+    Route::get('/export/inventory', [ExportController::class, 'inventory']);
+    Route::get('/export/patients', [ExportController::class, 'patients']);
+});
+
+// routes/moderator.php
+Route::middleware(['throttle:moderator-api'])->group(function () {
+    Route::get('/tenants', [TenantController::class, 'index']);
+    // ... moderator routes
+});
+```
+
+## 2. DDoS and Abuse Prevention
+
+### Per-IP + Per-Tenant Combination
+
+```php
+RateLimiter::for('tenant-strict', function (Request $request) {
+    $ctx = app(TenantContext::class);
+    $tenantKey = $ctx->provinceId . ':' . ($ctx->barangayId ?? 'province');
+    
+    return [
+        Limit::perMinute(60)->by($tenantKey),
+        Limit::perMinute(120)->by($request->ip()),
+    ];
+});
+```
+
+### Login Attempt Tracking
+
+```php
+// Track failed login attempts per tenant
+RateLimiter::for('tenant-login-fail', function (Request $request) {
+    $province = $request->route('province');
+    $barangay = $request->route('barangay');
+    $email = $request->input('email');
+    
+    return Limit::perMinute(3)
+        ->by("{$province}/{$barangay}:{$email}")
+        ->response(function () {
+            return response()->json([
+                'message' => 'Too many login attempts. Please try again later.',
+            ], 429);
+        });
+});
+```
+
+## Error Handling and Logging Strategy
+
+## 1. Tenant-Aware Exception Handling
+
+### Exception Handler
+
+```php
+// App\Exceptions\Handler.php
+
+public function report(Throwable $exception)
+{
+    if (app()->bound(TenantContext::class)) {
+        $ctx = app(TenantContext::class);
+        Log::withContext([
+            'tenant_province_id' => $ctx->provinceId,
+            'tenant_barangay_id' => $ctx->barangayId,
+            'tenant_scope' => $ctx->scopeType,
+            'tenant_slug' => $ctx->provinceSlug . '/' . $ctx->barangaySlug,
+        ]);
+    }
+    
+    parent::report($exception);
+}
+
+public function render($request, Throwable $exception)
+{
+    if ($exception instanceof TenantNotFoundException) {
+        return response()->view('errors.tenant-not-found', [], 404);
+    }
+    
+    if ($exception instanceof TenantSuspendedException) {
+        return response()->view('errors.tenant-suspended', [], 403);
+    }
+    
+    if ($exception instanceof CrossTenantAccessException) {
+        Log::warning('Cross-tenant access attempt', [
+            'user_id' => Auth::id(),
+            'target_province' => $request->input('province_id'),
+            'target_barangay' => $request->input('barangay_id'),
+        ]);
+        
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+    
+    return parent::render($request, $exception);
+}
+```
+
+## 2. Custom Exception Classes
+
+```php
+namespace App\Exceptions;
+
+class TenantNotFoundException extends \Exception {}
+class TenantSuspendedException extends \Exception {}
+class CrossTenantAccessException extends \Exception {}
+class TenantQuotaExceededException extends \Exception {}
+class InvalidTenantScopeException extends \Exception {}
+```
+
+## 3. Structured Logging
+
+### Log Context Service
+
+```php
+class TenantLogContextService
+{
+    public static function enrich(array $context = []): array
+    {
+        $base = [];
+        
+        if (app()->bound(TenantContext::class)) {
+            $ctx = app(TenantContext::class);
+            $base['tenant'] = [
+                'province_id' => $ctx->provinceId,
+                'barangay_id' => $ctx->barangayId,
+                'scope' => $ctx->scopeType,
+            ];
+        }
+        
+        if (Auth::check()) {
+            $base['user_id'] = Auth::id();
+            $base['user_email'] = Auth::user()->email;
+        }
+        
+        $base['request_id'] = request()->header('X-Request-ID');
+        $base['ip'] = request()->ip();
+        
+        return array_merge($base, $context);
+    }
+}
+
+// Usage
+Log::info('Inventory updated', TenantLogContextService::enrich([
+    'inventory_id' => $inventory->id,
+    'action' => 'stock_adjustment',
+]));
+```
+
+### Log Output Format
+
+```json
+{
+    "level": "INFO",
+    "message": "Inventory updated",
+    "timestamp": "2024-01-15T10:30:00Z",
+    "tenant": {
+        "province_id": 1,
+        "barangay_id": 5,
+        "scope": "barangay"
+    },
+    "user_id": 42,
+    "user_email": "admin@malolos.health.gov.ph",
+    "request_id": "abc-123-def",
+    "ip": "192.168.1.100",
+    "inventory_id": 1234,
+    "action": "stock_adjustment"
+}
+```
+
+## 4. Alerting Configuration
+
+### Critical Alerts
+
+```php
+// Alert on suspicious activity
+class SecurityAlertService
+{
+    public function alertCrossTenantAccess(array $context): void
+    {
+        Log::channel('security')->critical(
+            'Cross-tenant access attempt detected',
+            TenantLogContextService::enrich($context)
+        );
+        
+        // Send notification to moderators
+        Notification::route('mail', 'security@platform.com')
+            ->notify(new SecurityAlert($context));
+    }
+    
+    public function alertSuspiciousLoginPattern(array $context): void
+    {
+        Log::channel('security')->warning(
+            'Suspicious login pattern detected',
+            TenantLogContextService::enrich($context)
+        );
+    }
+}
+```
+
+## Environment Configuration
+
+## 1. Environment Variables
+
+```env
+# .env
+
+# Tenancy Configuration
+TENANCY_MODERATOR_PREFIX=moderator
+TENANCY_INVITATION_EXPIRE_DAYS=7
+TENANCY_CACHE_PREFIX=tenant
+TENANCY_STORAGE_DISK=local
+
+# Rate Limiting
+TENANCY_RATE_LIMIT_API=100
+TENANCY_RATE_LIMIT_LOGIN=5
+TENANCY_RATE_LIMIT_EXPORT=10
+
+# Session
+TENANCY_SESSION_BIND_TENANT=true
+TENANCY_SESSION_MAX_PER_TENANT=3
+
+# Logging
+TENANCY_LOG_CHANNEL=daily
+TENANCY_LOG_SECURITY_CHANNEL=security
+```
+
+## 2. Feature Flags via Environment
+
+```env
+# Features
+FEATURE_TWO_FACTOR_AUTH=true
+FEATURE_TENANT_BRANDING=true
+FEATURE_WEBHOOKS=false
+FEATURE_API_ACCESS=true
+FEATURE_CROSS_BARANGAY_REQUESTS=false
+```
+
+## Quick Reference Card
+
+## Key Files to Create/Modify
+
+| File | Purpose |
+|------|---------|
+| `config/tenancy.php` | Tenancy configuration |
+| `app/Tenancy/TenantContext.php` | Context value object |
+| `app/Tenancy/TenantResolver.php` | Tenant resolution |
+| `app/Http/Middleware/ResolveTenantFromSlug.php` | Route middleware |
+| `app/Http/Middleware/EnforceTenantMembership.php` | Access control |
+| `app/Http/Middleware/BindTenantContext.php` | Context binding |
+| `app/Models/Traits/TenantScoped.php` | Model scope trait |
+| `app/Services/TenantStorageService.php` | File storage |
+| `app/Services/TenantCacheService.php` | Cache namespacing |
+| `app/Services/TenantFeatureService.php` | Feature flags |
+| `app/Services/TenantUsageService.php` | Quota tracking |
+| `app/helpers.php` | Helper functions |
+
+## Key Artisan Commands
+
+```bash
+# Health & Monitoring
+php artisan tenant:health-check
+php artisan tenant:health-check --province=1
+php artisan tenant:usage:report
+php artisan tenant:usage:report --month=2024-01
+
+# Cache Management
+php artisan tenant:cache:clear
+php artisan tenant:cache:clear --province=1
+
+# Data Management
+php artisan tenant:export --province=1 --barangay=5
+php artisan tenant:backfill-tenant-keys
+
+# Testing
+php artisan tenant:test-isolation
+php artisan tenant:test-leakage
+```
+
+## Database Migration Order
+
+1. Create `provinces` table
+2. Update `barangays` with `province_id`, `slug`
+3. Create `tenant_memberships` table
+4. Create `roles` and `role_assignments` tables
+5. Add `province_id`/`barangay_id` to tenant-owned tables
+6. Create supporting tables (invitations, suspensions, etc.)
+7. Add indexes
+8. Add foreign key constraints (after backfill)
 
