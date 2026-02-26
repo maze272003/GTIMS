@@ -65,4 +65,68 @@ return [
         'barangay_slug' => 'tenant.route_slug_barangay',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Invitation Settings
+    |--------------------------------------------------------------------------
+    */
+    'invitation' => [
+        'expires_days' => env('TENANCY_INVITATION_EXPIRE_DAYS', 7),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Usage Quotas
+    |--------------------------------------------------------------------------
+    */
+    'quotas' => [
+        'barangay' => [
+            'users' => 10,
+            'inventory_items' => 5000,
+            'patient_records' => 50000,
+            'storage_mb' => 500,
+            'api_calls_daily' => 10000,
+            'exports_monthly' => 100,
+        ],
+        'province' => [
+            'users' => 100,
+            'barangays' => 50,
+            'storage_mb' => 5000,
+            'api_calls_daily' => 100000,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Feature Flags
+    |--------------------------------------------------------------------------
+    */
+    'features' => [
+        'defaults' => [
+            'advanced_analytics' => false,
+            'cross_barangay_requests' => false,
+            'custom_branding' => false,
+            'webhooks' => false,
+            'api_access' => false,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Storage Settings
+    |--------------------------------------------------------------------------
+    */
+    'storage' => [
+        'disk' => env('TENANCY_STORAGE_DISK', 'local'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Cache Settings
+    |--------------------------------------------------------------------------
+    */
+    'cache' => [
+        'prefix' => env('TENANCY_CACHE_PREFIX', 'tenant'),
+    ],
+
 ];
