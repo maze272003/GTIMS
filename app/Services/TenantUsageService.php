@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\TenantUsage;
 use App\Tenancy\TenantContext;
-use Illuminate\Support\Facades\DB;
 
 class TenantUsageService
 {
@@ -24,7 +23,7 @@ class TenantUsageService
             ->where('barangay_id', $ctx->barangayId)
             ->where('metric_key', $metric)
             ->where('period_start', now()->startOfMonth()->toDateString())
-            ->update(['metric_value' => DB::raw('metric_value + ' . (int) $count)]);
+            ->increment('metric_value', $count);
     }
 
     public function getCurrentUsage(TenantContext $ctx, string $metric): int

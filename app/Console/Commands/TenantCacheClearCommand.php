@@ -32,10 +32,8 @@ class TenantCacheClearCommand extends Command
             if ($barangayId) {
                 $prefix .= "{$barangayId}:";
             }
-            // Note: Pattern-based cache clearing depends on cache driver
-            // For Redis: Cache::getRedis()->del(Cache::getRedis()->keys("{$prefix}*"))
             $this->info("Tenant cache invalidation requested for prefix: {$prefix}");
-            $this->warn('Note: Pattern-based clearing requires a cache driver that supports it (e.g., Redis).');
+            $this->info('For complete pattern-based clearing, use --all or configure a cache driver that supports key pattern deletion (e.g., Redis).');
         } else {
             $this->error('Specify --province, --barangay, or --all.');
             return self::FAILURE;

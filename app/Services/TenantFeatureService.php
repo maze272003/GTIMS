@@ -24,6 +24,7 @@ class TenantFeatureService
                     $q2->whereNull('province_id')->whereNull('barangay_id');
                 });
             })
+            // Precedence: barangay-specific > province-level > platform-wide (global)
             ->orderByRaw('barangay_id IS NULL, province_id IS NULL')
             ->first();
 

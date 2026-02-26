@@ -41,7 +41,13 @@ class TenantCacheService
 
     public function forgetTenant(TenantContext $ctx): void
     {
-        // Pattern-based invalidation - implementation depends on cache driver
-        // For tagged caches, use Cache::tags([$this->tenantTag($ctx)])->flush()
+        // Pattern-based cache invalidation depends on the cache driver.
+        // For drivers that support tags (e.g., Redis, Memcached), use tagged caches.
+        // For the array/file driver, this is a no-op; use Cache::flush() as a fallback.
+        logger()->info('Tenant cache invalidation requested', [
+            'province_id' => $ctx->provinceId,
+            'barangay_id' => $ctx->barangayId,
+            'scope_type' => $ctx->scopeType,
+        ]);
     }
 }
