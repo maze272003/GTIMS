@@ -9,7 +9,9 @@ use Illuminate\Console\Command;
 
 class TenantLoadTestCommand extends Command
 {
-    protected $signature = 'tenant:load-test {--iterations=100 : Number of iterations per scenario}';
+    protected $signature = 'tenant:load-test
+                            {--iterations=100 : Number of iterations per scenario}
+                            {--concurrent=1 : Reserved for external parallel runners}';
 
     protected $description = 'Run lightweight multi-tenant load probes for route resolution and analytics.';
 
@@ -72,4 +74,3 @@ class TenantLoadTestCommand extends Command
         ];
     }
 }
-

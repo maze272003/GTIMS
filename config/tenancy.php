@@ -172,6 +172,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Seeder Settings
+    |--------------------------------------------------------------------------
+    */
+    'seeder' => [
+        'seed_all_geo' => (bool) env('TENANCY_SEED_ALL_GEO', true),
+        'activate_seeded_geo' => (bool) env('TENANCY_SEED_ACTIVATE_GEO', true),
+        'psgc_base_url' => env('TENANCY_PSGC_BASE_URL', 'https://psgc.gitlab.io/api'),
+        'demo_provinces' => array_values(array_filter(array_map(
+            static fn (string $slug) => trim($slug),
+            explode(',', (string) env('TENANCY_DEMO_PROVINCES', 'bulacan,cebu,davao-del-sur'))
+        ))),
+        'demo_barangays_per_province' => (int) env('TENANCY_DEMO_BARANGAYS_PER_PROVINCE', 5),
+        'demo_records_per_module' => (int) env('TENANCY_DEMO_RECORDS_PER_MODULE', 50),
+        'chunk_size' => (int) env('TENANCY_SEEDER_CHUNK_SIZE', 500),
+        'moderator_email' => env('TENANCY_MODERATOR_EMAIL', 'moderator@gtims.local'),
+        'moderator_name' => env('TENANCY_MODERATOR_NAME', 'GTIMS Moderator'),
+        'default_password' => env('TENANCY_DEMO_PASSWORD', 'password'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Tenant Foreign-Key Validation
     |--------------------------------------------------------------------------
     |

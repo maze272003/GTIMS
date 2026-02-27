@@ -1,19 +1,28 @@
 # GTIMS Multi-Tenant SaaS Conversion Plan
 
+> **Last Updated:** 2026-02-27
+> **Scope:** Country-wide multi-tenant SaaS — all PH provinces and barangays as first-class tenants.
+
 ## Document Purpose
 
-This implementation plan describes how to convert the current GTIMS Laravel application into a multi-tenant SaaS platform with strict tenant data isolation and hierarchical administration.
+This implementation plan describes how to convert the current GTIMS Laravel application into a true multi-tenant SaaS platform with strict tenant data isolation and hierarchical administration, supporting all Philippine provinces and barangays as first-class tenants.
 
 Target hierarchy:
 
-1. `Moderator` (Super Admin / global oversight)
-2. `Provincial Administrator`
-3. `Barangay Administrator`
+| Level | Role | Scope | Responsibilities |
+|-------|------|-------|------------------|
+| 1 | **Moderator** | Platform | Manages subscriptions, SaaS business settings, creates/manages Super Admin accounts |
+| 2 | **Super Admin** | Province | Handler for assigned province; manages Admins and users under their province |
+| 3 | **Admin** | Barangay | Manages operations within a single barangay |
+| 4 | **Staff / Users** | Barangay | Operate within strictly isolated tenant data |
 
 Target access pattern:
 
 - `https://domain.name/{province-slug}/{barangay-slug}` for tenant-scoped login and app access
 - `https://domain.name/moderator` (or `https://admin.domain.name`) for Moderator portal
+- **No non-tenant URLs** like `domain.name/admin/dashboard` — all access is tenant-aware
+
+Tenant structure supports **all PH provinces (82) and barangays (42,000+)** with scalable seeding and routing.
 
 This plan is tailored to the current codebase structure (Laravel + Vite + service/repository pattern) and modules already present (inventory, patient records, holds, requests, orders, suppliers, analytics, notifications, audit logs).
 
@@ -43,9 +52,12 @@ Use a hierarchical tenancy model with explicit entities:
 
 Role scope:
 
-1. `Moderator` can access all provinces/barangays and system-wide operations
-2. `Provincial Administrator` can access only their province and all barangays under it
-3. `Barangay Administrator` can access only their assigned barangay tenant
+1. `Moderator` can access all provinces/barangays and system-wide operations; creates/manages Super Admin accounts
+2. `Super Admin` (Provincial-level) can access only their assigned province and all barangays under it; manages Admins and users
+3. `Admin` (Barangay-level) can access only their assigned barangay tenant
+4. `Staff / Users` operate within their assigned barangay with strictly isolated data
+
+Data isolation: inventories, orders, tracking records, logs, analytics, notifications, and all module data are accessible **only** within the correct `province_id` + `barangay_id` scope.
 
 ## 2. Tenancy Strategy (Recommended)
 
@@ -345,11 +357,11 @@ This prevents accidental hardcoded `/admin/...` links that bypass tenant context
 
 System-defined roles:
 
-1. `moderator` (platform scope)
-2. `province_admin` (province scope)
-3. `barangay_admin` (barangay scope)
-4. optional `barangay_staff` (barangay scope)
-5. optional `auditor` (province or platform scope)
+1. `moderator` (platform scope) — manages subscriptions, SaaS settings, creates Super Admins
+2. `super_admin` / `province_admin` (province scope) — handler for assigned province; manages Admins and users
+3. `barangay_admin` (barangay scope) — manages operations within assigned barangay
+4. `barangay_staff` (barangay scope) — operational staff with limited permissions
+5. optional `auditor` (province or platform scope) — read-only audit access
 
 ## 2. Permission Model
 
@@ -1950,6 +1962,107 @@ class BillingService
 - [ ] Configure feature-flag kill switches for staged rollout / rollback
 - [ ] Approve cutover freeze window and rollback trigger criteria
 - [ ] Final security review
+
+## Country-Wide Seeder Strategy
+
+### Architecture
+
+All seeders are organized via a single `DemoSeeder` entry point (`database/seeders/DemoSeeder.php`).
+
+### Seeder Execution Order
+
+1. **ProvinceBarangaySeeder** — Seeds all 82 PH provinces and 42,000+ barangays from PSGC dataset.
+   - Generates unique, stable, URL-safe slugs.
+   - Province slugs: globally unique.
+   - Barangay slugs: unique within province (`unique(province_id, slug)`).
+   - All records seeded with `is_active = false` by default.
+2. **ModeratorSeeder** — Creates platform-level Moderator account with `moderator` role.
+3. **SuperAdminSeeder** — Creates Super Admin accounts mapped to demo provinces.
+   - Each Super Admin has `tenant_membership` with `scope_type = 'province'`.
+   - Each Super Admin has `role_assignment` with `super_admin` role.
+4. **AdminUserSeeder** — Creates Admins and staff under each Super Admin's province.
+   - Admins scoped to specific barangays.
+   - Staff users with limited permissions.
+5. **TenantDemoDataSeeder** — Seeds per-module sample data for demo provinces:
+   - Products, inventory batches, suppliers, supplier_products
+   - Orders, order_items, holds, hold_items
+   - Incoming requests, request_items, request_comments
+   - Patient records, dispensed medications
+   - Product movements, history logs, audit events
+   - Low stock settings, reorder rules
+   - Notifications
+   - All relationships guaranteed within same `province_id` + `barangay_id`.
+
+### Scalability Configuration
+
+```php
+// config/tenancy.php
+'seeder' => [
+    // Seed ALL provinces + barangays for lookup tables
+    'seed_all_geo' => true,
+    
+    // Generate business demo data only for these provinces
+    'demo_provinces' => ['bulacan', 'cebu', 'davao-del-sur'],
+    
+    // Number of barangays per demo province to seed data for
+    'demo_barangays_per_province' => 5,
+    
+    // Records per module per demo barangay
+    'demo_records_per_module' => 50,
+    
+    // Chunk size for batch inserts
+    'chunk_size' => 500,
+],
+```
+
+### Idempotency Rules
+
+- All seeders use `firstOrCreate` or `updateOrCreate`.
+- Slug generation is deterministic (derived from name).
+- Re-running seeders never duplicates data.
+- Conditional logic prevents re-seeding demo data if already present.
+
+### Performance
+
+- Chunk inserts of 500–1000 rows.
+- Factory batch creation using `Model::factory()->count(N)->create()`.
+- DB transactions per chunk for atomicity.
+- Disable model events during bulk seeding.
+- Expected runtime: ~2-5 min for full PH geo data; ~10-15 min with demo data.
+
+## Quality Cycle (Mandatory — Run Until Stable)
+
+After every deployment, migration, or seeder change:
+
+```bash
+# Step 1: Build / Autoload
+composer dump-autoload
+npm run build
+
+# Step 2: Syntax / Config Check
+php artisan route:clear
+php artisan config:clear
+php artisan cache:clear
+
+# Step 3: Unit / Integration Tests
+php vendor/bin/phpunit --stop-on-failure
+
+# Step 4: Tenant Smoke Tests
+php artisan tenant:smoke-test
+```
+
+### Required Automated Tests
+
+| Test File | What It Validates |
+|-----------|-------------------|
+| `tests/Feature/Tenancy/SlugResolutionTest.php` | `/{provinceSlug}/{barangaySlug}` resolves correctly across PH provinces |
+| `tests/Feature/Tenancy/RoleAccessTest.php` | Moderator → all; Super Admin → own province; Admin → own barangay |
+| `tests/Feature/Tenancy/CrossTenantAccessTest.php` | User from Province A gets 403/404 for Province B data |
+| `tests/Feature/Tenancy/SeederIntegrityTest.php` | All seeded data has correct tenant keys; no orphans |
+| `tests/Feature/Tenancy/ExportIsolationTest.php` | Exports scoped to requesting tenant only |
+| `tests/Feature/Tenancy/QueueContextTest.php` | Jobs carry and restore tenant context |
+| `tests/Unit/Tenancy/TenantResolverTest.php` | Resolver parses slugs, validates memberships |
+| `tests/Unit/Tenancy/TenantContextTest.php` | Context object immutability and scope checks |
 
 ## Rollback and Risk Mitigation Plan
 

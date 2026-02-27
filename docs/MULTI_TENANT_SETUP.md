@@ -1,14 +1,20 @@
 # Multi-Tenant SaaS Setup Guide
 
+> **Last Updated:** 2026-02-27
+> **Scope:** Country-wide multi-tenant SaaS — all PH provinces and barangays as first-class tenants.
+
 ## Architecture Overview
 
-GTIMS uses a **single database, shared schema, row-level tenant partitioning** approach for multi-tenancy.
+GTIMS uses a **single database, shared schema, row-level tenant partitioning** approach for multi-tenancy, supporting all Philippine provinces (82) and barangays (42,000+) as first-class tenants.
 
 ### Tenant Hierarchy
 
-1. **Platform** (implicit, system-wide) — Moderator access
-2. **Province** (top-level tenant container) — Provincial Administrator access
-3. **Barangay** (child tenant under a province) — Barangay Administrator access
+| Level | Role | Scope | Responsibilities |
+|-------|------|-------|------------------|
+| 1 | **Moderator** | Platform | Manages subscriptions, SaaS business settings, creates/manages Super Admin accounts |
+| 2 | **Super Admin** | Province | Handler for assigned province; manages Admins and users under their province |
+| 3 | **Admin** | Barangay | Manages operations within a single barangay |
+| 4 | **Staff / Users** | Barangay | Operate within strictly isolated tenant data |
 
 ### URL Structure
 
@@ -16,13 +22,16 @@ GTIMS uses a **single database, shared schema, row-level tenant partitioning** a
 |---|---|---|
 | `/{provinceSlug}/{barangaySlug}/...` | Tenant access | `/bulacan/malolos/dashboard` |
 | `/moderator/...` | Moderator portal | `/moderator/dashboard` |
-| `/admin/...` | Legacy admin (preserved) | `/admin/dashboard` |
+
+> **Important:** The system does NOT use non-tenant URLs like `/admin/dashboard`. All application routes and views are accessed using URL path slugs. This is a SaaS with tenant-aware navigation.
 
 ### Data Isolation Strategy
 
-- All tenant-owned data includes `province_id` and `barangay_id` columns
-- Queries are automatically scoped by tenant context
-- Shared data (products, permissions) is globally accessible
+- All tenant-owned data includes `province_id` and `barangay_id` columns.
+- Queries are automatically scoped by tenant context using global scopes and `TenantScoped` trait.
+- Shared data (products, permissions) is globally accessible.
+- Inventories, orders, tracking records, logs, analytics, notifications, and all module data are accessible **only** within the correct `province_id` + `barangay_id` scope.
+- Defense-in-depth: middleware (`tenant.resolve`) + policies/gates + global scopes + service-level guardrails.
 
 ## Database Schema
 
@@ -98,59 +107,58 @@ CREATE INDEX idx_requests_tenant_status ON incoming_requests(province_id, barang
 php artisan migrate
 ```
 
-### 2. Create a Province
+### 2. Seed Country-Wide Data (DemoSeeder)
 
-```php
-use App\Models\Province;
+All seeders are organized via a single `DemoSeeder` entry point:
 
-Province::create([
-    'name' => 'Bulacan',
-    'slug' => 'bulacan',
-    'is_active' => true,
-]);
+```bash
+php artisan db:seed --class=DemoSeeder
 ```
 
-### 3. Create a Barangay
+This runs in order:
+
+| Seeder | What It Does |
+|--------|--------------|
+| `ProvinceBarangaySeeder` | Seeds all 82 PH provinces and 42,000+ barangays with unique/stable slugs |
+| `ModeratorSeeder` | Creates platform-level Moderator account |
+| `SuperAdminSeeder` | Creates Super Admin accounts mapped to demo provinces |
+| `AdminUserSeeder` | Creates Admins and staff under each Super Admin |
+| `TenantDemoDataSeeder` | Seeds per-tenant sample data for configurable demo provinces |
+
+All seeders are **idempotent** (safe to rerun) and use chunk inserts for performance.
+
+### Seeder Configuration
 
 ```php
-use App\Models\Barangay;
-
-Barangay::create([
-    'barangay_name' => 'Malolos',
-    'province_id' => 1, // Bulacan's ID
-    'slug' => 'malolos',
-    'is_active' => true,
-]);
+// config/tenancy.php -> 'seeder'
+'seeder' => [
+    'seed_all_geo' => true,                         // Seed ALL provinces + barangays
+    'demo_provinces' => ['bulacan', 'cebu', 'davao-del-sur'], // Demo data only for these
+    'demo_barangays_per_province' => 5,
+    'demo_records_per_module' => 50,
+    'chunk_size' => 500,
+],
 ```
 
-### 4. Assign a User to a Tenant
+### Seed Only Geographic Data
 
-```php
-use App\Models\TenantMembership;
-
-// Platform (Moderator)
-TenantMembership::create([
-    'user_id' => 1,
-    'scope_type' => 'platform',
-    'scope_id' => null,
-    'is_primary' => true,
-    'status' => 'active',
-]);
-
-// Barangay Admin
-TenantMembership::create([
-    'user_id' => 2,
-    'scope_type' => 'barangay',
-    'scope_id' => 1, // Malolos barangay ID
-    'is_primary' => true,
-    'status' => 'active',
-]);
+```bash
+php artisan db:seed --class=ProvinceBarangaySeeder
 ```
 
-### 5. Access Tenant Routes
+### Seed Demo Data for a Specific Province
 
-- Tenant access: `http://localhost:8000/bulacan/malolos/dashboard`
-- Moderator: `http://localhost:8000/moderator/dashboard`
+```bash
+php artisan tenant:seed-demo --province=bulacan
+```
+
+### 3. Verify Seeder Integrity
+
+```bash
+php artisan tenant:migration null-scan
+php artisan tenant:validate-slugs
+php artisan tenant:health-check
+```
 
 ## Core Components
 
@@ -431,16 +439,36 @@ php vendor/bin/phpunit
 
 ### Key Test Cases
 
-- Tenant resolver correctly parses slugs
-- User membership validation works
-- Cross-tenant access is blocked
-- Data isolation in queries
+- Tenant resolver correctly parses slugs across all PH provinces/barangays
+- User membership validation works for Moderator, Super Admin, Admin, Staff
+- Cross-tenant access is blocked (Province A user cannot access Province B data)
+- Cross-barangay access is blocked within same province
+- Data isolation in queries via `TenantScoped` trait and global scopes
 - Export isolation
 - API rate limiting per tenant
 - Tenant-aware password reset / email verification / invitation links preserve tenant slug context
 - Moderator tenant switching / impersonation keeps session scope isolated and audit logs complete
+- Super Admin can manage Admins only within assigned province
 - Cache/session invalidation works after role or membership changes
 - Canonical slug redirects work and invalid slugs return expected errors
+- Seeder integrity — all seeded data has correct `province_id` + `barangay_id`
+
+### Quality Cycle (Run Until Stable)
+
+```bash
+# Step 1: Build / Autoload
+composer dump-autoload
+npm run build
+
+# Step 2: Syntax / Config Check
+php artisan route:clear && php artisan config:clear && php artisan cache:clear
+
+# Step 3: Unit / Integration Tests
+php vendor/bin/phpunit --stop-on-failure
+
+# Step 4: Tenant Smoke Tests
+php artisan tenant:smoke-test
+```
 
 ## Production Deployment
 
@@ -464,23 +492,24 @@ php vendor/bin/phpunit
 ### Deployment Steps
 
 1. Run migrations: `php artisan migrate`
-2. Seed provinces and barangays
-3. Create tenant memberships for users
+2. Seed all provinces and barangays: `php artisan db:seed --class=DemoSeeder`
+3. Verify Moderator and Super Admin accounts created
 4. Run reconciliation checks for tenant keys and core tenant-owned tables
-5. Test tenant routes (including canonical slug redirects)
-6. Verify data isolation
+5. Test tenant routes across multiple provinces (including canonical slug redirects)
+6. Verify data isolation: user from Province A blocked from Province B
 7. Restart/drain queue workers with tenant-aware job code loaded
 8. Enable production monitoring
 
 ### Post-Deployment
 
-- Monitor tenant health checks
+- Monitor tenant health checks across all active provinces
 - Review audit logs for cross-tenant access attempts
 - Validate export isolation
 - Check queue job tenant context
 - Run post-cutover reconciliation and null tenant-key scans
 - Verify tenant-aware password reset / invite / email verification links in production
 - Verify cache/session invalidation after role or membership changes
+- Verify Super Admin can only manage users within assigned province
 - Confirm rollback toggles / feature flags can be disabled quickly if needed
 
 ## Troubleshooting
