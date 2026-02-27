@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use App\Tenancy\TenantContext;
+use App\Traits\EncryptsAttributes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Patientrecords extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantScoped, EncryptsAttributes;
 
     protected $fillable = [
         'patient_name',
@@ -22,6 +24,11 @@ class Patientrecords extends Model
 
     protected $casts = [
         'date_dispensed' => 'datetime',
+    ];
+
+    protected array $encryptable = [
+        'patient_name',
+        'purok',
     ];
 
     public function barangay()

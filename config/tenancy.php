@@ -108,6 +108,7 @@ return [
             'custom_branding' => (bool) env('FEATURE_CUSTOM_BRANDING', false),
             'webhooks' => (bool) env('FEATURE_WEBHOOKS', false),
             'api_access' => (bool) env('FEATURE_API_ACCESS', false),
+            'require_2fa' => (bool) env('FEATURE_REQUIRE_2FA', false),
         ],
         'kill_switches' => [
             'tenant_routes' => (bool) env('FEATURE_TENANT_ROUTES', true),
@@ -146,6 +147,11 @@ return [
 
     'allow_legacy_unscoped_records' => (bool) env('TENANCY_ALLOW_LEGACY_UNSCOPED', true),
 
+    'rbac' => [
+        'allow_legacy_permissions' => (bool) env('TENANCY_ALLOW_LEGACY_PERMISSIONS', true),
+        'allow_legacy_moderator_fallback' => (bool) env('TENANCY_ALLOW_LEGACY_MODERATOR_FALLBACK', true),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Storage Settings
@@ -162,6 +168,72 @@ return [
     */
     'cache' => [
         'prefix' => env('TENANCY_CACHE_PREFIX', 'tenant'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tenant Foreign-Key Validation
+    |--------------------------------------------------------------------------
+    |
+    | Request input paths mapped to database tables that must match current
+    | tenant context when using tenant routes.
+    |
+    */
+    'tenant_fk_validation' => [
+        'province_id' => 'provinces',
+        'barangay_id' => 'barangays',
+        'branch_id' => 'branches',
+        'inventory_id' => 'inventories',
+        'supplier_id' => 'suppliers',
+        'items.*.inventory_id' => 'inventories',
+        'items.*.supplier_id' => 'suppliers',
+        'items.*.branch_id' => 'branches',
+        'medications.*.name' => 'inventories',
+        'medications.*.inventory_id' => 'inventories',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Webhooks
+    |--------------------------------------------------------------------------
+    */
+    'webhooks' => [
+        'events' => [
+            'inventory.low_stock',
+            'request.created',
+            'request.status_changed',
+            'export.completed',
+            'incident.created',
+            'incident.resolved',
+            'membership.suspended',
+        ],
+        'delivery_timeout_seconds' => (int) env('TENANCY_WEBHOOK_TIMEOUT', 10),
+        'max_retries' => (int) env('TENANCY_WEBHOOK_MAX_RETRIES', 3),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | API Access
+    |--------------------------------------------------------------------------
+    */
+    'api' => [
+        'enabled' => (bool) env('FEATURE_API_ACCESS', false),
+        'token_ttl_minutes' => (int) env('TENANCY_API_TOKEN_TTL', 1440),
+    ],
+
+    'billing' => [
+        'enabled' => (bool) env('BILLING_ENABLED', false),
+        'provider' => env('BILLING_PROVIDER', 'none'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | PII Controls
+    |--------------------------------------------------------------------------
+    */
+    'pii' => [
+        'patientrecords' => ['patient_name', 'purok'],
+        'users' => ['email'],
     ],
 
 ];

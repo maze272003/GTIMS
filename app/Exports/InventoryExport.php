@@ -3,6 +3,8 @@
 namespace App\Exports;
 
 use App\Models\Inventory;
+use App\Tenancy\TenantContext;
+use App\Tenancy\TenantScope;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\FromCollection;
@@ -32,13 +34,15 @@ class InventoryExport implements
     protected $filter;
     protected $search;
     protected $user;
+    protected ?TenantContext $tenantContext;
 
-    public function __construct($branch, $filter = null, $search = null)
+    public function __construct($branch, $filter = null, $search = null, ?TenantContext $tenantContext = null)
     {
         $this->branch = $branch;
         $this->filter = $filter;
         $this->search = $search;
         $this->user = Auth::user();
+        $this->tenantContext = $tenantContext;
     }
 
     public function drawings()
@@ -69,9 +73,12 @@ class InventoryExport implements
 
     public function collection()
     {
-        $query = Inventory::with(['product', 'branch'])
-            ->where('branch_id', $this->branch)
-            ->where('is_archived', 0);
+        $query = Inventory::with(['product', 'branch'])->where('is_archived', 0);
+        TenantScope::apply($query, $this->tenantContext);
+
+        if ((!$this->tenantContext || $this->tenantContext->isPlatform()) && $this->branch) {
+            $query->where('branch_id', $this->branch);
+        }
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -157,7 +164,10 @@ class InventoryExport implements
 
                 // Report Title (Row 7)
                 $sheet->mergeCells('A7:G7');
-                $sheet->setCellValue('A7', "RHU-{$this->branch} Inventory Report");
+                $scopeLabel = $this->tenantContext
+                    ? strtoupper($this->tenantContext->scopeType) . ' Inventory Report'
+                    : "RHU-{$this->branch} Inventory Report";
+                $sheet->setCellValue('A7', $scopeLabel);
                 $sheet->getStyle('A7')->applyFromArray([
                     'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '1F2937']],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],

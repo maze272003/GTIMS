@@ -8,9 +8,11 @@ use App\Models\Product;
 use App\Models\Branch;
 use App\Models\RequestComment;
 use App\Models\RequestAttachment;
+use App\Services\TenantStorageService;
 use App\Services\RequestWorkflowService;
 use App\Services\SubstitutionService;
 use App\Services\AvailabilityService;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -20,15 +22,18 @@ class IncomingRequestController extends Controller
     protected RequestWorkflowService $workflowService;
     protected SubstitutionService $substitutionService;
     protected AvailabilityService $availabilityService;
+    protected TenantStorageService $tenantStorageService;
 
     public function __construct(
         RequestWorkflowService $workflowService,
         SubstitutionService $substitutionService,
-        AvailabilityService $availabilityService
+        AvailabilityService $availabilityService,
+        TenantStorageService $tenantStorageService
     ) {
         $this->workflowService = $workflowService;
         $this->substitutionService = $substitutionService;
         $this->availabilityService = $availabilityService;
+        $this->tenantStorageService = $tenantStorageService;
     }
 
     public function index(Request $request)
@@ -153,14 +158,28 @@ class IncomingRequestController extends Controller
             'attachment' => 'required|file|max:10240|mimes:pdf,doc,docx,jpg,jpeg,png,xlsx,xls,csv',
         ]);
 
+        /** @var TenantContext|null $tenantContext */
+        $tenantContext = $request->attributes->get('tenantContext');
+        if (!$tenantContext) {
+            return back()->with('error', 'Tenant context is missing for file upload.');
+        }
+
         $file = $validated['attachment'];
         $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
-        $file->storeAs('request-attachments', $filename, 'local');
+        $relativePath = 'request-attachments/' . $filename;
+        $scopedPath = $this->tenantStorageService->tenantPath($relativePath, $tenantContext);
+        $file->storeAs(dirname($scopedPath), basename($scopedPath), config('tenancy.storage.disk', 'local'));
+
+        if (!$this->tenantStorageService->belongsToTenant($scopedPath, $tenantContext)) {
+            return back()->with('error', 'Attachment path failed tenant boundary validation.');
+        }
 
         RequestAttachment::create([
+            'province_id' => $tenantContext->provinceId,
+            'barangay_id' => $tenantContext->barangayId,
             'incoming_request_id' => $incomingRequest->id,
             'user_id' => Auth::id(),
-            'filename' => $filename,
+            'filename' => $scopedPath,
             'original_name' => $file->getClientOriginalName(),
             'mime_type' => $file->getClientMimeType(),
             'size' => $file->getSize(),

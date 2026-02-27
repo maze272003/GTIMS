@@ -9,18 +9,23 @@ use App\Repositories\Interfaces\PatientRecordsRepositoryInterface;
 use App\Tenancy\TenantContext;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\PatientRecordsExport;
 
 class PatientRecordsAdminService
 {
     public function __construct(
-        protected PatientRecordsRepositoryInterface $patientRecordsRepository
+        protected PatientRecordsRepositoryInterface $patientRecordsRepository,
+        protected TenantExportService $tenantExportService,
+        protected PiiAuditService $piiAuditService,
     ) {
     }
 
     public function showpatientrecords(Request $request)
     {
+        $this->piiAuditService->log('patientrecords', 'list_view', null, [
+            'filters' => $request->only(['from_date', 'to_date', 'category', 'barangay_id', 'branch_filter']),
+        ]);
+
         $user = Auth::user();
 
         // === 1. BUILD THE QUERY ===
@@ -268,6 +273,8 @@ class PatientRecordsAdminService
 
     public function exportPdf(Request $request)
     {
+        $this->piiAuditService->log('patientrecords', 'export_pdf');
+
         $user = Auth::user();
 
         // 1. REUSE FILTERS
@@ -318,10 +325,19 @@ class PatientRecordsAdminService
     }
     public function exportExcel(Request $request)
     {
+        $this->piiAuditService->log('patientrecords', 'export_excel');
+
         $user = Auth::user();
-        
-        // Pass all request inputs (filters) and the current user to the Export class
-        return Excel::download(new PatientRecordsExport($request->all(), $user), 'patient_records_' . Carbon::now()->format('Ymd_His') . '.xlsx');
+        $tenantContext = app()->bound(TenantContext::class) ? app(TenantContext::class) : null;
+        $fileName = 'patient_records_' . Carbon::now()->format('Ymd_His') . '.xlsx';
+
+        $stored = $this->tenantExportService->store(
+            new PatientRecordsExport($request->all(), $user, $tenantContext),
+            $fileName,
+            $tenantContext
+        );
+
+        return $this->tenantExportService->download($stored);
         
         // Note: If you specifically meant "CSV" when you said "CV export", 
         // you can just change the extension above to '.csv':

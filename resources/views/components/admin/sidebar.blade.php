@@ -14,6 +14,7 @@
             @php
                 $tenantCtx = current_tenant();
                 $tenantMode = !is_null($tenantCtx);
+                $moderatorMode = request()->routeIs('moderator.*') && auth()->user()->isModerator();
                 $nav = function (string $adminRoute, ?string $tenantRoute = null, array $params = []) use ($tenantMode, $tenantCtx) {
                     if ($tenantMode && $tenantRoute) {
                         return tenant_route($tenantRoute, $params, $tenantCtx);
@@ -23,6 +24,44 @@
                 };
             @endphp
 
+            @if($moderatorMode)
+                <li>
+                    <a href="{{ route('moderator.dashboard') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('moderator.dashboard') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                        <i class="fa-regular fa-shield nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                        <span class="nav-text ml-3 font-medium lg:inline md:hidden">Moderator Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('moderator.provinces.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('moderator.provinces.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                        <i class="fa-regular fa-map nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                        <span class="nav-text ml-3 font-medium lg:inline md:hidden">Provinces</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('moderator.barangays.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('moderator.barangays.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                        <i class="fa-regular fa-location-dot nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                        <span class="nav-text ml-3 font-medium lg:inline md:hidden">Barangays</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('moderator.memberships.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('moderator.memberships.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                        <i class="fa-regular fa-users nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                        <span class="nav-text ml-3 font-medium lg:inline md:hidden">Memberships</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('moderator.onboarding.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('moderator.onboarding.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                        <i class="fa-regular fa-list-check nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                        <span class="nav-text ml-3 font-medium lg:inline md:hidden">Onboarding</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ route('moderator.incidents.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('moderator.incidents.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                        <i class="fa-regular fa-triangle-exclamation nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                        <span class="nav-text ml-3 font-medium lg:inline md:hidden">Incidents</span>
+                    </a>
+                </li>
+            @else
             {{-- 1. DASHBOARD --}}
             @haspermission('dashboard.view')
                 <li>
@@ -169,12 +208,13 @@
 
             @haspermission('settings.roles')
             <li>
-                <a href="{{ route('admin.roles.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                <a href="{{ $tenantMode ? tenant_route('tenant.settings.index', [], $tenantCtx) : route('admin.roles.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.roles.*', 'tenant.settings.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-user-shield nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Roles & Permissions</span>
+                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">{{ $tenantMode ? 'Tenant Settings' : 'Roles & Permissions' }}</span>
                 </a>
             </li>
             @endhaspermission
+            @endif
         @endauth
     </ul>
 

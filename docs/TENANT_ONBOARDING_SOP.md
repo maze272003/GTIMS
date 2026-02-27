@@ -5,6 +5,7 @@
 1. Create province record (`provinces`).
 2. Create barangay record (`barangays`) linked to province.
 3. Create onboarding record (`tenant_onboarding`) with initial state.
+4. Record onboarding in Moderator Onboarding page (`/moderator/onboarding`).
 
 ## Configuration
 
@@ -24,3 +25,5 @@
 2. Dashboard renders with tenant badge.
 3. Tenant health check status is `healthy`.
 4. Basic module smoke tests pass (inventory, requests, suppliers).
+5. Tenant email settings and feature flags are configured under tenant settings.
+6. (Optional) 2FA requirement is validated for sensitive tenant scopes.

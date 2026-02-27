@@ -15,11 +15,12 @@ class InventoryExportController extends Controller
 
     public function export(Request $request)
     {
+        $branch = $request->input('branch') ?? $request->user()?->branch_id ?? 1;
+
         return $this->inventoryExportService->export(
-            $request->input('branch'),
+            $branch,
             $request->input('filter'),
             $request->input('search')
         );
     }
 }
-

@@ -3,6 +3,8 @@
 namespace App\Exports;
 
 use App\Models\Supplier;
+use App\Tenancy\TenantContext;
+use App\Tenancy\TenantScope;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -30,7 +32,8 @@ class SuppliersExport implements
     WithEvents
 {
     public function __construct(
-        protected $user
+        protected $user,
+        protected ?TenantContext $tenantContext = null,
     ) {
     }
 
@@ -65,15 +68,23 @@ class SuppliersExport implements
 
     public function collection()
     {
-        return Supplier::query()
+        $query = Supplier::query()
             ->with([
                 'supplierProducts' => fn ($query) => $query
+                    ->when($this->tenantContext && !$this->tenantContext->isPlatform(), function ($supplierProductQuery) {
+                        $supplierProductQuery->whereHas('inventory', function ($inventoryQuery) {
+                            TenantScope::apply($inventoryQuery, $this->tenantContext, 'inventories');
+                        });
+                    })
                     ->with(['inventory.product', 'inventory.branch'])
                     ->orderBy('id'),
             ])
             ->withCount(['supplierProducts as linked_batches_count'])
-            ->orderBy('name')
-            ->get();
+            ->orderBy('name');
+
+        TenantScope::apply($query, $this->tenantContext);
+
+        return $query->get();
     }
 
     public function headings(): array

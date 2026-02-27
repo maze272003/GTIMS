@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Traits\EncryptsAttributes;
 use App\Tenancy\TenantContext;
 use App\Tenancy\ScopedPermissionResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,7 +13,7 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, EncryptsAttributes;
 
     /**
      * The attributes that are mass assignable.
@@ -29,6 +30,8 @@ class User extends Authenticatable
         'user_level_id',
         'province_id',
         'barangay_id',
+        'two_factor_secret',
+        'two_factor_enabled',
     ];
 
     /**
@@ -52,8 +55,13 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'otp_expires_at' => 'datetime',
+            'two_factor_enabled' => 'boolean',
         ];
     }
+
+    protected array $encryptable = [
+        'two_factor_secret',
+    ];
 
     public function level()
     {
@@ -84,6 +92,11 @@ class User extends Authenticatable
     public function roleAssignments()
     {
         return $this->hasMany(RoleAssignment::class);
+    }
+
+    public function tenantApiTokens()
+    {
+        return $this->hasMany(TenantApiToken::class);
     }
 
     public function hasPermission(string $permissionName, ?TenantContext $tenantContext = null, ?array $targetTenant = null): bool
@@ -159,6 +172,10 @@ class User extends Authenticatable
             return true;
         }
 
-        return (bool) ($this->level && $this->level->name === 'superadmin');
+        if (config('tenancy.rbac.allow_legacy_moderator_fallback', false)) {
+            return (bool) ($this->level && $this->level->name === 'superadmin');
+        }
+
+        return false;
     }
 }

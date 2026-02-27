@@ -17,6 +17,8 @@ class AuthSessionService
     public function __construct(
         protected UserRepositoryInterface $userRepository,
         protected TenantResolver $tenantResolver,
+        protected TenantEmailSettingsService $tenantEmailSettingsService,
+        protected TenantTwoFactorService $tenantTwoFactorService,
     ) {
     }
 
@@ -34,7 +36,7 @@ class AuthSessionService
 
     public function getRedirectUrl(User $user, ?TenantContext $tenantContext = null, string $loginMode = 'legacy'): ?string
     {
-        $hasLegacyLevel = !is_null($user->level);
+        $hasLegacyLevel = config('tenancy.rbac.allow_legacy_permissions', false) && !is_null($user->level);
         $hasScopedAssignments = $user->roleAssignments()->exists();
 
         if (!$hasLegacyLevel && !$hasScopedAssignments && !$user->isModerator()) {
@@ -175,6 +177,9 @@ class AuthSessionService
         }
 
         $hasLegacyLevel = !is_null($user->level);
+        if (!config('tenancy.rbac.allow_legacy_permissions', false)) {
+            $hasLegacyLevel = false;
+        }
         $hasScopedAssignments = $user->roleAssignments()->exists();
         if (!$hasLegacyLevel && !$hasScopedAssignments && !$user->isModerator()) {
             return [
@@ -226,6 +231,14 @@ class AuthSessionService
                     'redirect' => tenant_route('tenant.login', [], $tenantContext),
                 ];
             }
+
+            if ($this->tenantTwoFactorService->isRequiredForTenant($tenantContext) && !$user->two_factor_enabled) {
+                return [
+                    'ok' => false,
+                    'error' => 'Two-factor authentication is required for this tenant. Please enable 2FA on your account first.',
+                    'redirect' => tenant_route('tenant.login', [], $tenantContext),
+                ];
+            }
         }
 
         $redirectUrl = $this->getRedirectUrl($user, $tenantContext, $loginMode);
@@ -249,6 +262,7 @@ class AuthSessionService
             try {
                 $tenantLabel = null;
                 if ($tenantContext) {
+                    $this->tenantEmailSettingsService->apply($tenantContext);
                     $tenantLabel = $tenantContext->isBarangay()
                         ? "{$tenantContext->provinceSlug}/{$tenantContext->barangaySlug}"
                         : ($tenantContext->provinceSlug ?? $tenantContext->scopeType);

@@ -92,6 +92,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'tenancy_alerts' => [
+            'driver' => 'stack',
+            'channels' => array_filter([
+                'security',
+                env('TENANCY_ALERTS_USE_SLACK', false) ? 'slack' : null,
+            ]),
+            'ignore_exceptions' => false,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

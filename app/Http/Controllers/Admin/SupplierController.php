@@ -8,14 +8,16 @@ use App\Http\Requests\Admin\StoreSupplierRequest;
 use App\Http\Requests\Admin\UpdateSupplierRequest;
 use App\Models\Inventory;
 use App\Repositories\Interfaces\SupplierRepositoryInterface;
+use App\Services\TenantExportService;
+use App\Tenancy\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 
 class SupplierController extends Controller
 {
     public function __construct(
-        protected SupplierRepositoryInterface $supplierRepository
+        protected SupplierRepositoryInterface $supplierRepository,
+        protected TenantExportService $tenantExportService,
     ) {
     }
 
@@ -28,11 +30,16 @@ class SupplierController extends Controller
     public function exportExcel(Request $request)
     {
         $user = $request->user();
+        $tenantContext = app()->bound(TenantContext::class) ? app(TenantContext::class) : null;
+        $fileName = 'suppliers_' . Carbon::now()->format('Ymd_His') . '.xlsx';
 
-        return Excel::download(
-            new SuppliersExport($user),
-            'suppliers_' . Carbon::now()->format('Ymd_His') . '.xlsx'
+        $stored = $this->tenantExportService->store(
+            new SuppliersExport($user, $tenantContext),
+            $fileName,
+            $tenantContext
         );
+
+        return $this->tenantExportService->download($stored);
     }
 
     public function create()

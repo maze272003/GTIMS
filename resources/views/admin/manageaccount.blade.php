@@ -113,7 +113,7 @@
 
                                 <div>
                                     <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Assigned Branch</label>
-                                    @if(Auth::user()->level->name === 'superadmin')
+                                    @if(Auth::user()->isModerator())
                                         <select name="branch_id" id="inputBranch" required class="block w-full rounded-lg border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2.5">
                                             <option value="" disabled selected>Select Branch</option>
                                             @foreach($branches as $branch)
@@ -167,6 +167,8 @@
     </div>
     
     <script>
+        const manageAccountUpdateUrlTemplate = @json(route('admin.manageaccount.update', ['id' => '__USER_ID__']));
+
         document.addEventListener('DOMContentLoaded', function () {
             const searchInput = document.getElementById('searchInput');
             const tableContainer = document.getElementById('table-container');
@@ -261,7 +263,7 @@
 
             if (mode === 'edit' && user) {
                 document.getElementById('modalTitle').innerText = 'Edit User Account';
-                form.action = `/admin/manageaccount/${user.id}`;
+                form.action = manageAccountUpdateUrlTemplate.replace('__USER_ID__', user.id);
                 methodField.innerHTML = '<input type="hidden" name="_method" value="PUT">';
                 document.getElementById('inputName').value = user.name;
                 document.getElementById('inputEmail').value = user.email;

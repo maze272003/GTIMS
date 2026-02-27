@@ -15,6 +15,7 @@ require_once __DIR__ . '/../app/Support/helpers.php';
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         then: function () {
@@ -53,6 +54,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.resolve'   => \App\Http\Middleware\ResolveTenantFromSlug::class,
             'tenant.membership' => \App\Http\Middleware\EnforceTenantMembership::class,
             'tenant.bind'      => \App\Http\Middleware\BindTenantContext::class,
+            'tenant.modelscope' => \App\Http\Middleware\EnforceTenantModelScope::class,
+            'tenant.foreign_keys' => \App\Http\Middleware\ValidateTenantForeignKeys::class,
+            'tenant.api.auth' => \App\Http\Middleware\AuthenticateTenantApiToken::class,
+            'tenant.api.match' => \App\Http\Middleware\EnsureApiTenantMatchesToken::class,
+            'tenant.api.ability' => \App\Http\Middleware\RequireTenantApiAbility::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

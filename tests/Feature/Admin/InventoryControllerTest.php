@@ -186,6 +186,8 @@ class InventoryControllerTest extends TestCase
             'is_archived' => 2
         ]);
 
+        Branch::firstOrCreate(['name' => 'RHU 2']);
+
         $formData = [
             'inventory_id' => $sourceInventory->id,
             'quantity' => 10, // Transfer 10

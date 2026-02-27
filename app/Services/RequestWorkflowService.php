@@ -22,15 +22,31 @@ class RequestWorkflowService
     /**
      * Create a new request (draft).
      */
-    public function createRequest(array $data, array $items, int $userId): IncomingRequest
+    public function createRequest(array $data, array $items, int $userId, ?TenantContext $tenantContext = null): IncomingRequest
     {
-        return DB::transaction(function () use ($data, $items, $userId) {
+        $tenantContext = $tenantContext ?: (app()->bound(TenantContext::class) ? app(TenantContext::class) : null);
+
+        return DB::transaction(function () use ($data, $items, $userId, $tenantContext) {
+            if ($tenantContext && !$tenantContext->isPlatform()) {
+                $data['province_id'] = $tenantContext->provinceId;
+                if ($tenantContext->isBarangay()) {
+                    $data['barangay_id'] = $tenantContext->barangayId;
+                }
+            }
+
             $request = IncomingRequest::create(array_merge($data, [
                 'requester_id' => $userId,
                 'status' => 'draft',
             ]));
 
             foreach ($items as $item) {
+                if ($tenantContext && !$tenantContext->isPlatform()) {
+                    $item['province_id'] = $tenantContext->provinceId;
+                    if ($tenantContext->isBarangay()) {
+                        $item['barangay_id'] = $tenantContext->barangayId;
+                    }
+                }
+
                 RequestItem::create(array_merge($item, [
                     'incoming_request_id' => $request->id,
                 ]));
@@ -111,6 +127,8 @@ class RequestWorkflowService
      */
     public function fulfillRequest(IncomingRequest $request, int $userId, ?string $idempotencyKey = null): IncomingRequest
     {
+        $tenantContext = app()->bound(TenantContext::class) ? app(TenantContext::class) : null;
+
         if ($idempotencyKey) {
             $existing = IdempotencyKey::where('key', $idempotencyKey)
                 ->where('user_id', $userId)
@@ -120,16 +138,17 @@ class RequestWorkflowService
             }
         }
 
-        return DB::transaction(function () use ($request, $userId, $idempotencyKey) {
+        return DB::transaction(function () use ($request, $userId, $idempotencyKey, $tenantContext) {
             $request = $this->transitionStatus($request, 'fulfilling', $userId, 'Starting fulfillment');
 
             $allFulfilled = true;
             foreach ($request->items as $item) {
-                $allocations = $this->availabilityService->allocateFEFO(
-                    $item->product_id,
-                    $item->quantity_requested - $item->quantity_fulfilled,
-                    $request->branch_id
-                );
+                    $allocations = $this->availabilityService->allocateFEFO(
+                        $item->product_id,
+                        $item->quantity_requested - $item->quantity_fulfilled,
+                        $request->branch_id,
+                        $tenantContext
+                    );
 
                 $totalAllocated = array_sum(array_column($allocations, 'quantity'));
 
@@ -173,9 +192,14 @@ class RequestWorkflowService
      */
     public function checkAvailability(IncomingRequest $request): array
     {
+        $tenantContext = app()->bound(TenantContext::class) ? app(TenantContext::class) : null;
         $result = [];
         foreach ($request->items as $item) {
-            $available = $this->availabilityService->getAvailable($item->product_id, $request->branch_id);
+            $available = $this->availabilityService->getAvailable(
+                $item->product_id,
+                $request->branch_id,
+                $tenantContext
+            );
             $result[] = [
                 'item_id' => $item->id,
                 'product_id' => $item->product_id,

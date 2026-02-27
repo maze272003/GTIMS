@@ -11,6 +11,12 @@ use Illuminate\Support\Facades\Notification;
 
 class NotificationService
 {
+    public function __construct(
+        protected TenantWebhookService $webhookService,
+        protected TenantFeatureService $featureService,
+    ) {
+    }
+
     /**
      * Send a notification to a user based on their preferences.
      */
@@ -87,9 +93,11 @@ class NotificationService
             $tenantContext = app(TenantContext::class);
         }
 
-        $admins = User::whereHas('level', function ($query) {
-            $query->whereHas('permissions', function ($q) {
-                $q->where('name', 'notifications.manage');
+        $admins = User::query()->where(function ($query) {
+            $query->whereHas('roleAssignments.role.permissions', function ($permissions) {
+                $permissions->where('name', 'notifications.manage');
+            })->orWhereHas('level.permissions', function ($permissions) {
+                $permissions->where('name', 'notifications.manage');
             });
         });
 
@@ -123,6 +131,19 @@ class NotificationService
                 'available' => $available,
                 'threshold' => $threshold,
             ], $tenantContext);
+        }
+
+        if (
+            $tenantContext
+            && !$tenantContext->isPlatform()
+            && $this->featureService->isEnabled($tenantContext, 'webhooks')
+        ) {
+            $this->webhookService->deliver($tenantContext, 'inventory.low_stock', [
+                'product_id' => $productId,
+                'product_name' => $productName,
+                'available' => $available,
+                'threshold' => $threshold,
+            ]);
         }
     }
 }

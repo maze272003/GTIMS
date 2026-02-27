@@ -2,9 +2,25 @@
 
 namespace App\Providers;
 
+use App\Models\AuditEvent;
+use App\Models\HistoryLog;
+use App\Models\Hold;
+use App\Models\IncomingRequest;
+use App\Models\Inventory;
+use App\Models\Order;
+use App\Models\Patientrecords;
+use App\Models\Supplier;
 use App\Listeners\LogUserLogin;
 use App\Listeners\LogUserLoginFailed;
 use App\Listeners\LogUserLogout;
+use App\Policies\AuditEventPolicy;
+use App\Policies\HistoryLogPolicy;
+use App\Policies\HoldPolicy;
+use App\Policies\IncomingRequestPolicy;
+use App\Policies\InventoryPolicy;
+use App\Policies\OrderPolicy;
+use App\Policies\PatientRecordPolicy;
+use App\Policies\SupplierPolicy;
 use App\Tenancy\TenantContext;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -15,9 +31,11 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -45,7 +63,18 @@ class AppServiceProvider extends ServiceProvider
         if ($shouldForceHttps) {
             URL::forceScheme('https');
         }
-        // $this->registerPolicies();
+        View::composer('*', function ($view) {
+            $view->with('currentAccessContext', app(\App\Services\CurrentAccessContextService::class)->build());
+        });
+
+        Gate::policy(Inventory::class, InventoryPolicy::class);
+        Gate::policy(Patientrecords::class, PatientRecordPolicy::class);
+        Gate::policy(Order::class, OrderPolicy::class);
+        Gate::policy(IncomingRequest::class, IncomingRequestPolicy::class);
+        Gate::policy(Supplier::class, SupplierPolicy::class);
+        Gate::policy(Hold::class, HoldPolicy::class);
+        Gate::policy(AuditEvent::class, AuditEventPolicy::class);
+        Gate::policy(HistoryLog::class, HistoryLogPolicy::class);
 
         /**
          * Gate para sa mga feature na SUPERADMIN LANG ang pwedeng gumamit

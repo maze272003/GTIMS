@@ -15,6 +15,43 @@
                 MODERATOR
             </span>
         @endif
+
+        @if(auth()->check() && auth()->user()->isModerator() && request()->routeIs('moderator.*'))
+            @php
+                $tenantOptions = $currentAccessContext['available_tenants'] ?? [];
+            @endphp
+            <div class="mt-1 flex items-center gap-2">
+                <form method="POST" action="{{ route('moderator.switch') }}" class="flex items-center gap-2">
+                    @csrf
+                    <select id="moderator-province-switch" name="province_slug" class="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" required>
+                        <option value="">Province</option>
+                        @foreach($tenantOptions as $province)
+                            <option
+                                value="{{ $province['province_slug'] }}"
+                                data-barangays='@json($province['barangays'])'
+                            >
+                                {{ $province['province_name'] }}
+                            </option>
+                        @endforeach
+                    </select>
+
+                    <select id="moderator-barangay-switch" name="barangay_slug" class="rounded border border-gray-300 px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100">
+                        <option value="">All barangays</option>
+                    </select>
+
+                    <button type="submit" class="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-700">
+                        Switch
+                    </button>
+                </form>
+
+                <form method="POST" action="{{ route('moderator.switch.platform') }}">
+                    @csrf
+                    <button type="submit" class="rounded border border-gray-300 px-2 py-1 text-xs font-semibold text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-100 dark:hover:bg-gray-700">
+                        Platform
+                    </button>
+                </form>
+            </div>
+        @endif
     </div>
     <div class="flex items-center gap-2">
         <button id="dark-mode-toggle" class="ml-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Toggle dark mode">
@@ -63,5 +100,21 @@
                 setTheme(e.matches ? 'dark' : 'light');
             }
         });
+
+        const provinceSelect = document.getElementById('moderator-province-switch');
+        const barangaySelect = document.getElementById('moderator-barangay-switch');
+        if (provinceSelect && barangaySelect) {
+            provinceSelect.addEventListener('change', function () {
+                const option = provinceSelect.options[provinceSelect.selectedIndex];
+                const barangays = option ? JSON.parse(option.dataset.barangays || '[]') : [];
+                barangaySelect.innerHTML = '<option value="">All barangays</option>';
+                barangays.forEach(function (barangay) {
+                    const opt = document.createElement('option');
+                    opt.value = barangay.barangay_slug;
+                    opt.textContent = barangay.barangay_name;
+                    barangaySelect.appendChild(opt);
+                });
+            });
+        }
     });
 </script>

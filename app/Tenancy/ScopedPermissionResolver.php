@@ -18,6 +18,10 @@ class ScopedPermissionResolver
             return true;
         }
 
+        if (!config('tenancy.rbac.allow_legacy_permissions', false)) {
+            return false;
+        }
+
         return $this->hasLegacyPermission($user, $permissionName);
     }
 
@@ -120,4 +124,3 @@ class ScopedPermissionResolver
         return false;
     }
 }
-

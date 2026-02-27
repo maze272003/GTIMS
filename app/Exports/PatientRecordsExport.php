@@ -3,6 +3,8 @@
 namespace App\Exports;
 
 use App\Models\Patientrecords;
+use App\Tenancy\TenantContext;
+use App\Tenancy\TenantScope;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -32,11 +34,13 @@ class PatientRecordsExport implements
 {
     protected $filters;
     protected $user;
+    protected ?TenantContext $tenantContext;
 
-    public function __construct($filters, $user)
+    public function __construct($filters, $user, ?TenantContext $tenantContext = null)
     {
         $this->filters = $filters;
         $this->user = $user;
+        $this->tenantContext = $tenantContext;
     }
 
     // Letterhead Image
@@ -75,7 +79,9 @@ class PatientRecordsExport implements
         $user = $this->user;
 
         // Branch Logic (Same as Controller)
-        if ($user->hasPermission('patients.manage')) {
+        if ($this->tenantContext && !$this->tenantContext->isPlatform()) {
+            TenantScope::apply($query, $this->tenantContext);
+        } elseif ($user->hasPermission('patients.manage')) {
             if (isset($filters['branch_filter']) && $filters['branch_filter'] !== 'all') {
                 $query->where('branch_id', $filters['branch_filter']);
             }
