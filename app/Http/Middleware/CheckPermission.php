@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,9 +26,11 @@ class CheckPermission
         }
 
         $user = auth()->user();
+        /** @var TenantContext|null $tenantContext */
+        $tenantContext = $request->attributes->get('tenantContext');
 
         foreach ($permissions as $permission) {
-            if ($user->hasPermission($permission)) {
+            if ($user->hasPermission($permission, $tenantContext)) {
                 return $next($request);
             }
         }

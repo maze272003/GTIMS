@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 
 class AuditEvent extends Model
 {
+    use TenantScoped;
+
     protected $fillable = [
+        'province_id', 'barangay_id',
         'action', 'entity_type', 'entity_id', 'user_id',
         'before', 'after', 'reason', 'metadata',
     ];

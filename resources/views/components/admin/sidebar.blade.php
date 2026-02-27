@@ -11,11 +11,22 @@
     {{-- Main Navigation Links --}}
     <ul id="sidebar-scroll" class="flex flex-col flex-1 min-h-0 mt-6 space-y-2 overflow-y-auto overflow-x-hidden pr-1 scroll-smooth">
         @auth
+            @php
+                $tenantCtx = current_tenant();
+                $tenantMode = !is_null($tenantCtx);
+                $nav = function (string $adminRoute, ?string $tenantRoute = null, array $params = []) use ($tenantMode, $tenantCtx) {
+                    if ($tenantMode && $tenantRoute) {
+                        return tenant_route($tenantRoute, $params, $tenantCtx);
+                    }
+
+                    return route($adminRoute, $params);
+                };
+            @endphp
 
             {{-- 1. DASHBOARD --}}
             @haspermission('dashboard.view')
                 <li>
-                    <a href="{{ route('admin.dashboard') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <a href="{{ $nav('admin.dashboard', 'tenant.dashboard') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                         <i class="fa-regular fa-house-chimney nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                         <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Dashboard</span>
                     </a>
@@ -25,7 +36,7 @@
             {{-- ORDER STOCK --}}
             @haspermission('orders.view')
                 <li>
-                    <a href="{{ route('admin.orders.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.orders.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                    <a href="{{ $nav('admin.orders.index', 'tenant.orders.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.orders.*', 'tenant.orders.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                         <i class="fa-solid fa-cart-shopping nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                         <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Order Stock</span>
 
@@ -51,7 +62,7 @@
             {{-- INVENTORY --}}
             @haspermission('inventory.view')
             <li>
-                <a href="{{ route('admin.inventory') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <a href="{{ $nav('admin.inventory', 'tenant.inventory') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <i class="fa-regular fa-cubes-stacked nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Inventory</span>
                 </a>
@@ -70,7 +81,7 @@
             {{-- PATIENT RECORDS --}}
             @haspermission('patients.view')
             <li>
-                <a href="{{ route('admin.patientrecords') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <a href="{{ $nav('admin.patientrecords', 'tenant.patientrecords') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <i class="fa-regular fa-book-user nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Records</span>
                 </a>
@@ -82,7 +93,7 @@
             {{-- HOLDS --}}
             @haspermission('holds.view')
             <li>
-                <a href="{{ route('admin.holds.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.holds.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                <a href="{{ $nav('admin.holds.index', 'tenant.holds.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.holds.*', 'tenant.holds.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-hand nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Holds / Pullout</span>
                 </a>
@@ -102,7 +113,7 @@
             {{-- SUPPLIERS --}}
             @haspermission('suppliers.view')
             <li>
-                <a href="{{ route('admin.suppliers.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.suppliers.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                <a href="{{ $nav('admin.suppliers.index', 'tenant.suppliers.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.suppliers.*', 'tenant.suppliers.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-truck nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Suppliers</span>
                 </a>
@@ -122,7 +133,7 @@
             {{-- NOTIFICATIONS --}}
             @haspermission('notifications.manage')
             <li>
-                <a href="{{ route('admin.notifications.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.notifications.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                <a href="{{ $nav('admin.notifications.index', 'tenant.notifications.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.notifications.*', 'tenant.notifications.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                     <i class="fa-regular fa-bell nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
                     <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Notifications</span>
                 </a>

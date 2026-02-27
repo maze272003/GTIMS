@@ -17,6 +17,14 @@ use App\Http\Controllers\Admin\AnalyticsApiController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\LowStockSettingController;
 use App\Http\Controllers\Admin\RolePermissionController;
+use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\EmailVerificationNotificationController;
+use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use App\Http\Controllers\Auth\TenantInvitationController;
+use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\TenantStorageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -53,7 +61,9 @@ Route::prefix('{provinceSlug}/{barangaySlug}')
 
         // Inventory
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
-        Route::post('/inventory/export', [InventoryExportController::class, 'export'])->name('inventory.export');
+        Route::post('/inventory/export', [InventoryExportController::class, 'export'])
+            ->middleware('throttle:tenant-export')
+            ->name('inventory.export');
 
         // Patient Records
         Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
@@ -86,7 +96,7 @@ Route::prefix('{provinceSlug}/{barangaySlug}')
         });
 
         // Analytics
-        Route::prefix('analytics')->name('analytics.')->group(function () {
+        Route::prefix('analytics')->middleware('throttle:tenant-api')->name('analytics.')->group(function () {
             Route::get('/sla-metrics', [AnalyticsApiController::class, 'slaMetrics'])->name('sla');
             Route::get('/reorder-suggestions', [AnalyticsApiController::class, 'reorderSuggestions'])->name('reorder');
             Route::get('/low-stock-alerts', [AnalyticsApiController::class, 'lowStockAlerts'])->name('low-stock');
@@ -104,6 +114,10 @@ Route::prefix('{provinceSlug}/{barangaySlug}')
             Route::get('/', [AuditEventController::class, 'index'])->name('index');
             Route::get('/{auditEvent}', [AuditEventController::class, 'show'])->name('show');
         });
+
+        Route::get('/storage/download', [TenantStorageController::class, 'download'])
+            ->middleware('signed')
+            ->name('storage.download');
     });
 
 /*
@@ -117,7 +131,7 @@ Route::prefix('{provinceSlug}/{barangaySlug}')
 */
 
 Route::prefix('moderator')
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'moderator.only'])
     ->name('moderator.')
     ->group(function () {
 
@@ -144,15 +158,81 @@ Route::prefix('moderator')
 */
 
 Route::prefix('{provinceSlug}/{barangaySlug}')
+    ->middleware(['tenant.resolve', 'tenant.bind', 'guest'])
+    ->name('tenant.')
+    ->group(function () {
+        Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
+        Route::post('/login', [AuthenticatedSessionController::class, 'store'])
+            ->middleware('throttle:tenant-login')
+            ->name('login.submit');
+
+        Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])
+            ->name('password.request');
+        Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
+            ->name('password.email');
+
+        Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])
+            ->name('password.reset');
+        Route::post('/reset-password', [NewPasswordController::class, 'store'])
+            ->name('password.store');
+    });
+
+Route::prefix('{provinceSlug}/{barangaySlug}')
     ->middleware(['tenant.resolve', 'tenant.bind'])
     ->name('tenant.')
     ->group(function () {
-        Route::get('/login', function () {
-            $tenantContext = app(\App\Tenancy\TenantContext::class);
-            return view('auth.login', ['tenantContext' => $tenantContext]);
-        })->name('login');
+        Route::get('/invite/accept/{token}', [TenantInvitationController::class, 'accept'])
+            ->name('invite.accept');
     });
 
-Route::get('/moderator/login', function () {
-    return view('auth.login', ['isModerator' => true]);
-})->name('moderator.login');
+Route::prefix('{provinceSlug}/{barangaySlug}')
+    ->middleware(['auth', 'tenant.resolve', 'tenant.membership', 'tenant.bind'])
+    ->name('tenant.')
+    ->group(function () {
+        Route::get('/verify-email', EmailVerificationPromptController::class)
+            ->name('verification.notice');
+
+        Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
+            ->middleware(['signed', 'throttle:6,1'])
+            ->name('verification.verify');
+
+        Route::post('/email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
+            ->middleware('throttle:6,1')
+            ->name('verification.send');
+    });
+
+Route::prefix('moderator')
+    ->middleware('guest')
+    ->name('moderator.')
+    ->group(function () {
+        Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
+        Route::post('/login', [AuthenticatedSessionController::class, 'store'])
+            ->middleware('throttle:moderator-login')
+            ->name('login.submit');
+
+        Route::get('/forgot-password', [PasswordResetLinkController::class, 'create'])
+            ->name('password.request');
+        Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
+            ->name('password.email');
+
+        Route::get('/reset-password/{token}', [NewPasswordController::class, 'create'])
+            ->name('password.reset');
+        Route::post('/reset-password', [NewPasswordController::class, 'store'])
+            ->name('password.store');
+    });
+
+Route::prefix('moderator')
+    ->middleware('auth')
+    ->name('moderator.')
+    ->group(function () {
+        Route::get('/verify-email', EmailVerificationPromptController::class)
+            ->name('verification.notice');
+
+        Route::get('/verify-email/{id}/{hash}', VerifyEmailController::class)
+            ->middleware(['signed', 'throttle:6,1'])
+            ->name('verification.verify');
+
+        Route::post('/email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
+            ->middleware('throttle:6,1')
+            ->name('verification.send');
+    });

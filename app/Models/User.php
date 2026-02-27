@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Tenancy\TenantContext;
+use App\Tenancy\ScopedPermissionResolver;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -25,6 +27,8 @@ class User extends Authenticatable
         'otp_expires_at', // Idagdag ito
         'branch_id',
         'user_level_id',
+        'province_id',
+        'barangay_id',
     ];
 
     /**
@@ -47,6 +51,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'otp_expires_at' => 'datetime',
         ];
     }
 
@@ -71,22 +76,89 @@ class User extends Authenticatable
         return $this->hasMany(TenantMembership::class);
     }
 
+    public function memberships()
+    {
+        return $this->tenantMemberships();
+    }
+
     public function roleAssignments()
     {
         return $this->hasMany(RoleAssignment::class);
     }
 
-    public function hasPermission(string $permissionName): bool
+    public function hasPermission(string $permissionName, ?TenantContext $tenantContext = null, ?array $targetTenant = null): bool
     {
-        if (!$this->level) {
-            return false;
+        return app(ScopedPermissionResolver::class)
+            ->hasPermission($this, $permissionName, $tenantContext, $targetTenant);
+    }
+
+    public function hasActiveMembership(?TenantContext $ctx = null): bool
+    {
+        if (!$ctx) {
+            return $this->tenantMemberships()->where('status', 'active')->exists();
         }
 
-        // Use cached permissions to avoid repeated queries
-        if (!$this->relationLoaded('level') || !$this->level->relationLoaded('permissions')) {
-            $this->load('level.permissions');
+        if ($ctx->isPlatform()) {
+            return $this->tenantMemberships()
+                ->where('scope_type', 'platform')
+                ->where('status', 'active')
+                ->exists();
         }
 
-        return $this->level->permissions->contains('name', $permissionName);
+        if ($this->tenantMemberships()
+            ->where('scope_type', 'platform')
+            ->where('status', 'active')
+            ->exists()
+        ) {
+            return true;
+        }
+
+        if ($ctx->isProvince()) {
+            return $this->tenantMemberships()
+                ->where('scope_type', 'province')
+                ->where('scope_id', $ctx->provinceId)
+                ->where('status', 'active')
+                ->exists();
+        }
+
+        return $this->tenantMemberships()
+            ->where(function ($query) use ($ctx) {
+                $query->where(function ($barangay) use ($ctx) {
+                    $barangay->where('scope_type', 'barangay')
+                        ->where('scope_id', $ctx->barangayId);
+                })->orWhere(function ($province) use ($ctx) {
+                    $province->where('scope_type', 'province')
+                        ->where('scope_id', $ctx->provinceId);
+                });
+            })
+            ->where('status', 'active')
+            ->exists();
+    }
+
+    public function isModerator(): bool
+    {
+        $moderatorSlug = (string) config('tenancy.roles.moderator.slug', 'moderator');
+
+        $hasScopedRole = $this->roleAssignments()
+            ->where('scope_type', 'platform')
+            ->whereHas('role', function ($query) use ($moderatorSlug) {
+                $query->where('slug', $moderatorSlug);
+            })
+            ->exists();
+
+        if ($hasScopedRole) {
+            return true;
+        }
+
+        $hasPlatformMembership = $this->tenantMemberships()
+            ->where('scope_type', 'platform')
+            ->where('status', 'active')
+            ->exists();
+
+        if ($hasPlatformMembership) {
+            return true;
+        }
+
+        return (bool) ($this->level && $this->level->name === 'superadmin');
     }
 }

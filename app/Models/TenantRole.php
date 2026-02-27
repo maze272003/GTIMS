@@ -9,6 +9,8 @@ class TenantRole extends Model
 {
     use HasFactory;
 
+    protected $table = 'tenant_roles';
+
     protected $fillable = [
         'name',
         'slug',
@@ -26,5 +28,11 @@ class TenantRole extends Model
     public function assignments()
     {
         return $this->hasMany(RoleAssignment::class, 'role_id');
+    }
+
+    public function permissions()
+    {
+        return $this->belongsToMany(Permission::class, 'tenant_role_permissions', 'role_id', 'permission_id')
+            ->withTimestamps();
     }
 }

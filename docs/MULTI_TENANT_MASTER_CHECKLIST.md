@@ -39,7 +39,7 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [x] ✅ Create `roles` table migration for scoped roles (`scope_type`, `is_system_role`, etc.)
 - [x] ✅ Create `role_assignments` table migration with `unique(user_id, role_id, scope_type, scope_id)`
 - [x] ✅ Reuse/adapt `permissions` and `role_permissions` for scoped RBAC assignments
-- [ ] (Optional) Create `tenant_route_bindings` table for custom domains/path aliases
+- [x] ✅ (Optional) Create `tenant_route_bindings` table for custom domains/path aliases
 
 ## 4. Schema Expansion (Support Tables)
 
@@ -92,12 +92,12 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [x] ✅ Bind tenant context to container, session, and views/layouts
 - [x] ✅ Add `current_tenant()` helper
 - [x] ✅ Implement canonical slug redirect behavior
-- [ ] Validate route/slug collision handling before pilot rollout
+- [x] ✅ Validate route/slug collision handling before pilot rollout
 - [x] ✅ Create parallel route groups during transition (new tenant routes + legacy `/admin`)
 - [x] ✅ Set up moderator route group (`/moderator/...`)
 - [x] ✅ Set up tenant route group (`/{provinceSlug}/{barangaySlug}/...`)
 - [ ] (Optional) Set up province-only admin routes if adopted
-- [ ] Retire or restrict legacy `/admin` routes after cutover
+- [x] ✅ Retire or restrict legacy `/admin` routes after cutover
 
 ## 8. Route Generation and URL Safety
 
@@ -106,38 +106,38 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [ ] Refactor views/controllers/services to stop hardcoding `/admin/...` URLs
 - [x] ✅ Ensure tenant route generation supports current context and explicit alternate context
 - [x] ✅ Ensure moderator route generation is isolated from tenant prefixes
-- [ ] Update password reset, email verification, and invite links to include tenant context where applicable
+- [x] ✅ Update password reset, email verification, and invite links to include tenant context where applicable
 - [ ] Test tenant-aware links for slug preservation and invalid/expired contexts
 
 ## 9. Authentication, Sessions, and Login Flows
 
 - [x] ✅ Implement moderator login portal (`/moderator/login`; optional admin subdomain login)
-- [ ] Restrict moderator login to Moderator role accounts only
+- [x] ✅ Restrict moderator login to Moderator role accounts only
 - [x] ✅ Implement tenant login entry point `/{provinceSlug}/{barangaySlug}/login`
 - [x] ✅ Resolve tenant before rendering tenant login form
-- [ ] Show tenant branding/name on tenant login form
+- [x] ✅ Show tenant branding/name on tenant login form
 - [x] ✅ Validate account membership and scoped role assignment during tenant login
 - [x] ✅ Store tenant context in session (`tenant.province_id`, `tenant.barangay_id`, `tenant.scope_type`, route slug keys)
-- [ ] Refactor login controllers/services to accept tenant slug route params
-- [ ] Update `AuthSessionService` redirect logic to be tenant-aware
-- [ ] Preserve moderator global redirect behavior
-- [ ] Update new-login notification emails with tenant name/scope
-- [ ] Implement membership-aware login behavior for invited/suspended states
+- [x] ✅ Refactor login controllers/services to accept tenant slug route params
+- [x] ✅ Update `AuthSessionService` redirect logic to be tenant-aware
+- [x] ✅ Preserve moderator global redirect behavior
+- [x] ✅ Update new-login notification emails with tenant name/scope
+- [x] ✅ Implement membership-aware login behavior for invited/suspended states
 
 ## 10. RBAC Migration and Scope-Aware Authorization
 
 - [x] ✅ Define system roles (`moderator`, `province_admin`, `barangay_admin`, optional `barangay_staff`, optional `auditor`)
 - [x] ✅ Define/confirm permission set (tenant management, users, inventory, patient records, requests, suppliers, analytics, audit, etc.)
-- [ ] Implement scope-aware permission evaluation using:
-- [ ] permission name
-- [ ] role assignment scope
-- [ ] current tenant context
-- [ ] target record tenant ownership
+- [x] ✅ Implement scope-aware permission evaluation using:
+- [x] ✅ permission name
+- [x] ✅ role assignment scope
+- [x] ✅ current tenant context
+- [x] ✅ target record tenant ownership
 - [ ] Implement policies for tenant-owned models with role + scope checks
 - [x] ✅ Keep `user_levels` during transition
-- [ ] Map existing `user_levels` to scoped roles
-- [ ] Populate scoped `roles` and `role_assignments`
-- [ ] Replace permission resolution from legacy `level.permissions` to scoped role resolver
+- [x] ✅ Map existing `user_levels` to scoped roles
+- [x] ✅ Populate scoped `roles` and `role_assignments`
+- [x] ✅ Replace permission resolution from legacy `level.permissions` to scoped role resolver
 - [ ] Remove `user_levels` dependency after full cutover
 
 ## 11. Backend Core Refactor (Services, Repositories, Models)
@@ -154,9 +154,9 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [x] ✅ (If used) `BelongsToProvince`
 - [x] ✅ (If used) `BelongsToBarangay`
 - [x] ✅ Add model query scopes (`forTenant`, `forProvince`, `forBarangay`)
-- [ ] Update validation rules for tenant constraints (`BelongsToCurrentProvince`, `BelongsToCurrentBarangay`, `BelongsToCurrentTenant`)
-- [ ] Reject cross-tenant foreign key references at validation/service layer
-- [ ] Add tenant metadata to audit logs and application events
+- [x] ✅ Update validation rules for tenant constraints (`BelongsToCurrentProvince`, `BelongsToCurrentBarangay`, `BelongsToCurrentTenant`)
+- [x] ✅ Reject cross-tenant foreign key references at validation/service layer
+- [x] ✅ Add tenant metadata to audit logs and application events
 
 ## 12. Hotspot Service Refactors (High Priority)
 
@@ -189,18 +189,18 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [x] ✅ Rehydrate `TenantContext` inside queued jobs
 - [x] ✅ Add job middleware to bind tenant context before handling job logic
 - [x] ✅ Namespace cache keys used by jobs by tenant
-- [ ] Namespace notification queries by tenant
-- [ ] Include tenant metadata in job-generated audit logs
+- [x] ✅ Namespace notification queries by tenant
+- [x] ✅ Include tenant metadata in job-generated audit logs
 - [ ] Validate queue worker deployment procedure (drain/restart) for tenant-aware code updates
-- [ ] Verify queue jobs fail safely when tenant context is missing/invalid
+- [x] ✅ Verify queue jobs fail safely when tenant context is missing/invalid
 
 ## 15. Storage, File Access, and Exports
 
 - [x] ✅ Create `TenantStorageService` for tenant-scoped path generation
 - [x] ✅ Implement storage directory isolation for provinces and barangays (`storage/app/tenants/...`)
-- [ ] Override direct `Storage::disk()` usage where tenant file paths are required
-- [ ] Validate file access belongs to current tenant before read/download/delete
-- [ ] Add signed URLs for secure file downloads
+- [x] ✅ Override direct `Storage::disk()` usage where tenant file paths are required
+- [x] ✅ Validate file access belongs to current tenant before read/download/delete
+- [x] ✅ Add signed URLs for secure file downloads
 - [ ] Ensure exports/reports are stored under tenant-scoped directories
 - [ ] Validate export isolation for moderator, province, and barangay scopes
 - [ ] Include tenant headers/scope metadata in exports
@@ -210,25 +210,25 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [x] ✅ Implement tenant cache key namespacing pattern (platform/province/barangay)
 - [x] ✅ Create `TenantCacheService` (or equivalent cache wrapper) for tenant-aware remember/forget operations
 - [x] ✅ Implement tenant cache invalidation when tenant data changes
-- [ ] Implement cache/session invalidation on role or membership changes
-- [ ] Configure per-tenant rate limiting (`tenant-api`, `tenant-login`) using tenant scope + IP
-- [ ] Apply throttle middleware to tenant API and login routes
-- [ ] Add DDoS / abuse prevention checks (per-IP + per-tenant login attempt tracking)
+- [x] ✅ Implement cache/session invalidation on role or membership changes
+- [x] ✅ Configure per-tenant rate limiting (`tenant-api`, `tenant-login`) using tenant scope + IP
+- [x] ✅ Apply throttle middleware to tenant API and login routes
+- [x] ✅ Add DDoS / abuse prevention checks (per-IP + per-tenant login attempt tracking)
 - [ ] Load test province aggregations, exports, route resolution, and queue throughput under multi-tenant load
 
 ## 17. Frontend and UI Refactor (Tenant-Aware + Role-Based)
 
-- [ ] Create tenant-aware navigation
+- [x] ✅ Create tenant-aware navigation
 - [ ] Create moderator navigation (separate from tenant navigation)
-- [ ] Add current tenant badge to layouts/header
+- [x] ✅ Add current tenant badge to layouts/header
 - [ ] Add moderator tenant switcher (and optional provincial multi-barangay switcher if enabled)
 - [ ] Update route generation in Blade/views to use tenant-aware helpers
 - [ ] Implement role-based menu/module rendering (with server-side auth enforcement retained)
 - [ ] Provide `CurrentAccessContext` payload to layouts/view models
-- [ ] Build moderator login page
-- [ ] Build tenant login page with slug + tenant branding
+- [x] ✅ Build moderator login page
+- [x] ✅ Build tenant login page with slug + tenant branding
 - [ ] Build province/barangay onboarding pages (Moderator access)
-- [ ] Build invite acceptance flow with tenant-aware redirects
+- [x] ✅ Build invite acceptance flow with tenant-aware redirects
 - [ ] Ensure forms/dropdowns are backend-filtered by tenant (inventory, suppliers, barangays, user assignments, export filters)
 - [ ] Build tenant settings UI (province/barangay as applicable)
 - [ ] Implement role/scope-based dashboard widget composition
@@ -254,13 +254,13 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [ ] Implement webhook delivery security and tenant scoping
 - [x] ✅ Create `tenant_features` table and feature flag service
 - [x] ✅ Define default feature flags and tenant overrides
-- [ ] Add environment-driven feature flags for phased rollout and emergency disable (kill switches)
+- [x] ✅ Add environment-driven feature flags for phased rollout and emergency disable (kill switches)
 
 ## 20. Email and Notification Tenant Customization
 
 - [ ] Implement tenant email settings support (branding/from name, etc. as needed)
-- [ ] Make mailables tenant-aware
-- [ ] Ensure invite/password reset/email verification/new-login emails preserve tenant context
+- [x] ✅ Make mailables tenant-aware
+- [x] ✅ Ensure invite/password reset/email verification/new-login emails preserve tenant context
 - [ ] Test tenant-aware email links end to end in staging and production smoke tests
 
 ## 21. Security and Compliance
@@ -271,14 +271,14 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [ ] Validate file uploads remain within tenant storage boundaries
 - [x] ✅ Include tenant context in all background jobs and logs
 - [ ] Log all moderator tenant switching/impersonation actions
-- [ ] Rate limit by tenant + IP
-- [ ] Add account lockouts / alerts for repeated login failures
-- [ ] Log and alert cross-tenant access attempts
-- [ ] Implement tenant-aware exception handling and structured logging with tenant metadata
+- [x] ✅ Rate limit by tenant + IP
+- [x] ✅ Add account lockouts / alerts for repeated login failures
+- [x] ✅ Log and alert cross-tenant access attempts
+- [x] ✅ Implement tenant-aware exception handling and structured logging with tenant metadata
 - [ ] Configure critical alerts for tenancy-related failures (leakage attempts, queue failures, login abuse, etc.)
 - [ ] (Optional/Planned) Add 2FA support per tenant / sensitive actions
 - [ ] (Optional/Planned) Add encrypted 2FA secrets and enforcement policies
-- [ ] Implement session security and moderator tenant switching safeguards (session isolation / fixation protections)
+- [x] ✅ Implement session security and moderator tenant switching safeguards (session isolation / fixation protections)
 - [x] ✅ Implement data archiving and retention policies
 - [x] ✅ Create archive tracking (`archived_records`) and restore capability for moderators
 - [ ] Identify and protect PII fields
@@ -302,7 +302,7 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 
 - [ ] Implement tenant onboarding workflow (Provisioning -> Configuration -> Activation)
 - [x] ✅ Create onboarding state machine + `tenant_onboarding` table
-- [ ] Create onboarding checklist and moderator approval steps
+- [x] ✅ Create onboarding checklist and moderator approval steps
 - [x] ✅ Implement tenant invitation system (`tenant_invitations`) and invitation acceptance flow
 - [x] ✅ Implement invitation expiration configuration and service
 - [x] ✅ Implement tenant suspension/deactivation flow and `tenant_suspensions` table
@@ -321,7 +321,7 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 
 - [ ] Phase 0: Inventory all tables and identify tenant-owned rows
 - [ ] Phase 0: Decide canonical branch -> province/barangay mapping
-- [ ] Phase 0: Define default province for existing deployment data
+- [x] ✅ Phase 0: Define default province for existing deployment data
 - [ ] Phase 0: Back up production DB and validate restore procedure
 - [ ] Phase 0: Create migration rehearsal environment with production-like snapshot
 - [x] ✅ Phase 1: Introduce core tenant tables (`provinces`, `barangays` upgrades, memberships, roles, assignments) with non-breaking nullable changes
@@ -329,9 +329,9 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [x] ✅ Phase 2: Add indexes before strict constraints
 - [ ] Phase 2: Backfill in batches
 - [ ] Phase 2/3: Derive `province_id` and `barangay_id` using documented mapping rules (including province-scoped rows with `barangay_id = null`)
-- [ ] Phase 3: Map moderator accounts and existing admins to scoped roles
-- [ ] Phase 3: Populate `tenant_memberships`
-- [ ] Phase 3: Populate `role_assignments`
+- [x] ✅ Phase 3: Map moderator accounts and existing admins to scoped roles
+- [x] ✅ Phase 3: Populate `tenant_memberships`
+- [x] ✅ Phase 3: Populate `role_assignments`
 - [x] ✅ Phase 3: Keep legacy `user_level_id` temporarily
 - [x] ✅ Phase 4: Implement dual-read/dual-write tenancy application layer (where needed)
 - [ ] Phase 4: Monitor for missing tenant keys on new writes
@@ -343,7 +343,7 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [ ] Phase 6: Enforce `NOT NULL` and FK constraints (where applicable)
 - [ ] Phase 6: Remove/deprecate direct `branch_id` assumptions in services/routes
 - [ ] Phase 6: Make tenant routes default entry point
-- [ ] Phase 6: Retire legacy `/admin` path or restrict to moderator redirect only
+- [x] ✅ Phase 6: Retire legacy `/admin` path or restrict to moderator redirect only
 - [ ] Phase 7: Remove compatibility code
 - [ ] Phase 7: Retire `user_levels` after full cutover
 - [ ] Phase 7: Remove hardcoded branch constants and RHU assumptions
@@ -354,7 +354,7 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 
 - [x] ✅ Unit tests: tenant resolver
 - [x] ✅ Unit tests: tenant context builder
-- [ ] Unit tests: scoped permission evaluator
+- [x] ✅ Unit tests: scoped permission evaluator
 - [ ] Unit tests: tenant-aware repository filters
 - [ ] Feature tests: moderator access to all tenant dashboards
 - [ ] Feature tests: provincial admin blocked from other provinces
@@ -381,20 +381,20 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [ ] Performance/load testing: export generation under multi-tenant load
 - [ ] Performance/load testing: queue throughput with tenant-tagged jobs
 - [ ] Security audit (authz coverage, leakage paths, export filters, logging/alerts)
-- [ ] Test tenant-aware password reset, email verification, and invitation links
+- [x] ✅ Test tenant-aware password reset, email verification, and invitation links
 - [ ] Test moderator tenant switching/impersonation with audit trail and session isolation
 - [ ] Test cache/session invalidation after role or membership changes
-- [ ] Test canonical slug redirects and route collision handling
+- [x] ✅ Test canonical slug redirects and route collision handling
 
 ## 27. Local Setup and Smoke Validation
 
-- [ ] Run migrations locally (`php artisan migrate`)
-- [ ] Create a sample province and barangay for tenancy smoke testing
-- [ ] Create sample tenant memberships (platform + barangay)
-- [ ] Verify tenant routes locally (`/{provinceSlug}/{barangaySlug}/dashboard`)
-- [ ] Verify moderator routes locally (`/moderator/dashboard`)
-- [ ] Smoke-test tenant resolver and `current_tenant()`
-- [ ] Smoke-test membership validation and middleware stack
+- [x] ✅ Run migrations locally (`php artisan migrate`)
+- [x] ✅ Create a sample province and barangay for tenancy smoke testing
+- [x] ✅ Create sample tenant memberships (platform + barangay)
+- [x] ✅ Verify tenant routes locally (`/{provinceSlug}/{barangaySlug}/dashboard`)
+- [x] ✅ Verify moderator routes locally (`/moderator/dashboard`)
+- [x] ✅ Smoke-test tenant resolver and `current_tenant()`
+- [x] ✅ Smoke-test membership validation and middleware stack
 - [x] ✅ Verify key tenancy Artisan commands exist and work (`tenant:health-check`, `tenant:cache:clear`, `tenant:usage:report`)
 
 ## 28. Production Deployment, Cutover, and Post-Deploy Ops
@@ -432,16 +432,16 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 
 ## 29. Observability, Logging, and Support Runbooks
 
-- [ ] Include tenant IDs/slugs in logs
-- [ ] Tag errors by tenant scope
-- [ ] Implement tenant-aware exception handling in error reporting
-- [ ] Implement structured logging with tenant context service / log format
+- [x] ✅ Include tenant IDs/slugs in logs
+- [x] ✅ Tag errors by tenant scope
+- [x] ✅ Implement tenant-aware exception handling in error reporting
+- [x] ✅ Implement structured logging with tenant context service / log format
 - [ ] Add dashboard for failed jobs by tenant
 - [ ] Maintain audit trail for moderator actions and impersonation
-- [ ] Create operational runbook (deployment, rollback, queue drain/restart, incident response)
-- [ ] Document full restore process
-- [ ] Document tenant onboarding SOP
-- [ ] Document incident response SOP
+- [x] ✅ Create operational runbook (deployment, rollback, queue drain/restart, incident response)
+- [x] ✅ Document full restore process
+- [x] ✅ Document tenant onboarding SOP
+- [x] ✅ Document incident response SOP
 - [ ] Create final sign-off checklist and rollback plan for cutover
 
 ## 30. Environment and Configuration
@@ -449,10 +449,10 @@ This checklist merges the implementation plan, setup guide, migration/cutover st
 - [x] ✅ Create `config/tenancy.php`
 - [x] ✅ Centralize moderator prefix, session keys, invitation expiry, quotas, features, route slug behavior
 - [x] ✅ Configure tenancy environment variables (moderator prefix, invitation expiry, cache prefix, storage disk, etc.)
-- [ ] Configure session settings for tenant-aware security requirements
-- [ ] Configure logging settings/format for tenant metadata
-- [ ] Configure rate limiting settings
-- [ ] Configure feature flags via environment for phased rollout and emergency disable
+- [x] ✅ Configure session settings for tenant-aware security requirements
+- [x] ✅ Configure logging settings/format for tenant metadata
+- [x] ✅ Configure rate limiting settings
+- [x] ✅ Configure feature flags via environment for phased rollout and emergency disable
 
 ## 31. Acceptance Criteria (Definition of Done)
 

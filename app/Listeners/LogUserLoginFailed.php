@@ -5,6 +5,8 @@ namespace App\Listeners;
 use App\Models\HistoryLog;
 use App\Services\SystemActivityNotificationService;
 use Illuminate\Auth\Events\Failed;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class LogUserLoginFailed
 {
@@ -23,6 +25,8 @@ class LogUserLoginFailed
         $ip = request()->ip();
         $agent = request()->userAgent();
         $email = $event->credentials['email'] ?? 'Unknown';
+        $tenantKey = trim((string) request()->route('provinceSlug') . '/' . (string) request()->route('barangaySlug'), '/');
+        $tenantKey = $tenantKey !== '' ? $tenantKey : 'global';
 
         $description = <<<DESC
 Failed login attempt for email: {$email}.
@@ -38,6 +42,7 @@ DESC;
             'metadata' => [
                 'ip' => $ip,
                 'agent' => $agent,
+                'tenant_scope' => $tenantKey,
             ],
         ]);
 
@@ -50,7 +55,23 @@ DESC;
                 'email' => $email,
                 'ip' => $ip,
                 'agent' => $agent,
+                'tenant_scope' => $tenantKey,
             ],
         ]);
+
+        $attemptKey = "tenant-login-fail:{$tenantKey}:{$email}:{$ip}";
+        $attempts = Cache::increment($attemptKey);
+        if ($attempts === 1) {
+            Cache::put($attemptKey, 1, now()->addMinutes(15));
+        }
+
+        if ($attempts >= 5) {
+            Log::channel('security')->warning('Repeated login failures detected', [
+                'email' => $email,
+                'ip' => $ip,
+                'tenant_scope' => $tenantKey,
+                'attempts' => $attempts,
+            ]);
+        }
     }
 }

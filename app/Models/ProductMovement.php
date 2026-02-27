@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class ProductMovement extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantScoped;
 
     protected $fillable = [
+        'province_id',
+        'barangay_id',
         'product_id',
         'inventory_id',
         'user_id',
@@ -60,6 +63,6 @@ class ProductMovement extends Model
     // Helper to get branch name easily
     public function getBranchNameAttribute()
     {
-        return $this->inventory?->branch_id == 1 ? 'RHU 1' : ($this->inventory?->branch_id == 2 ? 'RHU 2' : 'Unknown');
+        return $this->inventory?->branch?->name ?? 'Unknown';
     }
 }

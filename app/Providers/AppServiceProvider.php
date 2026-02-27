@@ -5,13 +5,20 @@ namespace App\Providers;
 use App\Listeners\LogUserLogin;
 use App\Listeners\LogUserLoginFailed;
 use App\Listeners\LogUserLogout;
+use App\Tenancy\TenantContext;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -28,9 +35,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $request = request();
+
         $shouldForceHttps = app()->environment('production')
-            || request()->isSecure()
-            || request()->header('X-Forwarded-Proto') === 'https'
+            || $request->isSecure()
+            || $request->header('X-Forwarded-Proto') === 'https'
             || str_starts_with((string) config('app.url'), 'https://');
 
         if ($shouldForceHttps) {
@@ -73,12 +82,100 @@ class AppServiceProvider extends ServiceProvider
 
         // Register Blade directive for permission-based rendering
         Blade::if('haspermission', function (string $permission) {
-            return auth()->check() && auth()->user()->hasPermission($permission);
+            $tenantContext = app()->bound(TenantContext::class) ? app(TenantContext::class) : null;
+            return auth()->check() && auth()->user()->hasPermission($permission, $tenantContext);
         });
 
         // Explicit event wiring for auth activity listeners.
         Event::listen(Login::class, LogUserLogin::class);
         Event::listen(Logout::class, LogUserLogout::class);
         Event::listen(Failed::class, LogUserLoginFailed::class);
+
+        RateLimiter::for('tenant-api', function (Request $request) {
+            $province = (string) ($request->route('provinceSlug') ?? session('tenant.route_slug_province') ?? 'platform');
+            $barangay = (string) ($request->route('barangaySlug') ?? session('tenant.route_slug_barangay') ?? 'all');
+            $tenantKey = "{$province}:{$barangay}";
+            $limit = (int) config('tenancy.rate_limits.tenant_api_per_minute', 100);
+
+            return Limit::perMinute($limit)->by($tenantKey . ':' . $request->ip());
+        });
+
+        RateLimiter::for('tenant-login', function (Request $request) {
+            $province = (string) ($request->route('provinceSlug') ?? $request->input('provinceSlug') ?? 'unknown');
+            $barangay = (string) ($request->route('barangaySlug') ?? $request->input('barangaySlug') ?? 'unknown');
+            $tenantKey = "{$province}/{$barangay}";
+            $limit = (int) config('tenancy.rate_limits.tenant_login_per_minute', 5);
+
+            return Limit::perMinute($limit)->by($tenantKey . ':' . $request->ip());
+        });
+
+        RateLimiter::for('moderator-login', function (Request $request) {
+            $limit = (int) config('tenancy.rate_limits.moderator_login_per_minute', 10);
+            return Limit::perMinute($limit)->by('moderator:' . $request->ip() . ':' . (string) $request->input('email'));
+        });
+
+        RateLimiter::for('tenant-export', function (Request $request) {
+            $province = (string) ($request->route('provinceSlug') ?? session('tenant.route_slug_province') ?? 'platform');
+            $barangay = (string) ($request->route('barangaySlug') ?? session('tenant.route_slug_barangay') ?? 'all');
+            $tenantKey = "{$province}:{$barangay}";
+            $limit = (int) config('tenancy.rate_limits.tenant_export_per_hour', 10);
+            $userKey = $request->user()?->id ?? $request->ip();
+
+            return Limit::perHour($limit)->by($tenantKey . ':' . $userKey);
+        });
+
+        ResetPassword::createUrlUsing(function ($user, string $token) {
+            $provinceSlug = session('tenant.route_slug_province') ?? request()->route('provinceSlug');
+            $barangaySlug = session('tenant.route_slug_barangay') ?? request()->route('barangaySlug');
+
+            if ($provinceSlug && $barangaySlug && Route::has('tenant.password.reset')) {
+                return route('tenant.password.reset', [
+                    'provinceSlug' => $provinceSlug,
+                    'barangaySlug' => $barangaySlug,
+                    'token' => $token,
+                    'email' => $user->email,
+                ]);
+            }
+
+            if (request()->routeIs('moderator.*') && Route::has('moderator.password.reset')) {
+                return route('moderator.password.reset', [
+                    'token' => $token,
+                    'email' => $user->email,
+                ]);
+            }
+
+            return route('password.reset', [
+                'token' => $token,
+                'email' => $user->email,
+            ]);
+        });
+
+        VerifyEmail::createUrlUsing(function ($notifiable) {
+            $provinceSlug = session('tenant.route_slug_province') ?? request()->route('provinceSlug');
+            $barangaySlug = session('tenant.route_slug_barangay') ?? request()->route('barangaySlug');
+            $expiresAt = now()->addMinutes(config('auth.verification.expire', 60));
+
+            $params = [
+                'id' => $notifiable->getKey(),
+                'hash' => sha1($notifiable->getEmailForVerification()),
+            ];
+
+            if ($provinceSlug && $barangaySlug && Route::has('tenant.verification.verify')) {
+                return URL::temporarySignedRoute(
+                    'tenant.verification.verify',
+                    $expiresAt,
+                    array_merge($params, [
+                        'provinceSlug' => $provinceSlug,
+                        'barangaySlug' => $barangaySlug,
+                    ])
+                );
+            }
+
+            if (request()->routeIs('moderator.*') && Route::has('moderator.verification.verify')) {
+                return URL::temporarySignedRoute('moderator.verification.verify', $expiresAt, $params);
+            }
+
+            return URL::temporarySignedRoute('verification.verify', $expiresAt, $params);
+        });
     }
 }

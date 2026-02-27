@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 
 class OrderItem extends Model
 {
+    use TenantScoped;
+
     protected $guarded = [];
 
     public function order() {

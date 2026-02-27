@@ -15,4 +15,10 @@ class Permission extends Model
     {
         return $this->belongsToMany(UserLevel::class, 'role_permissions');
     }
+
+    public function tenantRoles()
+    {
+        return $this->belongsToMany(TenantRole::class, 'tenant_role_permissions', 'permission_id', 'role_id')
+            ->withTimestamps();
+    }
 }

@@ -12,10 +12,12 @@ class NewLoginNotification extends Mailable
     use Queueable, SerializesModels;
 
     public $ipAddress;
+    public ?string $tenantLabel;
 
-    public function __construct($ipAddress)
+    public function __construct($ipAddress, ?string $tenantLabel = null)
     {
         $this->ipAddress = $ipAddress;
+        $this->tenantLabel = $tenantLabel;
     }
 
     public function envelope(): Envelope

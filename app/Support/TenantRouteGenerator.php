@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Tenancy\TenantContext;
+use RuntimeException;
 
 class TenantRouteGenerator
 {
@@ -15,7 +16,13 @@ class TenantRouteGenerator
      */
     public static function tenantRoute(string $name, array $params = [], ?TenantContext $ctx = null): string
     {
-        $ctx = $ctx ?? app(TenantContext::class);
+        if (!$ctx && app()->bound(TenantContext::class)) {
+            $ctx = app(TenantContext::class);
+        }
+
+        if (!$ctx) {
+            throw new RuntimeException('Tenant context is required to generate tenant routes.');
+        }
 
         $params = array_merge([
             'provinceSlug' => $ctx->provinceSlug,

@@ -2,7 +2,20 @@
     <button id="mobile-menu-btn" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 md:hidden" aria-label="Toggle navigation menu">
         <i class="fa-regular fa-bars text-gray-700 dark:text-gray-300 text-xl"></i>
     </button>
-    <h1 class="text-gray-500 dark:text-gray-400 font-semibold text-lg hidden md:block">General Tinio RHU - Inventory Management System</h1>
+    <div class="hidden md:flex md:flex-col gap-1">
+        <h1 class="text-gray-500 dark:text-gray-400 font-semibold text-lg">General Tinio RHU - Inventory Management System</h1>
+        @if(current_tenant())
+            <span class="inline-flex w-fit items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                <i class="fa-regular fa-building"></i>
+                {{ strtoupper(current_tenant()->provinceSlug ?? '') }} / {{ strtoupper(current_tenant()->barangaySlug ?? '') }}
+            </span>
+        @elseif(auth()->check() && auth()->user()->isModerator())
+            <span class="inline-flex w-fit items-center gap-1 rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200">
+                <i class="fa-regular fa-shield"></i>
+                MODERATOR
+            </span>
+        @endif
+    </div>
     <div class="flex items-center gap-2">
         <button id="dark-mode-toggle" class="ml-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" aria-label="Toggle dark mode">
             <i id="dark-mode-icon" class="fa-regular fa-moon text-gray-600 dark:text-yellow-400 text-xl"></i>

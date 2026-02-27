@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 
 class RequestAttachment extends Model
 {
+    use TenantScoped;
+
     protected $fillable = [
+        'province_id', 'barangay_id',
         'incoming_request_id', 'user_id', 'filename', 'original_name', 'mime_type', 'size',
     ];
 

@@ -13,6 +13,17 @@ use Illuminate\Support\Facades\Log;
  */
 class TenantResolver
 {
+    protected function isReservedProvinceSlug(string $provinceSlug): bool
+    {
+        $reserved = [
+            strtolower((string) config('tenancy.moderator_prefix', 'moderator')),
+            'admin',
+            'api',
+        ];
+
+        return in_array(strtolower($provinceSlug), $reserved, true);
+    }
+
     /**
      * Resolve tenant context from province and barangay slugs.
      *
@@ -20,7 +31,14 @@ class TenantResolver
      */
     public function fromSlugs(string $provinceSlug, string $barangaySlug): ?TenantContext
     {
-        $province = Province::where('slug', $provinceSlug)
+        $normalizedProvinceSlug = strtolower(trim($provinceSlug));
+        $normalizedBarangaySlug = strtolower(trim($barangaySlug));
+
+        if ($this->isReservedProvinceSlug($normalizedProvinceSlug)) {
+            return null;
+        }
+
+        $province = Province::whereRaw('LOWER(slug) = ?', [$normalizedProvinceSlug])
             ->where('is_active', true)
             ->first();
 
@@ -30,7 +48,7 @@ class TenantResolver
         }
 
         $barangay = Barangay::where('province_id', $province->id)
-            ->where('slug', $barangaySlug)
+            ->whereRaw('LOWER(slug) = ?', [$normalizedBarangaySlug])
             ->where('is_active', true)
             ->first();
 
@@ -50,7 +68,13 @@ class TenantResolver
      */
     public function fromProvinceSlug(string $provinceSlug): ?TenantContext
     {
-        $province = Province::where('slug', $provinceSlug)
+        $normalizedProvinceSlug = strtolower(trim($provinceSlug));
+
+        if ($this->isReservedProvinceSlug($normalizedProvinceSlug)) {
+            return null;
+        }
+
+        $province = Province::whereRaw('LOWER(slug) = ?', [$normalizedProvinceSlug])
             ->where('is_active', true)
             ->first();
 
@@ -66,6 +90,10 @@ class TenantResolver
      */
     public function userHasMembership(User $user, TenantContext $ctx): bool
     {
+        if ($user->isModerator()) {
+            return true;
+        }
+
         if ($ctx->isPlatform()) {
             return TenantMembership::where('user_id', $user->id)
                 ->where('scope_type', 'platform')
@@ -123,5 +151,43 @@ class TenantResolver
         ];
 
         return TenantContext::fromSession($data);
+    }
+
+    public function resolveMembershipStatus(User $user, TenantContext $ctx): ?string
+    {
+        if ($ctx->isPlatform()) {
+            return TenantMembership::where('user_id', $user->id)
+                ->where('scope_type', 'platform')
+                ->value('status');
+        }
+
+        $platformStatus = TenantMembership::where('user_id', $user->id)
+            ->where('scope_type', 'platform')
+            ->value('status');
+
+        if ($platformStatus) {
+            return $platformStatus;
+        }
+
+        if ($ctx->isProvince()) {
+            return TenantMembership::where('user_id', $user->id)
+                ->where('scope_type', 'province')
+                ->where('scope_id', $ctx->provinceId)
+                ->value('status');
+        }
+
+        $barangayStatus = TenantMembership::where('user_id', $user->id)
+            ->where('scope_type', 'barangay')
+            ->where('scope_id', $ctx->barangayId)
+            ->value('status');
+
+        if ($barangayStatus) {
+            return $barangayStatus;
+        }
+
+        return TenantMembership::where('user_id', $user->id)
+            ->where('scope_type', 'province')
+            ->where('scope_id', $ctx->provinceId)
+            ->value('status');
     }
 }

@@ -16,7 +16,17 @@ class EmailVerificationNotificationController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $tenantContext = $request->attributes->get('tenantContext');
+
         if ($this->emailVerificationFlowService->hasVerifiedEmail($request->user())) {
+            if ($tenantContext) {
+                return redirect()->intended(tenant_route('tenant.dashboard', [], $tenantContext));
+            }
+
+            if ($request->routeIs('moderator.*')) {
+                return redirect()->intended(route('moderator.dashboard'));
+            }
+
             return redirect()->intended(route('dashboard', absolute: false));
         }
 
@@ -25,4 +35,3 @@ class EmailVerificationNotificationController extends Controller
         return back()->with('status', 'verification-link-sent');
     }
 }
-

@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Rules\BelongsToCurrentProvince;
+use App\Rules\BelongsToCurrentTenant;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreHoldRequest extends FormRequest
@@ -14,15 +16,15 @@ class StoreHoldRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'branch_id'            => ['required', 'exists:branches,id'],
-            'barangay_id'          => ['nullable', 'exists:barangays,id'],
+            'branch_id'            => ['required', 'exists:branches,id', new BelongsToCurrentTenant('branches')],
+            'barangay_id'          => ['nullable', 'exists:barangays,id', new BelongsToCurrentProvince('barangays')],
             'type'                 => ['required', 'in:reservation,quarantine,recall'],
             'reason_code'          => ['required', 'string', 'max:255'],
             'remarks'              => ['nullable', 'string', 'max:2000'],
             'expires_at'           => ['nullable', 'date', 'after:now'],
             'items'                => ['required', 'array', 'min:1'],
             'items.*.product_id'   => ['required', 'exists:products,id'],
-            'items.*.inventory_id' => ['required', 'exists:inventories,id'],
+            'items.*.inventory_id' => ['required', 'exists:inventories,id', new BelongsToCurrentTenant('inventories')],
             'items.*.quantity'     => ['required', 'integer', 'min:1'],
         ];
     }

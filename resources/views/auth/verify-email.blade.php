@@ -1,4 +1,14 @@
 <x-guest-layout>
+    @php
+        $provinceSlug = request()->route('provinceSlug');
+        $barangaySlug = request()->route('barangaySlug');
+        $isModerator = request()->routeIs('moderator.*');
+
+        $resendRoute = $provinceSlug && $barangaySlug
+            ? route('tenant.verification.send', ['provinceSlug' => $provinceSlug, 'barangaySlug' => $barangaySlug])
+            : ($isModerator ? route('moderator.verification.send') : route('verification.send'));
+    @endphp
+
     <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
         {{ __('Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn\'t receive the email, we will gladly send you another.') }}
     </div>
@@ -10,7 +20,7 @@
     @endif
 
     <div class="mt-4 flex items-center justify-between">
-        <form method="POST" action="{{ route('verification.send') }}">
+        <form method="POST" action="{{ $resendRoute }}">
             @csrf
 
             <div>

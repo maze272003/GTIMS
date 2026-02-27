@@ -24,6 +24,9 @@
                             </p>
                             <p style="font-size: 16px;"><b>Time:</b> {{ now()->format('F j, Y, g:i a') }} (PHT)</p>
                             <p style="font-size: 16px;"><b>IP Address:</b> {{ $ipAddress }}</p>
+                            @if(!empty($tenantLabel))
+                                <p style="font-size: 16px;"><b>Tenant Scope:</b> {{ $tenantLabel }}</p>
+                            @endif
                             <br>
                             <p style="font-size: 16px;">
                                 <b>If this was you,</b> you can safely ignore this email.

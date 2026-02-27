@@ -24,7 +24,7 @@ class OtpLoginController extends Controller
             return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
         }
 
-        $result = $this->otpLoginService->sendOtp((string) $request->email);
+        $result = $this->otpLoginService->sendOtp($request, (string) $request->email);
 
         return response()->json(
             array_intersect_key($result, array_flip(['success', 'message', 'redirect_url'])),
@@ -51,4 +51,3 @@ class OtpLoginController extends Controller
         );
     }
 }
-

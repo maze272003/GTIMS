@@ -42,6 +42,30 @@ class TenantResolverTest extends TestCase
         $this->assertEquals('malolos', $ctx->barangaySlug);
     }
 
+    public function test_from_slugs_resolves_case_insensitive_and_preserves_canonical_slugs(): void
+    {
+        $province = Province::factory()->create(['slug' => 'bulacan', 'is_active' => true]);
+        $barangay = Barangay::factory()->create([
+            'province_id' => $province->id,
+            'slug' => 'malolos',
+            'is_active' => true,
+        ]);
+
+        $ctx = $this->resolver->fromSlugs('BULACAN', 'MALOLOS');
+
+        $this->assertNotNull($ctx);
+        $this->assertEquals('bulacan', $ctx->provinceSlug);
+        $this->assertEquals('malolos', $ctx->barangaySlug);
+        $this->assertEquals($barangay->id, $ctx->barangayId);
+    }
+
+    public function test_from_slugs_rejects_reserved_moderator_prefix(): void
+    {
+        $ctx = $this->resolver->fromSlugs('moderator', 'tenant-a');
+
+        $this->assertNull($ctx);
+    }
+
     public function test_from_slugs_returns_null_for_invalid_province(): void
     {
         $ctx = $this->resolver->fromSlugs('nonexistent', 'malolos');

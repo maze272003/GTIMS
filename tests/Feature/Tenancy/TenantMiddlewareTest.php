@@ -67,6 +67,22 @@ class TenantMiddlewareTest extends TestCase
         $this->assertNotEquals(403, $response->getStatusCode());
     }
 
+    public function test_non_canonical_slug_redirects_to_canonical_route(): void
+    {
+        TenantMembership::factory()->create([
+            'user_id' => $this->user->id,
+            'scope_type' => 'barangay',
+            'scope_id' => $this->barangay->id,
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($this->user)
+            ->get('/BULACAN/MALOLOS/dashboard');
+
+        $response->assertRedirect('/bulacan/malolos/dashboard');
+        $response->assertStatus(301);
+    }
+
     public function test_tenant_route_returns_404_for_invalid_province_slug(): void
     {
         $response = $this->actingAs($this->user)
@@ -79,6 +95,14 @@ class TenantMiddlewareTest extends TestCase
     {
         $response = $this->actingAs($this->user)
             ->get("/bulacan/nonexistent/dashboard");
+
+        $response->assertStatus(404);
+    }
+
+    public function test_reserved_moderator_prefix_cannot_be_used_as_tenant_slug(): void
+    {
+        $response = $this->actingAs($this->user)
+            ->get('/moderator/tenant-a/dashboard');
 
         $response->assertStatus(404);
     }
@@ -226,6 +250,20 @@ class TenantMiddlewareTest extends TestCase
     public function test_moderator_login_page_renders(): void
     {
         $response = $this->get("/moderator/login");
+
+        $response->assertStatus(200);
+    }
+
+    public function test_tenant_forgot_password_page_renders_with_valid_slugs(): void
+    {
+        $response = $this->get('/bulacan/malolos/forgot-password');
+
+        $response->assertStatus(200);
+    }
+
+    public function test_moderator_forgot_password_page_renders(): void
+    {
+        $response = $this->get('/moderator/forgot-password');
 
         $response->assertStatus(200);
     }

@@ -14,7 +14,7 @@ class NotificationService
     /**
      * Send a notification to a user based on their preferences.
      */
-    public function notify(User $user, string $type, array $data): void
+    public function notify(User $user, string $type, array $data, ?TenantContext $tenantContext = null): void
     {
         $pref = NotificationPreference::where('user_id', $user->id)
             ->where('type', $type)
@@ -31,6 +31,9 @@ class NotificationService
             'user_id' => $user->id,
             'type' => $type,
             'email_sent' => $emailEnabled,
+            'tenant_scope' => $tenantContext?->scopeType,
+            'province_id' => $tenantContext?->provinceId,
+            'barangay_id' => $tenantContext?->barangayId,
         ]);
     }
 
@@ -72,20 +75,54 @@ class NotificationService
     /**
      * Notify all admins about low stock.
      */
-    public function notifyLowStock(int $productId, string $productName, int $available, int $threshold): void
+    public function notifyLowStock(
+        int $productId,
+        string $productName,
+        int $available,
+        int $threshold,
+        ?TenantContext $tenantContext = null
+    ): void
     {
+        if (!$tenantContext && app()->bound(TenantContext::class)) {
+            $tenantContext = app(TenantContext::class);
+        }
+
         $admins = User::whereHas('level', function ($query) {
             $query->whereHas('permissions', function ($q) {
                 $q->where('name', 'notifications.manage');
             });
-        })->get();
+        });
+
+        if ($tenantContext && !$tenantContext->isPlatform()) {
+            $admins->where(function ($query) use ($tenantContext) {
+                $query->whereHas('tenantMemberships', function ($membershipQuery) use ($tenantContext) {
+                    $membershipQuery->where('status', 'active')
+                        ->where(function ($scopeQuery) use ($tenantContext) {
+                            $scopeQuery->where(function ($platform) {
+                                $platform->where('scope_type', 'platform');
+                            })->orWhere(function ($province) use ($tenantContext) {
+                                $province->where('scope_type', 'province')
+                                    ->where('scope_id', $tenantContext->provinceId);
+                            })->orWhere(function ($barangay) use ($tenantContext) {
+                                if ($tenantContext->barangayId) {
+                                    $barangay->where('scope_type', 'barangay')
+                                        ->where('scope_id', $tenantContext->barangayId);
+                                }
+                            });
+                        });
+                });
+            });
+        }
+
+        $admins = $admins->get();
+
         foreach ($admins as $admin) {
             $this->notify($admin, 'low_stock', [
                 'product_id' => $productId,
                 'product_name' => $productName,
                 'available' => $available,
                 'threshold' => $threshold,
-            ]);
+            ], $tenantContext);
         }
     }
 }

@@ -16,13 +16,20 @@ class VerifyEmailController extends Controller
 
     public function __invoke(EmailVerificationRequest $request): RedirectResponse
     {
+        $tenantContext = $request->attributes->get('tenantContext');
+        $redirectUrl = route('dashboard', absolute: false) . '?verified=1';
+        if ($tenantContext) {
+            $redirectUrl = tenant_route('tenant.dashboard', [], $tenantContext) . '?verified=1';
+        } elseif ($request->routeIs('moderator.*')) {
+            $redirectUrl = route('moderator.dashboard') . '?verified=1';
+        }
+
         if ($this->emailVerificationFlowService->hasVerifiedEmail($request->user())) {
-            return redirect()->intended(route('dashboard', absolute: false) . '?verified=1');
+            return redirect()->intended($redirectUrl);
         }
 
         $this->emailVerificationFlowService->verifyUser($request->user());
 
-        return redirect()->intended(route('dashboard', absolute: false) . '?verified=1');
+        return redirect()->intended($redirectUrl);
     }
 }
-

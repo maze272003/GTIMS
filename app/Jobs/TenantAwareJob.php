@@ -13,23 +13,37 @@ abstract class TenantAwareJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tenantProvinceId;
+    public ?int $tenantProvinceId;
     public ?int $tenantBarangayId;
     public string $tenantScopeType;
+    public ?string $tenantProvinceSlug;
+    public ?string $tenantBarangaySlug;
 
     public function __construct(TenantContext $ctx)
     {
         $this->tenantProvinceId = $ctx->provinceId;
         $this->tenantBarangayId = $ctx->barangayId;
         $this->tenantScopeType = $ctx->scopeType;
+        $this->tenantProvinceSlug = $ctx->provinceSlug;
+        $this->tenantBarangaySlug = $ctx->barangaySlug;
     }
 
-    protected function getTenantContext(): TenantContext
+    public function getTenantContext(): ?TenantContext
     {
+        if ($this->tenantScopeType !== 'platform' && !$this->tenantProvinceId) {
+            return null;
+        }
+
+        if ($this->tenantScopeType === 'barangay' && !$this->tenantBarangayId) {
+            return null;
+        }
+
         return new TenantContext(
             $this->tenantScopeType,
             $this->tenantProvinceId,
-            $this->tenantBarangayId
+            $this->tenantBarangayId,
+            $this->tenantProvinceSlug,
+            $this->tenantBarangaySlug,
         );
     }
 

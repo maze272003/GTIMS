@@ -2,17 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class IncomingRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantScoped;
 
     protected $table = 'incoming_requests';
 
     protected $fillable = [
-        'branch_id', 'requester_id', 'department', 'priority', 'status', 'remarks',
+        'province_id', 'barangay_id', 'branch_id', 'requester_id', 'department', 'priority', 'status', 'remarks',
     ];
 
     public const STATUS_TRANSITIONS = [

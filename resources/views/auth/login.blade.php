@@ -1,5 +1,14 @@
 @php
     use Anhskohbo\NoCaptcha\Facades\NoCaptcha;
+
+    /** @var \App\Tenancy\TenantContext|null $activeTenantContext */
+    $activeTenantContext = $tenantContext ?? current_tenant();
+    $loginMode = !empty($isModerator) ? 'moderator' : ($activeTenantContext ? 'tenant' : 'legacy');
+    $loginPostRoute = $loginPostRoute ?? route('login');
+    $passwordRequestRoute = $passwordRequestRoute ?? route('password.request');
+    $authenticatedDashboardRoute = $activeTenantContext
+        ? tenant_route('tenant.dashboard', [], $activeTenantContext)
+        : (!empty($isModerator) ? route('moderator.dashboard') : route('admin.dashboard'));
 @endphp
 
 <!DOCTYPE html>
@@ -105,6 +114,13 @@
             <div class="flex flex-col items-center gap-2 text-red-800">
                 <img src="{{asset('images/gtlogo.png')}}" alt="logo" class="w-16">
                 <h1 class="text-xl font-semibold">Municipality of General Tinio</h1>
+                @if($activeTenantContext)
+                    <p class="text-sm text-red-700 font-semibold uppercase tracking-wide">
+                        {{ strtoupper($activeTenantContext->provinceSlug ?? '') }} / {{ strtoupper($activeTenantContext->barangaySlug ?? '') }}
+                    </p>
+                @elseif(!empty($isModerator))
+                    <p class="text-sm text-red-700 font-semibold uppercase tracking-wide">Moderator Portal</p>
+                @endif
             </div>
 
             @auth
@@ -117,7 +133,7 @@
                         <p class="text-gray-600 mt-2">You are currently signed in as <br> <span class="font-bold text-red-800">{{ Auth::user()->email }}</span></p>
                     </div>
 
-                    <a href="{{ route('admin.dashboard') }}" 
+                    <a href="{{ $authenticatedDashboardRoute }}" 
                        class="bg-red-700 w-full p-3 rounded-lg text-white text-center font-medium text-sm md:text-base hover:bg-red-800 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center gap-2">
                         <i class="fa-solid fa-gauge"></i> Go back to Dashboard
                     </a>
@@ -134,7 +150,15 @@
             @endauth
             @guest
                 <h1 class="text-center mt-2 font-medium tracking-wide text-xl md:text-2xl">Sign in to your Account</h1>
-                <h2 class="text-sm md:text-base text-center text-red-500 font-medium">General Tinio RHU - Inventory Management System</h2>
+                <h2 class="text-sm md:text-base text-center text-red-500 font-medium">
+                    @if($activeTenantContext)
+                        Tenant Access: {{ $activeTenantContext->provinceSlug }}/{{ $activeTenantContext->barangaySlug }}
+                    @elseif(!empty($isModerator))
+                        Moderator Access Portal
+                    @else
+                        General Tinio RHU - Inventory Management System
+                    @endif
+                </h2>
                 
                 <div id="ajax-error-message" class="text-red-500 text-center text-sm font-medium hidden"></div>
                 <div id="ajax-success-message" class="text-green-500 text-center text-sm font-medium hidden"></div>
@@ -148,8 +172,13 @@
                     </div>
                 @endif
 
-                <form method="POST" action="{{ route('login') }}" class="mt-2 space-y-6" id="password-form">
+                <form method="POST" action="{{ $loginPostRoute }}" class="mt-2 space-y-6" id="password-form">
                     @csrf
+                    @if($activeTenantContext)
+                        <input type="hidden" name="provinceSlug" value="{{ $activeTenantContext->provinceSlug }}">
+                        <input type="hidden" name="barangaySlug" value="{{ $activeTenantContext->barangaySlug }}">
+                    @endif
+                    <input type="hidden" name="login_mode" value="{{ $loginMode }}">
                     <div>
                         <label for="email" class="text-sm text-black/80 font-medium">Email Address:</label>
                         <input id="email" type="email" name="email" value="{{ old('email') }}" 
@@ -162,8 +191,8 @@
                     <div>
                         <div class="flex justify-between items-center">
                             <label for="password" class="text-sm text-black/80 font-medium">Password:</label>
-                            @if (Route::has('password.request'))
-                                <a href="{{ route('password.request') }}" class="text-sm text-red-800 font-semibold hover:underline">Forgot Password?</a>
+                            @if ($passwordRequestRoute)
+                                <a href="{{ $passwordRequestRoute }}" class="text-sm text-red-800 font-semibold hover:underline">Forgot Password?</a>
                             @endif
                         </div>
                         <div class="relative">
@@ -367,6 +396,12 @@
                 successMsg.classList.add('hidden');
 
                 try {
+                    const tenantPayload = {
+                        provinceSlug: @json($activeTenantContext?->provinceSlug),
+                        barangaySlug: @json($activeTenantContext?->barangaySlug),
+                        login_mode: @json($loginMode)
+                    };
+
                     const response = await fetch('{{ route("otp.send") }}', {
                         method: 'POST',
                         headers: {
@@ -374,7 +409,7 @@
                             'X-CSRF-TOKEN': '{{ csrf_token() }}',
                             'Accept': 'application/json',
                         },
-                        body: JSON.stringify({ email: email })
+                        body: JSON.stringify({ email: email, ...tenantPayload })
                     });
                     const data = await response.json();
                     if (!response.ok) {
@@ -406,6 +441,12 @@
                 successMsg.classList.add('hidden');
 
                 try {
+                    const tenantPayload = {
+                        provinceSlug: @json($activeTenantContext?->provinceSlug),
+                        barangaySlug: @json($activeTenantContext?->barangaySlug),
+                        login_mode: @json($loginMode)
+                    };
+
                     const response = await fetch('{{ route("otp.verify") }}', {
                         method: 'POST',
                         headers: {
@@ -413,7 +454,7 @@
                             'X-CSRF-TOKEN': '{{ csrf_token() }}',
                             'Accept': 'application/json',
                         },
-                        body: JSON.stringify({ email: email, otp: otp })
+                        body: JSON.stringify({ email: email, otp: otp, ...tenantPayload })
                     });
                     const data = await response.json();
                     if (!response.ok) {

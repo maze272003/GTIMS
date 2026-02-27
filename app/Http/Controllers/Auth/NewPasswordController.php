@@ -19,7 +19,10 @@ class NewPasswordController extends Controller
 
     public function create(Request $request): View
     {
-        return view('auth.reset-password', ['request' => $request]);
+        return view('auth.reset-password', [
+            'request' => $request,
+            'tenantContext' => $request->attributes->get('tenantContext'),
+        ]);
     }
 
     public function store(Request $request): RedirectResponse
@@ -34,10 +37,20 @@ class NewPasswordController extends Controller
             $request->only('email', 'password', 'password_confirmation', 'token')
         );
 
+        $successRedirect = route('login');
+
+        if ($request->route('provinceSlug') && $request->route('barangaySlug')) {
+            $successRedirect = route('tenant.login', [
+                'provinceSlug' => $request->route('provinceSlug'),
+                'barangaySlug' => $request->route('barangaySlug'),
+            ]);
+        } elseif ($request->routeIs('moderator.*')) {
+            $successRedirect = route('moderator.login');
+        }
+
         return $status == Password::PASSWORD_RESET
-            ? redirect()->route('login')->with('status', __($status))
+            ? redirect()->to($successRedirect)->with('status', __($status))
             : back()->withInput($request->only('email'))
                 ->withErrors(['email' => __($status)]);
     }
 }
-

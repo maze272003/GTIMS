@@ -2,14 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class RequestItem extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantScoped;
 
     protected $fillable = [
+        'province_id', 'barangay_id',
         'incoming_request_id', 'product_id', 'quantity_requested',
         'quantity_fulfilled', 'allow_substitution', 'substituted_product_id',
     ];

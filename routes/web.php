@@ -20,6 +20,8 @@ use App\Http\Controllers\Admin\AuditEventController;
 use App\Http\Controllers\Admin\AnalyticsApiController;
 use App\Http\Controllers\Admin\NotificationController;
 use Illuminate\Support\Facades\Auth;
+use App\Services\AuthSessionService;
+use App\Tenancy\TenantResolver;
 
 Route::get('/', function () {
     return view('auth.login');
@@ -38,18 +40,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
         $user = Auth::user();
 
-        if (!$user || !$user->level) {
+        if (!$user) {
             Auth::logout();
             return redirect('/login')->with('error', 'You do not have permission.');
         }
 
-        // Redirect based on permissions
-        if ($user->hasPermission('dashboard.view')) {
-            return redirect()->route('admin.dashboard');
-        }
+        $tenantContext = app(TenantResolver::class)->fromSession();
+        $loginMode = $user->isModerator() ? 'moderator' : ($tenantContext ? 'tenant' : 'legacy');
+        $redirectUrl = app(AuthSessionService::class)->getRedirectUrl($user, $tenantContext, $loginMode);
 
-        if ($user->hasPermission('orders.view')) {
-            return redirect()->route('admin.orders.index');
+        if ($redirectUrl) {
+            return redirect()->to($redirectUrl);
         }
 
         Auth::logout();
@@ -70,7 +71,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     //
     Route::prefix('admin')
           ->name('admin.')
-          ->middleware('level.all') // L1, L2, L3, L4 CAN ENTER THIS BLOCK
+          ->middleware(['level.all', 'legacy.admin']) // L1, L2, L3, L4 CAN ENTER THIS BLOCK
           ->group(function () {
 
         // == A. BASE ACCESS ROUTES (Para sa lahat ng nakapasa sa level.all) ==

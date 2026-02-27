@@ -80,6 +80,20 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        $mode = $this->routeIs('tenant.*')
+            ? 'tenant'
+            : ($this->routeIs('moderator.*') ? 'moderator' : 'legacy');
+
+        $tenantSlug = trim((string) $this->route('provinceSlug') . '/' . (string) $this->route('barangaySlug'), '/');
+
+        return Str::transliterate(
+            Str::lower($this->string('email'))
+            . '|'
+            . $this->ip()
+            . '|'
+            . $mode
+            . '|'
+            . $tenantSlug
+        );
     }
 }

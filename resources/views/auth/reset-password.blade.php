@@ -1,5 +1,15 @@
 <x-guest-layout>
-    <form method="POST" action="{{ route('password.store') }}">
+    @php
+        $provinceSlug = request()->route('provinceSlug');
+        $barangaySlug = request()->route('barangaySlug');
+        $isModerator = request()->routeIs('moderator.*');
+
+        $action = $provinceSlug && $barangaySlug
+            ? route('tenant.password.store', ['provinceSlug' => $provinceSlug, 'barangaySlug' => $barangaySlug])
+            : ($isModerator ? route('moderator.password.store') : route('password.store'));
+    @endphp
+
+    <form method="POST" action="{{ $action }}">
         @csrf
 
         <!-- Password Reset Token -->

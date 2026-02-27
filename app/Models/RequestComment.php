@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 
 class RequestComment extends Model
 {
-    protected $fillable = ['incoming_request_id', 'user_id', 'comment'];
+    use TenantScoped;
+
+    protected $fillable = ['province_id', 'barangay_id', 'incoming_request_id', 'user_id', 'comment'];
 
     public function incomingRequest()
     {

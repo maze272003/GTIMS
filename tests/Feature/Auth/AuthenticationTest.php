@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\UserLevel;
 use App\Models\Branch;
 use App\Models\Permission;
+use App\Models\TenantMembership;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -90,5 +91,61 @@ class AuthenticationTest extends TestCase
 
         $this->assertGuest();
         $response->assertRedirect('/');
+    }
+
+    public function test_non_moderator_cannot_login_via_moderator_portal(): void
+    {
+        $level = UserLevel::create(['name' => 'admin']);
+        $branch = Branch::create(['name' => 'Head Office']);
+        $perm = Permission::create(['name' => 'dashboard.view', 'group' => 'Dashboard']);
+        $level->permissions()->sync([$perm->id]);
+
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'user_level_id' => $level->id,
+            'branch_id' => $branch->id,
+            'password' => bcrypt('password'),
+        ]);
+
+        $response = $this->post('/moderator/login', [
+            'email' => $user->email,
+            'password' => 'password',
+            'g-recaptcha-response' => 'test-token',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/moderator/login');
+        $response->assertSessionHas('error');
+    }
+
+    public function test_moderator_can_login_via_moderator_portal(): void
+    {
+        $level = UserLevel::create(['name' => 'superadmin']);
+        $branch = Branch::create(['name' => 'Head Office']);
+        $perm = Permission::create(['name' => 'dashboard.view', 'group' => 'Dashboard']);
+        $level->permissions()->sync([$perm->id]);
+
+        $user = User::factory()->create([
+            'email_verified_at' => now(),
+            'user_level_id' => $level->id,
+            'branch_id' => $branch->id,
+            'password' => bcrypt('password'),
+        ]);
+
+        TenantMembership::factory()->create([
+            'user_id' => $user->id,
+            'scope_type' => 'platform',
+            'scope_id' => null,
+            'status' => 'active',
+        ]);
+
+        $response = $this->post('/moderator/login', [
+            'email' => $user->email,
+            'password' => 'password',
+            'g-recaptcha-response' => 'test-token',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect(route('moderator.dashboard'));
     }
 }

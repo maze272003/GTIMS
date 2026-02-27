@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class HoldItem extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantScoped;
 
-    protected $fillable = ['hold_id', 'product_id', 'inventory_id', 'quantity'];
+    protected $fillable = ['province_id', 'barangay_id', 'hold_id', 'product_id', 'inventory_id', 'quantity'];
 
     public function hold()
     {

@@ -327,14 +327,13 @@ public function showinventory(Request $request)
     public function addStock(Request $request) {
         $validated = $request->validateWithBag( 'addstock', [
             'product_id' => 'required|exists:products,id',
-            'branch_id' => 'required|integer|in:1,2|exists:branches,id',
+            'branch_id' => 'required|integer|exists:branches,id',
             'batchnumber' => 'required|min:3|max:120',
             'quantity' => 'required|numeric',
             'expiry' => 'required|date',
         ], [
             'product_id.required'=> 'Product ID is required.',
             'branch_id.required'=> 'Branch ID is required.',
-            'branch_id.in'=> 'Please select a valid branch.',
             'branch_id.exists'=> 'The selected branch does not exist.',
             'batchnumber.required'=> 'Batch number is required.',
             'quantity.required'=> 'Quantity is required.',
@@ -504,7 +503,7 @@ public function showinventory(Request $request)
         $request->validate([
             'inventory_id' => 'required|exists:inventories,id',
             'quantity'     => 'required|numeric|min:1',
-            'destination_branch' => 'required|in:1,2',
+            'destination_branch' => 'required|exists:branches,id',
         ]);
 
         $sourceInventory = $this->inventoryAdminRepository->findInventoryWithProductOrFail((int) $request->inventory_id);
@@ -535,6 +534,9 @@ public function showinventory(Request $request)
             ]);
         }
 
+        $sourceBranchName = $this->inventoryAdminRepository->findBranchName((int) $sourceInventory->branch_id) ?? ('Branch #' . $sourceInventory->branch_id);
+        $destinationBranchName = $this->inventoryAdminRepository->findBranchName((int) $request->destination_branch) ?? ('Branch #' . $request->destination_branch);
+
         // Add a product movement for this transfer
         $this->inventoryAdminRepository->createProductMovement([
             'product_id' => $sourceInventory->product_id,
@@ -544,7 +546,7 @@ public function showinventory(Request $request)
             'quantity' => $request->quantity,
             'quantity_before' => $sourceInventory->quantity + $request->quantity,
             'quantity_after' => $sourceInventory->quantity,
-            'description' => 'Stock transfer from RHU ' . ($sourceInventory->branch_id == 1 ? '1' : '2') . ' to RHU ' . ($request->destination_branch == 1 ? '1' : '2') . '.',
+            'description' => "Stock transfer from {$sourceBranchName} to {$destinationBranchName}.",
         ]);
 
         // Add another product movement for the received stock
@@ -556,7 +558,7 @@ public function showinventory(Request $request)
             'quantity' => $request->quantity,
             'quantity_before' => $oldQty,
             'quantity_after' => $destInventory->quantity,
-            'description' => 'Stock received from RHU ' . ($sourceInventory->branch_id == 1 ? '1' : '2') . ' to RHU ' . ($request->destination_branch == 1 ? '1' : '2') . '.',
+            'description' => "Stock received from {$sourceBranchName} to {$destinationBranchName}.",
         ]);
 
         return redirect()->route('admin.inventory')->with('success', 'Stock transferred successfully!');

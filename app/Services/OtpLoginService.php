@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Mail\SendOtpMail;
 use App\Repositories\Interfaces\UserRepositoryInterface;
+use App\Tenancy\TenantContext;
+use App\Tenancy\TenantResolver;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -13,11 +15,12 @@ class OtpLoginService
 {
     public function __construct(
         protected UserRepositoryInterface $userRepository,
-        protected AuthSessionService $authSessionService
+        protected AuthSessionService $authSessionService,
+        protected TenantResolver $tenantResolver,
     ) {
     }
 
-    public function sendOtp(string $email): array
+    public function sendOtp(Request $request, string $email): array
     {
         $user = $this->userRepository->findByEmailWithRelations($email, ['level']);
 
@@ -25,8 +28,11 @@ class OtpLoginService
             return ['success' => false, 'status' => 422, 'message' => 'User not found.'];
         }
 
-        if (is_null($user->user_level_id) || is_null($user->level)) {
-            return ['success' => false, 'status' => 403, 'message' => 'You are not authorized to access this application.'];
+        [$loginMode, $tenantContext] = $this->resolveLoginModeAndContext($request);
+
+        $access = $this->authSessionService->canAccessApplication($user, $tenantContext, $loginMode);
+        if (!$access['ok']) {
+            return ['success' => false, 'status' => 403, 'message' => $access['error']];
         }
 
         $otp = (string) random_int(100000, 999999);
@@ -60,16 +66,58 @@ class OtpLoginService
 
         $this->userRepository->updateOtp($user->id, null, null);
 
-        $redirectUrl = $this->authSessionService->getRedirectUrl($user);
-        if (!$redirectUrl) {
+        [$loginMode, $tenantContext] = $this->resolveLoginModeAndContext($request);
+        $access = $this->authSessionService->canAccessApplication($user, $tenantContext, $loginMode);
+
+        if (!$access['ok']) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return ['success' => false, 'status' => 403, 'message' => 'Your user role does not have access.'];
+            return ['success' => false, 'status' => 403, 'message' => $access['error']];
         }
 
-        return ['success' => true, 'status' => 200, 'redirect_url' => $redirectUrl];
+        if ($loginMode === 'tenant' && $tenantContext) {
+            foreach ($tenantContext->toSessionData() as $key => $value) {
+                $request->session()->put($key, $value);
+            }
+        }
+
+        if ($loginMode === 'moderator') {
+            foreach (config('tenancy.session_keys', []) as $sessionKey) {
+                $request->session()->forget($sessionKey);
+            }
+        }
+
+        $this->authSessionService->processSuccessfulLogin($user, $request->ip(), $tenantContext);
+
+        return ['success' => true, 'status' => 200, 'redirect_url' => $access['redirect_url']];
+    }
+
+    /**
+     * @return array{0: string, 1: TenantContext|null}
+     */
+    protected function resolveLoginModeAndContext(Request $request): array
+    {
+        $loginMode = (string) $request->input('login_mode', 'legacy');
+        if ($request->routeIs('tenant.*') || $request->filled('provinceSlug')) {
+            $loginMode = 'tenant';
+        } elseif ($request->routeIs('moderator.*')) {
+            $loginMode = 'moderator';
+        }
+
+        /** @var TenantContext|null $tenantContext */
+        $tenantContext = $request->attributes->get('tenantContext');
+
+        if (!$tenantContext) {
+            $provinceSlug = $request->route('provinceSlug') ?: $request->input('provinceSlug');
+            $barangaySlug = $request->route('barangaySlug') ?: $request->input('barangaySlug');
+
+            if ($provinceSlug && $barangaySlug) {
+                $tenantContext = $this->tenantResolver->fromSlugs((string) $provinceSlug, (string) $barangaySlug);
+            }
+        }
+
+        return [$loginMode, $tenantContext];
     }
 }
-

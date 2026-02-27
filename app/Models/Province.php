@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
 
 class Province extends Model
 {
@@ -34,5 +36,22 @@ class Province extends Model
     {
         return $this->morphMany(TenantMembership::class, 'scope', 'scope_type', 'scope_id')
             ->where('scope_type', 'province');
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Province $province): void {
+            $province->slug = Str::slug((string) $province->slug);
+
+            $reserved = [
+                strtolower((string) config('tenancy.moderator_prefix', 'moderator')),
+                'admin',
+                'api',
+            ];
+
+            if (in_array(strtolower((string) $province->slug), $reserved, true)) {
+                throw new InvalidArgumentException('Province slug is reserved and cannot be used.');
+            }
+        });
     }
 }

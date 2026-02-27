@@ -32,6 +32,21 @@ class ResolveTenantFromSlug
             abort(404, 'Tenant not found.');
         }
 
+        $isCanonicalRequest = $provinceSlug === $tenantContext->provinceSlug
+            && $barangaySlug === $tenantContext->barangaySlug;
+
+        if (!$isCanonicalRequest && $request->route()?->getName()) {
+            $params = array_merge(
+                $request->route()->parameters(),
+                [
+                    'provinceSlug' => $tenantContext->provinceSlug,
+                    'barangaySlug' => $tenantContext->barangaySlug,
+                ]
+            );
+
+            return redirect()->route($request->route()->getName(), $params, 301);
+        }
+
         $request->attributes->set('tenantContext', $tenantContext);
 
         return $next($request);

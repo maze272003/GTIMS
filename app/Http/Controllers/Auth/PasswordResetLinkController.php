@@ -27,6 +27,13 @@ class PasswordResetLinkController extends Controller
             'email' => ['required', 'email'],
         ]);
 
+        $provinceSlug = $request->route('provinceSlug');
+        $barangaySlug = $request->route('barangaySlug');
+        if ($provinceSlug && $barangaySlug) {
+            $request->session()->put('tenant.route_slug_province', $provinceSlug);
+            $request->session()->put('tenant.route_slug_barangay', $barangaySlug);
+        }
+
         $status = $this->passwordFlowService->sendResetLink($request->only('email'));
 
         return $status == Password::RESET_LINK_SENT
@@ -35,4 +42,3 @@ class PasswordResetLinkController extends Controller
                 ->withErrors(['email' => __($status)]);
     }
 }
-

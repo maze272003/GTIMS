@@ -33,7 +33,7 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
 
     public function getSupportedBranches(): Collection
     {
-        return Branch::whereIn('id', [1, 2])->orderBy('id')->get();
+        return Branch::query()->orderBy('name')->get();
     }
 
     public function getActiveInventories(): Collection
@@ -117,4 +117,3 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
             ->first();
     }
 }
-

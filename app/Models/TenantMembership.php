@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\TenantSessionSecurityService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -27,6 +28,18 @@ class TenantMembership extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    protected static function booted(): void
+    {
+        $invalidate = function (TenantMembership $membership): void {
+            app(TenantSessionSecurityService::class)
+                ->invalidateAfterMembershipChange((int) $membership->user_id);
+        };
+
+        static::created($invalidate);
+        static::updated($invalidate);
+        static::deleted($invalidate);
     }
 
     public function scopeActive($query)

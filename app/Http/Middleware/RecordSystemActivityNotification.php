@@ -63,6 +63,7 @@ class RecordSystemActivityNotification
         }
 
         [$title, $category, $actionType] = $this->resolveActionDetails($request, $routeName);
+        $tenantContext = $request->attributes->get('tenantContext');
 
         $details = [
             'user_name' => $user->name,
@@ -72,6 +73,11 @@ class RecordSystemActivityNotification
             'path' => '/'.$request->path(),
             'ip' => $request->ip(),
             'branch_id' => $user->branch_id,
+            'tenant_scope' => $tenantContext?->scopeType,
+            'tenant_province_id' => $tenantContext?->provinceId,
+            'tenant_barangay_id' => $tenantContext?->barangayId,
+            'tenant_province_slug' => $tenantContext?->provinceSlug,
+            'tenant_barangay_slug' => $tenantContext?->barangaySlug,
         ];
 
         foreach (['id', 'product_id', 'inventory_id', 'patientrecord_id', 'branch_id', 'supplier_id'] as $key) {
@@ -198,4 +204,3 @@ class RecordSystemActivityNotification
         return 'file';
     }
 }
-

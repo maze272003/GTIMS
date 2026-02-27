@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class Supplier extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantScoped;
 
-    protected $fillable = ['name', 'contact_person', 'email', 'phone', 'address', 'is_active'];
+    protected $fillable = ['province_id', 'barangay_id', 'name', 'contact_person', 'email', 'phone', 'address', 'is_active'];
 
     protected $casts = [
         'is_active' => 'boolean',
