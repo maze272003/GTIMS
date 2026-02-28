@@ -15,6 +15,29 @@ use Illuminate\Support\Facades\DB;
 class SystemAnalyticsService
 {
     /**
+     * Get the appropriate SQL date grouping expression for the current database driver.
+     */
+    private function getDateGroupExpression(string $column, string $groupBy): string
+    {
+        $driver = DB::getDriverName();
+
+        if ($driver === 'sqlite') {
+            return match ($groupBy) {
+                'week'  => "strftime('%Y-W%W', {$column})",
+                'month' => "strftime('%Y-%m', {$column})",
+                default => "date({$column})",
+            };
+        }
+
+        // MySQL / MariaDB
+        return match ($groupBy) {
+            'week'  => "DATE_FORMAT({$column}, '%x-W%v')",
+            'month' => "DATE_FORMAT({$column}, '%Y-%m')",
+            default => "DATE({$column})",
+        };
+    }
+
+    /**
      * Get inventory movement trends over time (for line/bar charts).
      *
      * Returns daily aggregated IN/OUT quantities within the given date range.
@@ -28,11 +51,7 @@ class SystemAnalyticsService
         $from = $from ?? Carbon::now()->subDays(30);
         $to = $to ?? Carbon::now();
 
-        $dateFormat = match ($groupBy) {
-            'week'  => "strftime('%Y-W%W', product_movements.created_at)",
-            'month' => "strftime('%Y-%m', product_movements.created_at)",
-            default => "date(product_movements.created_at)",
-        };
+        $dateFormat = $this->getDateGroupExpression('product_movements.created_at', $groupBy);
 
         $query = ProductMovement::query()
             ->select(
@@ -212,11 +231,7 @@ class SystemAnalyticsService
         $from = $from ?? Carbon::now()->subDays(30);
         $to = $to ?? Carbon::now();
 
-        $dateFormat = match ($groupBy) {
-            'week'  => "strftime('%Y-W%W', incoming_requests.created_at)",
-            'month' => "strftime('%Y-%m', incoming_requests.created_at)",
-            default => "date(incoming_requests.created_at)",
-        };
+        $dateFormat = $this->getDateGroupExpression('incoming_requests.created_at', $groupBy);
 
         $query = IncomingRequest::query()
             ->select(
@@ -292,11 +307,7 @@ class SystemAnalyticsService
         $from = $from ?? Carbon::now()->subDays(30);
         $to = $to ?? Carbon::now();
 
-        $dateFormat = match ($groupBy) {
-            'week'  => "strftime('%Y-W%W', audit_events.created_at)",
-            'month' => "strftime('%Y-%m', audit_events.created_at)",
-            default => "date(audit_events.created_at)",
-        };
+        $dateFormat = $this->getDateGroupExpression('audit_events.created_at', $groupBy);
 
         $activityByPeriod = AuditEvent::query()
             ->select(
