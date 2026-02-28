@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\AuditEventController;
 use App\Http\Controllers\Admin\AnalyticsApiController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\BranchManagementController;
+use App\Http\Controllers\Admin\SystemAnalyticsController;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
@@ -174,6 +175,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/reorder-suggestions', [AnalyticsApiController::class, 'reorderSuggestions'])->name('reorder');
                 Route::get('/low-stock-alerts', [AnalyticsApiController::class, 'lowStockAlerts'])->name('low-stock');
                 Route::get('/stock-kpis', [AnalyticsApiController::class, 'stockKPIs'])->name('kpis');
+
+                // System Analytics & Observability
+                Route::get('/overview', [SystemAnalyticsController::class, 'overview'])->name('overview');
+                Route::get('/inventory-movement-trends', [SystemAnalyticsController::class, 'inventoryMovementTrends'])->name('inventory-movement-trends');
+                Route::get('/stock-level-distribution', [SystemAnalyticsController::class, 'stockLevelDistribution'])->name('stock-level-distribution');
+                Route::get('/expiry-tracking', [SystemAnalyticsController::class, 'expiryTracking'])->name('expiry-tracking');
+                Route::get('/request-status-distribution', [SystemAnalyticsController::class, 'requestStatusDistribution'])->name('request-status-distribution');
+                Route::get('/request-volume-trends', [SystemAnalyticsController::class, 'requestVolumeTrends'])->name('request-volume-trends');
+                Route::get('/hold-analytics', [SystemAnalyticsController::class, 'holdAnalytics'])->name('hold-analytics');
+                Route::get('/user-activity-trends', [SystemAnalyticsController::class, 'userActivityTrends'])->name('user-activity-trends');
+                Route::get('/audit-event-distribution', [SystemAnalyticsController::class, 'auditEventDistribution'])->name('audit-event-distribution');
+                Route::get('/inventory-turnover', [SystemAnalyticsController::class, 'inventoryTurnover'])->name('inventory-turnover');
             });
 
             // == Notification Routes ==
