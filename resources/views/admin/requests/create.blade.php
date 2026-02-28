@@ -122,7 +122,7 @@
                     </select>
                 </td>
                 <td class="py-3 px-4">
-                    <input type="number" name="items[${rowId}][quantity]" min="1" value="1" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-center font-bold focus:ring-red-500" required>
+                    <input type="number" name="items[${rowId}][quantity_requested]" min="1" value="1" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-center font-bold focus:ring-red-500" required>
                 </td>
                 <td class="py-3 px-4 text-center">
                     <input type="checkbox" name="items[${rowId}][allow_substitution]" value="1" class="w-4 h-4 text-red-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-red-500">

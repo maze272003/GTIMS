@@ -3,7 +3,10 @@
 namespace App\Services;
 
 use Illuminate\Http\Request;
+use App\Models\AuditEvent;
+use App\Models\HistoryLog;
 use App\Models\Inventory;
+use App\Models\IncomingRequest;
 use App\Models\Product;
 use App\Models\Patientrecords;
 use App\Models\ProductMovement;
@@ -22,7 +25,9 @@ use Illuminate\Validation\Rule;
 class DashboardAdminService
 {
     public function __construct(
-        protected DashboardRepositoryInterface $dashboardRepository
+        protected DashboardRepositoryInterface $dashboardRepository,
+        protected SystemAnalyticsService $systemAnalyticsService,
+        protected AnalyticsService $analyticsService
     ) {
     }
     /**
@@ -51,7 +56,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             'drilldown_product_id' => 'nullable|integer|exists:products,id',
             'seasonal_product_id' => 'nullable|integer|exists:products,id',
             'compare_product_id' => 'nullable|integer|exists:products,id',
-            'ajax_update' => 'nullable|string|in:forecast,seasonal,main_charts'
+            'ajax_update' => 'nullable|string|in:forecast,seasonal,main_charts,observability'
         ]);
 
         $timespan = $inputs['filter_timespan'] ?? '30d';
@@ -103,6 +108,13 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         if ($request->ajax() && $request->input('ajax_update') == 'seasonal') {
             $seasonalData = $this->getSeasonalDataForAjax($seasonal_product_id, $compare_product_id);
             return response()->json(['seasonal' => $seasonalData]);
+        }
+
+        // === 3. AJAX: Observability Update ===
+        if ($request->ajax() && $request->input('ajax_update') === 'observability') {
+            return response()->json([
+                'observability' => $this->buildObservabilityPayload($dateRange, $filter_branch, $grouping),
+            ]);
         }
 
         // === 3. AJAX: Main Charts / Drilldown Update ===
@@ -254,7 +266,8 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
                 'patientVisit' => [
                     'labels' => $patientVisitLabels,
                     'data' => $patientVisitData,
-                ]
+                ],
+                'observability' => $this->buildObservabilityPayload($dateRange, $filter_branch, $grouping),
             ]);
         }
 
@@ -455,6 +468,8 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             }
         }
 
+        $observability = $this->buildObservabilityPayload($dateRange, $filter_branch, $grouping);
+
         // === RENDER FULL VIEW ===
         return view('admin.dashboard', compact(
             'kpiCards', 'urgent_low_stock', 'urgent_expiring_soon', 'forecast',
@@ -467,7 +482,8 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             'compareData', 'compareSeasonalProduct',
             'patientHotspots',
             'patientVisitLabels',
-            'patientVisitData'
+            'patientVisitData',
+            'observability'
         ) + [
             'filterTimespanLabel' => $this->getTimespanLabel($timespan, $dateRange),
             'filterBarangayLabel' => $filter_barangay ?? 'All Barangays',
@@ -477,6 +493,427 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
     }
 
     // --- Helper functions ---
+
+    private function buildObservabilityPayload(object $dateRange, ?int $branchId, string $grouping): array
+    {
+        $normalizedGrouping = in_array($grouping, ['day', 'week', 'month'], true) ? $grouping : 'day';
+
+        $overview = $this->systemAnalyticsService->getSystemOverview($branchId);
+        $movementTrends = $this->systemAnalyticsService->getInventoryMovementTrends(
+            $dateRange->start,
+            $dateRange->end,
+            $branchId,
+            $normalizedGrouping
+        );
+        $requestTrends = $this->systemAnalyticsService->getRequestVolumeTrends(
+            $dateRange->start,
+            $dateRange->end,
+            $branchId,
+            $normalizedGrouping
+        );
+        $activityTrends = $this->systemAnalyticsService->getUserActivityTrends(
+            $dateRange->start,
+            $dateRange->end,
+            $normalizedGrouping
+        );
+        $slaMetrics = $this->analyticsService->getRequestSLAMetrics($dateRange->start, $dateRange->end);
+
+        $throughput = $this->buildThroughputSeries(
+            $movementTrends['data'] ?? [],
+            $requestTrends['data'] ?? [],
+            $activityTrends['data'] ?? []
+        );
+        $latency = $this->buildRequestLatencySeries($dateRange, $branchId, $normalizedGrouping);
+        $errors = $this->buildErrorTrackingSeries($dateRange, $branchId, $normalizedGrouping);
+        $bottlenecks = $this->buildBottleneckSummary($branchId);
+
+        $operationsTotal = array_sum($throughput['combined']);
+        $errorEvents = array_sum($errors['combined']);
+        $windowHours = max(1, (int) $dateRange->start->diffInHours($dateRange->end));
+        $operationsPerHour = round($operationsTotal / $windowHours, 2);
+        $errorRate = round(($errorEvents / max(1, $operationsTotal)) * 100, 2);
+
+        return [
+            'generated_at' => now()->toDateTimeString(),
+            'summary' => [
+                'operations_total' => (int) $operationsTotal,
+                'operations_per_hour' => $operationsPerHour,
+                'error_events' => (int) $errorEvents,
+                'error_rate' => $errorRate,
+                'avg_cycle_time_hours' => (float) ($slaMetrics['avg_cycle_time_hours'] ?? 0),
+                'avg_approval_time_hours' => (float) ($slaMetrics['avg_approval_time_hours'] ?? 0),
+                'avg_fulfillment_time_hours' => (float) ($slaMetrics['avg_fulfillment_time_hours'] ?? 0),
+                'stale_open_requests' => (int) ($bottlenecks['stale_open_requests'] ?? 0),
+                'oldest_open_request_hours' => (int) ($bottlenecks['oldest_open_request_hours'] ?? 0),
+                'pending_requests' => (int) ($overview['pending_requests'] ?? 0),
+                'today_movements' => (int) ($overview['today_movements'] ?? 0),
+            ],
+            'throughput' => $throughput,
+            'latency' => $latency,
+            'errors' => $errors,
+            'bottlenecks' => $bottlenecks,
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $movementRows
+     * @param array<int, array<string, mixed>> $requestRows
+     * @param array<int, array<string, mixed>> $activityRows
+     * @return array<string, array<int, int|string>>
+     */
+    private function buildThroughputSeries(array $movementRows, array $requestRows, array $activityRows): array
+    {
+        $movementMap = $this->toPeriodMap($movementRows, 'period', 'movement_count');
+        $requestMap = $this->toPeriodMap($requestRows, 'period', 'total_requests');
+        $activityMap = $this->toPeriodMap($activityRows, 'period', 'total_events');
+
+        $labels = $this->mergePeriodLabels($movementMap, $requestMap, $activityMap);
+        $movements = $this->buildSeriesFromMap($labels, $movementMap);
+        $requests = $this->buildSeriesFromMap($labels, $requestMap);
+        $auditEvents = $this->buildSeriesFromMap($labels, $activityMap);
+        $combined = [];
+
+        foreach ($labels as $index => $label) {
+            $combined[] = (int) $movements[$index] + (int) $requests[$index] + (int) $auditEvents[$index];
+        }
+
+        return [
+            'labels' => $labels,
+            'movements' => $movements,
+            'requests' => $requests,
+            'audit_events' => $auditEvents,
+            'combined' => $combined,
+        ];
+    }
+
+    /**
+     * @return array<string, array<int, int|string|float>>
+     */
+    private function buildRequestLatencySeries(object $dateRange, ?int $branchId, string $grouping): array
+    {
+        $requests = IncomingRequest::query()
+            ->with('statusHistory')
+            ->whereBetween('created_at', [$dateRange->start, $dateRange->end])
+            ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
+            ->get();
+
+        $bucket = [];
+
+        foreach ($requests as $request) {
+            $history = $request->statusHistory->sortBy('created_at');
+            $requestedAt = optional($history->firstWhere('new_status', 'requested'))->created_at ?: $request->created_at;
+            $approvedAt = optional($history->firstWhere('new_status', 'approved'))->created_at;
+            $fulfilledAt = optional($history->firstWhere('new_status', 'fulfilled'))->created_at;
+
+            $period = $this->formatPeriodLabel($requestedAt instanceof Carbon ? $requestedAt : Carbon::parse((string) $requestedAt), $grouping);
+
+            if (!isset($bucket[$period])) {
+                $bucket[$period] = [
+                    'approval_sum' => 0.0,
+                    'approval_count' => 0,
+                    'fulfillment_sum' => 0.0,
+                    'fulfillment_count' => 0,
+                    'cycle_sum' => 0.0,
+                    'cycle_count' => 0,
+                ];
+            }
+
+            if ($approvedAt && $requestedAt) {
+                $bucket[$period]['approval_sum'] += max(0, $requestedAt->floatDiffInHours($approvedAt, false));
+                $bucket[$period]['approval_count']++;
+            }
+
+            if ($fulfilledAt && $approvedAt) {
+                $bucket[$period]['fulfillment_sum'] += max(0, $approvedAt->floatDiffInHours($fulfilledAt, false));
+                $bucket[$period]['fulfillment_count']++;
+            }
+
+            if ($fulfilledAt && $requestedAt) {
+                $bucket[$period]['cycle_sum'] += max(0, $requestedAt->floatDiffInHours($fulfilledAt, false));
+                $bucket[$period]['cycle_count']++;
+            }
+        }
+
+        $labels = array_keys($bucket);
+        sort($labels);
+
+        $approvalHours = [];
+        $fulfillmentHours = [];
+        $cycleHours = [];
+
+        foreach ($labels as $label) {
+            $row = $bucket[$label];
+            $approvalHours[] = round($row['approval_sum'] / max(1, $row['approval_count']), 2);
+            $fulfillmentHours[] = round($row['fulfillment_sum'] / max(1, $row['fulfillment_count']), 2);
+            $cycleHours[] = round($row['cycle_sum'] / max(1, $row['cycle_count']), 2);
+        }
+
+        return [
+            'labels' => $labels,
+            'approval_hours' => $approvalHours,
+            'fulfillment_hours' => $fulfillmentHours,
+            'cycle_hours' => $cycleHours,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildErrorTrackingSeries(object $dateRange, ?int $branchId, string $grouping): array
+    {
+        $auditPeriodExpr = $this->getDateGroupExpression('audit_events.created_at', $grouping);
+        $requestPeriodExpr = $this->getDateGroupExpression('incoming_requests.created_at', $grouping);
+        $historyPeriodExpr = $this->getDateGroupExpression('history_logs.created_at', $grouping);
+
+        $auditErrors = AuditEvent::query()
+            ->whereBetween('audit_events.created_at', [$dateRange->start, $dateRange->end])
+            ->where(function ($query): void {
+                $query->where('action', 'like', '%fail%')
+                    ->orWhere('action', 'like', '%error%')
+                    ->orWhere('action', 'like', '%denied%')
+                    ->orWhere('action', 'like', '%rollback%');
+            })
+            ->select(DB::raw("{$auditPeriodExpr} as period"), DB::raw('COUNT(*) as count'))
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get()
+            ->toArray();
+
+        $requestDenied = IncomingRequest::query()
+            ->whereBetween('incoming_requests.created_at', [$dateRange->start, $dateRange->end])
+            ->where('status', 'denied')
+            ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
+            ->select(DB::raw("{$requestPeriodExpr} as period"), DB::raw('COUNT(*) as count'))
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get()
+            ->toArray();
+
+        $historyErrors = HistoryLog::query()
+            ->whereBetween('history_logs.created_at', [$dateRange->start, $dateRange->end])
+            ->where(function ($query): void {
+                $query->where('action', 'like', '%FAIL%')
+                    ->orWhere('action', 'like', '%ERROR%')
+                    ->orWhere('action', 'like', '%DENIED%')
+                    ->orWhere('action', 'like', '%ROLLBACK%')
+                    ->orWhere('description', 'like', '%fail%')
+                    ->orWhere('description', 'like', '%error%')
+                    ->orWhere('description', 'like', '%denied%')
+                    ->orWhere('description', 'like', '%rollback%');
+            })
+            ->select(DB::raw("{$historyPeriodExpr} as period"), DB::raw('COUNT(*) as count'))
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get()
+            ->toArray();
+
+        $auditMap = $this->toPeriodMap($auditErrors, 'period', 'count');
+        $requestMap = $this->toPeriodMap($requestDenied, 'period', 'count');
+        $historyMap = $this->toPeriodMap($historyErrors, 'period', 'count');
+
+        $labels = $this->mergePeriodLabels($auditMap, $requestMap, $historyMap);
+        $auditSeries = $this->buildSeriesFromMap($labels, $auditMap);
+        $requestSeries = $this->buildSeriesFromMap($labels, $requestMap);
+        $historySeries = $this->buildSeriesFromMap($labels, $historyMap);
+        $combined = [];
+
+        foreach ($labels as $index => $label) {
+            $combined[] = (int) $auditSeries[$index] + (int) $requestSeries[$index] + (int) $historySeries[$index];
+        }
+
+        $topAuditActions = AuditEvent::query()
+            ->whereBetween('created_at', [$dateRange->start, $dateRange->end])
+            ->where(function ($query): void {
+                $query->where('action', 'like', '%fail%')
+                    ->orWhere('action', 'like', '%error%')
+                    ->orWhere('action', 'like', '%denied%')
+                    ->orWhere('action', 'like', '%rollback%');
+            })
+            ->select('action', DB::raw('COUNT(*) as count'))
+            ->groupBy('action')
+            ->orderByDesc('count')
+            ->limit(6)
+            ->get()
+            ->map(fn ($item) => ['label' => 'audit: '.$item->action, 'count' => (int) $item->count])
+            ->all();
+
+        $topHistoryActions = HistoryLog::query()
+            ->whereBetween('created_at', [$dateRange->start, $dateRange->end])
+            ->where(function ($query): void {
+                $query->where('action', 'like', '%FAIL%')
+                    ->orWhere('action', 'like', '%ERROR%')
+                    ->orWhere('action', 'like', '%DENIED%')
+                    ->orWhere('action', 'like', '%ROLLBACK%');
+            })
+            ->select('action', DB::raw('COUNT(*) as count'))
+            ->groupBy('action')
+            ->orderByDesc('count')
+            ->limit(6)
+            ->get()
+            ->map(fn ($item) => ['label' => 'history: '.$item->action, 'count' => (int) $item->count])
+            ->all();
+
+        $requestDeniedCount = IncomingRequest::query()
+            ->whereBetween('created_at', [$dateRange->start, $dateRange->end])
+            ->where('status', 'denied')
+            ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
+            ->count();
+
+        $topCategories = array_merge($topAuditActions, $topHistoryActions);
+        if ($requestDeniedCount > 0) {
+            $topCategories[] = ['label' => 'requests: denied', 'count' => (int) $requestDeniedCount];
+        }
+
+        usort($topCategories, fn ($a, $b) => ((int) $b['count']) <=> ((int) $a['count']));
+        $topCategories = array_slice($topCategories, 0, 8);
+
+        return [
+            'labels' => $labels,
+            'audit_failed' => $auditSeries,
+            'request_denied' => $requestSeries,
+            'history_failed' => $historySeries,
+            'combined' => $combined,
+            'top_categories' => $topCategories,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildBottleneckSummary(?int $branchId): array
+    {
+        $openStatuses = ['draft', 'requested', 'review', 'approved', 'fulfilling'];
+
+        $openBaseQuery = IncomingRequest::query()
+            ->whereIn('status', $openStatuses)
+            ->when($branchId, fn ($query) => $query->where('branch_id', $branchId));
+
+        $statusCounts = (clone $openBaseQuery)
+            ->select('status', DB::raw('COUNT(*) as count'))
+            ->groupBy('status')
+            ->orderByDesc('count')
+            ->get();
+
+        $statusLabels = $statusCounts->pluck('status')->values()->all();
+        $statusSeries = $statusCounts->pluck('count')->map(fn ($value) => (int) $value)->values()->all();
+
+        $staleOpenRequests = (clone $openBaseQuery)
+            ->where('created_at', '<=', now()->subHours(48))
+            ->count();
+
+        $oldestOpenRequest = (clone $openBaseQuery)
+            ->orderBy('created_at', 'asc')
+            ->first();
+
+        $oldestOpenRequestHours = $oldestOpenRequest
+            ? (int) round($oldestOpenRequest->created_at->floatDiffInHours(now(), false))
+            : 0;
+
+        $topAgingRequests = (clone $openBaseQuery)
+            ->orderBy('created_at', 'asc')
+            ->limit(5)
+            ->get(['id', 'status', 'priority', 'department', 'created_at'])
+            ->map(function ($request): array {
+                return [
+                    'id' => $request->id,
+                    'status' => $request->status,
+                    'priority' => $request->priority,
+                    'department' => $request->department,
+                    'age_hours' => (int) round($request->created_at->floatDiffInHours(now(), false)),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return [
+            'status_labels' => $statusLabels,
+            'status_counts' => $statusSeries,
+            'stale_open_requests' => (int) $staleOpenRequests,
+            'oldest_open_request_hours' => max(0, $oldestOpenRequestHours),
+            'top_aging_requests' => $topAgingRequests,
+        ];
+    }
+
+    private function getDateGroupExpression(string $column, string $groupBy): string
+    {
+        $driver = DB::getDriverName();
+
+        if ($driver === 'sqlite') {
+            return match ($groupBy) {
+                'week' => "strftime('%Y-W%W', {$column})",
+                'month' => "strftime('%Y-%m', {$column})",
+                default => "date({$column})",
+            };
+        }
+
+        return match ($groupBy) {
+            'week' => "DATE_FORMAT({$column}, '%x-W%v')",
+            'month' => "DATE_FORMAT({$column}, '%Y-%m')",
+            default => "DATE({$column})",
+        };
+    }
+
+    private function formatPeriodLabel(Carbon $date, string $grouping): string
+    {
+        return match ($grouping) {
+            'week' => $date->format('o').'-W'.str_pad((string) $date->weekOfYear, 2, '0', STR_PAD_LEFT),
+            'month' => $date->format('Y-m'),
+            default => $date->toDateString(),
+        };
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $rows
+     * @return array<string, int>
+     */
+    private function toPeriodMap(array $rows, string $periodKey, string $valueKey): array
+    {
+        $map = [];
+        foreach ($rows as $row) {
+            $period = (string) data_get($row, $periodKey, '');
+            if ($period === '') {
+                continue;
+            }
+            $map[$period] = (int) data_get($row, $valueKey, 0);
+        }
+        ksort($map);
+
+        return $map;
+    }
+
+    /**
+     * @param array<string, int> ...$maps
+     * @return array<int, string>
+     */
+    private function mergePeriodLabels(array ...$maps): array
+    {
+        $labels = [];
+        foreach ($maps as $map) {
+            foreach (array_keys($map) as $label) {
+                $labels[$label] = true;
+            }
+        }
+
+        $periodLabels = array_keys($labels);
+        sort($periodLabels);
+
+        return $periodLabels;
+    }
+
+    /**
+     * @param array<int, string> $labels
+     * @param array<string, int> $map
+     * @return array<int, int>
+     */
+    private function buildSeriesFromMap(array $labels, array $map): array
+    {
+        $series = [];
+        foreach ($labels as $label) {
+            $series[] = (int) ($map[$label] ?? 0);
+        }
+
+        return $series;
+    }
 
     private function getTimespanLabel($timespan, $dateRange) {
          switch($timespan) {

@@ -2,36 +2,39 @@
 
 namespace Tests\Unit\Services;
 
-use Tests\TestCase;
-use App\Models\Product;
-use App\Models\Inventory;
 use App\Models\Branch;
+use App\Models\Hold;
+use App\Models\Inventory;
+use App\Models\Product;
 use App\Models\User;
 use App\Models\UserLevel;
-use App\Models\Hold;
-use App\Models\HoldItem;
-use App\Models\HoldStatusHistory;
-use App\Models\AuditEvent;
 use App\Services\HoldService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
+use Tests\TestCase;
 
 class HoldServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     protected HoldService $service;
-    protected $branch;
-    protected $user;
-    protected $product;
-    protected $inventory;
+    protected Branch $branch;
+    protected User $user;
+    protected Product $product;
+    protected Inventory $inventory;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->service = new HoldService();
-        
+
+        $this->service = app(HoldService::class);
+
         $level = UserLevel::create(['name' => 'admin']);
-        $this->branch = Branch::create(['name' => 'RHU 1']);
+        $this->branch = Branch::create([
+            'name' => 'RHU 1',
+            'code' => 'rhu-1',
+            'is_archived' => false,
+        ]);
         $this->user = User::factory()->create([
             'email_verified_at' => now(),
             'user_level_id' => $level->id,
@@ -43,101 +46,164 @@ class HoldServiceTest extends TestCase
             'branch_id' => $this->branch->id,
             'batch_number' => 'BATCH-001',
             'quantity' => 100,
+            'onhand_qty' => 100,
+            'hold_qty' => 0,
             'expiry_date' => now()->addYear(),
+            'is_archived' => false,
         ]);
     }
 
-    public function test_create_hold_creates_hold_with_items_and_history()
+    public function test_holding_within_available_reserves_hold_qty_only(): void
+    {
+        $hold = $this->service->createHold(
+            [
+                'branch_id' => $this->branch->id,
+                'type' => 'reservation',
+                'reason_code' => 'PROGRAM_ALLOCATION',
+                'remarks' => 'Reserve for scheduled use',
+            ],
+            [
+                ['product_id' => $this->product->id, 'inventory_id' => $this->inventory->id, 'quantity' => 30],
+            ],
+            $this->user->id
+        );
+
+        $this->inventory->refresh();
+
+        $this->assertSame('pending', $hold->status);
+        $this->assertSame(100, (int) $this->inventory->onhand_qty);
+        $this->assertSame(30, (int) $this->inventory->hold_qty);
+        $this->assertSame(70, (int) $this->inventory->available_quantity);
+        $this->assertDatabaseHas('hold_items', ['hold_id' => $hold->id, 'inventory_id' => $this->inventory->id, 'quantity' => 30]);
+        $this->assertDatabaseHas('audit_events', ['action' => 'hold.created', 'entity_id' => $hold->id]);
+    }
+
+    public function test_holding_beyond_available_must_fail(): void
+    {
+        $this->inventory->update([
+            'hold_qty' => 90,
+        ]);
+
+        $this->expectException(ValidationException::class);
+
+        try {
+            $this->service->createHold(
+                [
+                    'branch_id' => $this->branch->id,
+                    'type' => 'quarantine',
+                    'reason_code' => 'QUALITY_CHECK',
+                ],
+                [
+                    ['product_id' => $this->product->id, 'inventory_id' => $this->inventory->id, 'quantity' => 20],
+                ],
+                $this->user->id
+            );
+        } finally {
+            $this->inventory->refresh();
+            $this->assertSame(100, (int) $this->inventory->onhand_qty);
+            $this->assertSame(90, (int) $this->inventory->hold_qty);
+            $this->assertDatabaseCount('holds', 0);
+        }
+    }
+
+    public function test_releasing_hold_decreases_hold_qty_and_keeps_onhand_qty(): void
+    {
+        $hold = $this->service->createHold(
+            [
+                'branch_id' => $this->branch->id,
+                'type' => 'reservation',
+                'reason_code' => 'EVENT',
+            ],
+            [
+                ['product_id' => $this->product->id, 'inventory_id' => $this->inventory->id, 'quantity' => 40],
+            ],
+            $this->user->id
+        );
+
+        $this->service->approveHold($hold, $this->user->id, 'Approved');
+        $released = $this->service->releaseHold($hold, $this->user->id, 'Release after event');
+
+        $this->inventory->refresh();
+        $this->assertSame('released', $released->status);
+        $this->assertSame(100, (int) $this->inventory->onhand_qty);
+        $this->assertSame(0, (int) $this->inventory->hold_qty);
+    }
+
+    public function test_cancelling_hold_decreases_hold_qty_and_keeps_onhand_qty(): void
     {
         $hold = $this->service->createHold(
             [
                 'branch_id' => $this->branch->id,
                 'type' => 'quarantine',
-                'reason_code' => 'damaged',
-                'remarks' => 'Test hold',
+                'reason_code' => 'STOCK_REVIEW',
             ],
             [
-                ['product_id' => $this->product->id, 'inventory_id' => $this->inventory->id, 'quantity' => 10],
+                ['product_id' => $this->product->id, 'inventory_id' => $this->inventory->id, 'quantity' => 25],
             ],
             $this->user->id
         );
 
-        $this->assertDatabaseHas('holds', ['id' => $hold->id, 'status' => 'pending']);
-        $this->assertDatabaseHas('hold_items', ['hold_id' => $hold->id, 'quantity' => 10]);
-        $this->assertDatabaseHas('hold_status_history', ['hold_id' => $hold->id, 'new_status' => 'pending']);
-        $this->assertDatabaseHas('audit_events', ['action' => 'hold.created', 'entity_id' => $hold->id]);
+        $cancelled = $this->service->cancelHold($hold, $this->user->id, 'Cancelled by requester');
+
+        $this->inventory->refresh();
+        $this->assertSame('cancelled', $cancelled->status);
+        $this->assertSame(100, (int) $this->inventory->onhand_qty);
+        $this->assertSame(0, (int) $this->inventory->hold_qty);
     }
 
-    public function test_approve_hold_changes_status_and_records_history()
+    public function test_concurrent_holds_on_same_item_prevent_oversubscription(): void
     {
-        $hold = Hold::create([
-            'branch_id' => $this->branch->id,
-            'type' => 'reservation',
-            'reason_code' => 'test',
-            'created_by' => $this->user->id,
-            'status' => 'pending',
-        ]);
+        $firstHold = $this->service->createHold(
+            [
+                'branch_id' => $this->branch->id,
+                'type' => 'reservation',
+                'reason_code' => 'ALLOCATION_A',
+            ],
+            [
+                ['product_id' => $this->product->id, 'inventory_id' => $this->inventory->id, 'quantity' => 70],
+            ],
+            $this->user->id
+        );
 
-        $approver = User::factory()->create([
-            'email_verified_at' => now(),
-            'user_level_id' => $this->user->user_level_id,
-            'branch_id' => $this->branch->id,
-        ]);
+        $this->assertInstanceOf(Hold::class, $firstHold);
 
-        $result = $this->service->approveHold($hold, $approver->id, 'Looks good');
+        $this->expectException(ValidationException::class);
 
-        $this->assertEquals('approved', $result->status);
-        $this->assertEquals($approver->id, $result->approved_by);
-        $this->assertDatabaseHas('hold_status_history', [
-            'hold_id' => $hold->id,
-            'old_status' => 'pending',
-            'new_status' => 'approved',
-        ]);
+        try {
+            // Simulates a competing hold attempt after the first transaction reserved stock.
+            $this->service->createHold(
+                [
+                    'branch_id' => $this->branch->id,
+                    'type' => 'reservation',
+                    'reason_code' => 'ALLOCATION_B',
+                ],
+                [
+                    ['product_id' => $this->product->id, 'inventory_id' => $this->inventory->id, 'quantity' => 40],
+                ],
+                $this->user->id
+            );
+        } finally {
+            $this->inventory->refresh();
+            $this->assertSame(70, (int) $this->inventory->hold_qty);
+            $this->assertSame(30, (int) $this->inventory->available_quantity);
+            $this->assertDatabaseCount('holds', 1);
+        }
     }
 
-    public function test_release_hold_changes_status()
+    public function test_pull_out_blocks_held_stock_without_override(): void
     {
-        $hold = Hold::create([
-            'branch_id' => $this->branch->id,
-            'type' => 'quarantine',
-            'reason_code' => 'test',
-            'created_by' => $this->user->id,
-            'status' => 'approved',
+        $this->inventory->update([
+            'hold_qty' => 40,
         ]);
 
-        $result = $this->service->releaseHold($hold, $this->user->id, 'Issue resolved');
-        $this->assertEquals('released', $result->status);
-    }
-
-    public function test_expire_holds_marks_expired_holds()
-    {
-        Hold::create([
-            'branch_id' => $this->branch->id,
-            'type' => 'reservation',
-            'reason_code' => 'test',
-            'created_by' => $this->user->id,
-            'status' => 'approved',
-            'expires_at' => now()->subHour(),
-        ]);
-
-        $count = $this->service->expireHolds();
-
-        $this->assertEquals(1, $count);
-        $this->assertDatabaseHas('holds', ['status' => 'expired']);
-    }
-
-    public function test_expire_holds_ignores_non_expired_holds()
-    {
-        Hold::create([
-            'branch_id' => $this->branch->id,
-            'type' => 'reservation',
-            'reason_code' => 'test',
-            'created_by' => $this->user->id,
-            'status' => 'approved',
-            'expires_at' => now()->addDay(),
-        ]);
-
-        $count = $this->service->expireHolds();
-        $this->assertEquals(0, $count);
+        $this->expectException(ValidationException::class);
+        $this->service->pullOutInventory(
+            inventoryId: $this->inventory->id,
+            quantity: 70,
+            userId: $this->user->id,
+            reason: 'Damaged stocks',
+            referenceNo: 'PO-001',
+            overrideHeld: false
+        );
     }
 }

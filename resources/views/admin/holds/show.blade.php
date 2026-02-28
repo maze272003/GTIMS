@@ -17,7 +17,6 @@
                     @if($hold->status === 'pending')
                         <form action="{{ route('admin.holds.approve', $hold) }}" method="POST" class="inline">
                             @csrf
-                            @method('PUT')
                             <button type="button"
                                 class="approve-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm flex items-center gap-2">
                                 <i class="fa-solid fa-check"></i> Approve
@@ -32,6 +31,15 @@
                             <button type="button"
                                 class="release-btn bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm flex items-center gap-2">
                                 <i class="fa-solid fa-unlock"></i> Release
+                            </button>
+                        </form>
+
+                        <form action="{{ route('admin.holds.cancel', $hold) }}" method="POST" class="inline">
+                            @csrf
+                            @method('PUT')
+                            <button type="button"
+                                class="cancel-btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm flex items-center gap-2">
+                                <i class="fa-solid fa-ban"></i> Cancel
                             </button>
                         </form>
                     @endif
@@ -142,7 +150,8 @@
                                             data-batch="{{ $inv->batch_number ?? '-' }}"
                                             data-branch="{{ $hold->branch->name ?? '-' }}"
                                             data-held="{{ $item->quantity ?? '-' }}"
-                                            data-qty="{{ $inv->quantity ?? '-' }}"
+                                            data-qty="{{ $inv?->available_quantity ?? 0 }}"
+                                            data-onhand="{{ $inv?->onhand_qty ?? $inv?->quantity ?? 0 }}"
                                             data-expiry="{{ $inv?->expiry_date ? \Carbon\Carbon::parse($inv->expiry_date)->format('M d, Y') : 'N/A' }}"
                                             data-location="{{ $hold->barangay->barangay_name ?? '-' }}"
                                             data-remarks="{{ $inv->remarks ?? '-' }}"
@@ -242,6 +251,10 @@
                     <p id="modalQty" class="font-semibold text-gray-900 dark:text-white"></p>
                 </div>
                 <div>
+                    <p class="text-gray-500 dark:text-gray-400">On-hand Qty</p>
+                    <p id="modalOnhand" class="font-semibold text-gray-900 dark:text-white"></p>
+                </div>
+                <div>
                     <p class="text-gray-500 dark:text-gray-400">Expiry</p>
                     <p id="modalExpiry" class="font-semibold text-gray-900 dark:text-white"></p>
                 </div>
@@ -303,6 +316,25 @@
             });
         });
 
+        document.querySelectorAll('.cancel-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const form = this.closest('form');
+                Swal.fire({
+                    title: 'Cancel Hold?',
+                    text: 'This will cancel the hold and release reserved quantities.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Cancel Hold',
+                    cancelButtonText: 'Back'
+                }).then(r => {
+                    if (r.isConfirmed) {
+                        Swal.fire({ title: 'Processing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                        form.submit();
+                    }
+                });
+            });
+        });
+
         const modal = document.getElementById('batchModal');
         const closeX = document.getElementById('closeBatchModal');
         const closeBtn = document.getElementById('closeBatchModalBtn');
@@ -313,6 +345,7 @@
             document.getElementById('modalBranch').textContent = btn.dataset.branch || '-';
             document.getElementById('modalHeld').textContent = btn.dataset.held || '-';
             document.getElementById('modalQty').textContent = btn.dataset.qty || '-';
+            document.getElementById('modalOnhand').textContent = btn.dataset.onhand || '-';
             document.getElementById('modalExpiry').textContent = btn.dataset.expiry || '-';
             document.getElementById('modalLocation').textContent = btn.dataset.location || '-';
             document.getElementById('modalRemarks').textContent = btn.dataset.remarks || '-';

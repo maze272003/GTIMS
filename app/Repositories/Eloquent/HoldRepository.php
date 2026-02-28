@@ -47,7 +47,7 @@ class HoldRepository extends BaseRepository implements HoldRepositoryInterface
     public function getAvailableBatches(): Collection
     {
         return Inventory::query()
-            ->where('quantity', '>', 0)
+            ->whereRaw('COALESCE(onhand_qty, quantity) > 0')
             ->whereHas('branch', fn($query) => $query->where('is_archived', false))
             ->withSum([
                 'holdItems as held_quantity' => function ($query) {
@@ -57,9 +57,14 @@ class HoldRepository extends BaseRepository implements HoldRepositoryInterface
                 },
             ], 'quantity')
             ->orderBy('expiry_date')
-            ->get(['id', 'product_id', 'batch_number', 'quantity'])
+            ->get(['id', 'product_id', 'batch_number', 'quantity', 'onhand_qty', 'hold_qty'])
             ->map(function ($batch) {
-                $available = max(0, (int) $batch->quantity - (int) ($batch->held_quantity ?? 0));
+                $onHand = (int) ($batch->onhand_qty ?? $batch->quantity);
+                $held = max((int) ($batch->hold_qty ?? 0), (int) ($batch->held_quantity ?? 0));
+                $available = max(0, $onHand - $held);
+
+                $batch->onhand_qty = $onHand;
+                $batch->hold_qty = $held;
                 $batch->available_quantity = $available;
 
                 return $batch;

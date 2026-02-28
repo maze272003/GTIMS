@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class IncomingRequestController extends Controller
 {
@@ -65,13 +66,31 @@ class IncomingRequestController extends Controller
             'remarks' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
-            'items.*.quantity_requested' => 'required|integer|min:1',
+            // Accept both names for backward compatibility with older forms.
+            'items.*.quantity_requested' => 'nullable|integer|min:1',
+            'items.*.quantity' => 'nullable|integer|min:1',
             'items.*.allow_substitution' => 'sometimes|boolean',
         ]);
 
+        $normalizedItems = collect($validated['items'])->values()->map(function (array $item, int $index): array {
+            $quantityRequested = $item['quantity_requested'] ?? $item['quantity'] ?? null;
+
+            if ($quantityRequested === null) {
+                throw ValidationException::withMessages([
+                    "items.{$index}.quantity_requested" => 'The quantity requested field is required.',
+                ]);
+            }
+
+            return [
+                'product_id' => (int) $item['product_id'],
+                'quantity_requested' => (int) $quantityRequested,
+                'allow_substitution' => (bool) ($item['allow_substitution'] ?? false),
+            ];
+        })->all();
+
         $incomingRequest = $this->workflowService->createRequest(
             collect($validated)->only(['branch_id', 'department', 'priority', 'remarks'])->toArray(),
-            $validated['items'],
+            $normalizedItems,
             Auth::id()
         );
 

@@ -14,12 +14,16 @@ class Inventory extends Model
         'branch_id',
         'batch_number',
         'quantity',
+        'onhand_qty',
+        'hold_qty',
         'expiry_date',
         'is_archived'
     ];
 
     protected $casts = [
         'expiry_date' => 'date', // ensures Laravel converts it to a Carbon instance
+        'onhand_qty' => 'integer',
+        'hold_qty' => 'integer',
     ];
 
 
@@ -62,11 +66,37 @@ class Inventory extends Model
 
     public function getAvailableQuantityAttribute(): int
     {
-        $held = $this->holdItems()
-            ->whereHas('hold', function ($q) {
-                $q->whereIn('status', ['pending', 'approved']);
-            })
-            ->sum('quantity');
-        return max(0, $this->quantity - $held);
+        $onHand = (int) ($this->attributes['onhand_qty'] ?? $this->attributes['quantity'] ?? 0);
+        $held = (int) ($this->attributes['hold_qty'] ?? 0);
+
+        if ($held === 0) {
+            // Backward-compatible fallback for old rows/tests that still rely on active hold_items.
+            $held = (int) $this->holdItems()
+                ->whereHas('hold', function ($q) {
+                    $q->whereIn('status', ['pending', 'approved']);
+                })
+                ->sum('quantity');
+        }
+
+        return max(0, $onHand - $held);
+    }
+
+    public function setQuantityAttribute($value): void
+    {
+        $normalized = max(0, (int) $value);
+        $this->attributes['quantity'] = $normalized;
+        $this->attributes['onhand_qty'] = $normalized;
+    }
+
+    public function setOnhandQtyAttribute($value): void
+    {
+        $normalized = max(0, (int) $value);
+        $this->attributes['onhand_qty'] = $normalized;
+        $this->attributes['quantity'] = $normalized;
+    }
+
+    public function setHoldQtyAttribute($value): void
+    {
+        $this->attributes['hold_qty'] = max(0, (int) $value);
     }
 }

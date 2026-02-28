@@ -7,12 +7,12 @@ use App\Http\Requests\Admin\StoreHoldRequest;
 use App\Models\Branch;
 use App\Models\Barangay;
 use App\Models\Hold;
-use App\Models\Inventory;
 use App\Repositories\Interfaces\HoldRepositoryInterface;
 use App\Repositories\Interfaces\ProductRepositoryInterface;
 use App\Services\HoldService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\ValidationException;
 
 class HoldController extends Controller
 {
@@ -51,49 +51,15 @@ class HoldController extends Controller
     {
         $validated = $request->validated();
 
-        $requestedByInventory = [];
-        foreach ($validated['items'] as $item) {
-            $inventoryId = (int) $item['inventory_id'];
-            $requestedByInventory[$inventoryId] = ($requestedByInventory[$inventoryId] ?? 0) + (int) $item['quantity'];
+        try {
+            $this->holdService->createHold(
+                collect($validated)->only(['barangay_id', 'branch_id', 'type', 'reason_code', 'remarks', 'expires_at'])->toArray(),
+                $validated['items'],
+                Auth::id()
+            );
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors())->withInput();
         }
-
-        $inventoryIds = array_keys($requestedByInventory);
-        $inventories = Inventory::query()
-            ->whereIn('id', $inventoryIds)
-            ->withSum([
-                'holdItems as held_quantity' => function ($query) {
-                    $query->whereHas('hold', function ($holdQuery) {
-                        $holdQuery->whereIn('status', ['pending', 'approved']);
-                    });
-                },
-            ], 'quantity')
-            ->get(['id', 'quantity'])
-            ->keyBy('id');
-
-        $errors = [];
-        foreach ($requestedByInventory as $inventoryId => $requestedQty) {
-            $inventory = $inventories->get($inventoryId);
-
-            if (!$inventory) {
-                $errors["items.{$inventoryId}.inventory_id"] = "Selected inventory #{$inventoryId} no longer exists.";
-                continue;
-            }
-
-            $available = max(0, (int) $inventory->quantity - (int) ($inventory->held_quantity ?? 0));
-            if ($requestedQty > $available) {
-                $errors["items.{$inventoryId}.quantity"] = "Requested hold quantity ({$requestedQty}) exceeds available quantity ({$available}) for inventory #{$inventoryId}.";
-            }
-        }
-
-        if (!empty($errors)) {
-            return back()->withErrors($errors)->withInput();
-        }
-
-        $this->holdService->createHold(
-            collect($validated)->only(['barangay_id', 'branch_id', 'type', 'reason_code', 'remarks', 'expires_at'])->toArray(),
-            $validated['items'],
-            Auth::id()
-        );
 
         return redirect()
             ->route('admin.holds.index')
@@ -137,8 +103,57 @@ class HoldController extends Controller
             'reason' => 'nullable|string|max:500',
         ]);
 
-        $this->holdService->releaseHold($hold, Auth::id(), $validated['reason'] ?? null);
+        try {
+            $this->holdService->releaseHold($hold, Auth::id(), $validated['reason'] ?? null);
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
 
         return back()->with('success', 'Hold released successfully.');
+    }
+
+    public function cancel(Request $request, Hold $hold)
+    {
+        if (!in_array($hold->status, ['pending', 'approved'], true)) {
+            return back()->with('error', 'Hold can only be cancelled when pending or approved.');
+        }
+
+        $validated = $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $this->holdService->cancelHold($hold, Auth::id(), $validated['reason'] ?? null);
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
+
+        return back()->with('success', 'Hold cancelled successfully.');
+    }
+
+    public function pullOut(Request $request)
+    {
+        $validated = $request->validate([
+            'inventory_id' => 'required|integer|exists:inventories,id',
+            'quantity' => 'required|integer|min:1',
+            'reason' => 'nullable|string|max:500',
+            'reference_no' => 'nullable|string|max:100',
+            'override_held' => 'nullable|boolean',
+        ]);
+
+        try {
+            $this->holdService->pullOutInventory(
+                inventoryId: (int) $validated['inventory_id'],
+                quantity: (int) $validated['quantity'],
+                userId: Auth::id(),
+                reason: $validated['reason'] ?? null,
+                referenceNo: $validated['reference_no'] ?? null,
+                overrideHeld: (bool) ($validated['override_held'] ?? false)
+            );
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors())->withInput();
+        }
+
+        return back()->with('success', 'Pull-out processed successfully.');
     }
 }

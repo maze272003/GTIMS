@@ -57,6 +57,129 @@
       </div>
       {{-- End KPI Cards --}}
 
+      {{-- SYSTEM OBSERVABILITY DASHBOARD --}}
+      <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <i class="fa-regular fa-wave-pulse text-blue-600 mr-2"></i>System Observability
+            </h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Real-time monitoring for throughput, latency, error signals, and workflow bottlenecks.</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+            <span class="inline-flex items-center px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+              Auto-refresh: 60s
+            </span>
+            <span id="observability-generated-at" class="font-medium">
+              Updated: {{ data_get($observability ?? [], 'generated_at', now()->format('Y-m-d H:i:s')) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 p-4">
+            <p class="text-xs uppercase tracking-wide text-blue-700 dark:text-blue-300">Operations</p>
+            <p id="obs-operations-total" class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ number_format(data_get($observability ?? [], 'summary.operations_total', 0)) }}</p>
+            <p class="text-xs text-blue-700 dark:text-blue-300"><span id="obs-operations-per-hour">{{ number_format((float) data_get($observability ?? [], 'summary.operations_per_hour', 0), 2) }}</span> / hour</p>
+          </div>
+          <div class="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-900/20 dark:border-rose-800 p-4">
+            <p class="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-300">Error Signals</p>
+            <p id="obs-error-events" class="text-2xl font-bold text-rose-900 dark:text-rose-100">{{ number_format(data_get($observability ?? [], 'summary.error_events', 0)) }}</p>
+            <p class="text-xs text-rose-700 dark:text-rose-300"><span id="obs-error-rate">{{ number_format((float) data_get($observability ?? [], 'summary.error_rate', 0), 2) }}</span>% event rate</p>
+          </div>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-4">
+            <p class="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300">Request Latency</p>
+            <p id="obs-cycle-hours" class="text-2xl font-bold text-amber-900 dark:text-amber-100">{{ number_format((float) data_get($observability ?? [], 'summary.avg_cycle_time_hours', 0), 2) }}</p>
+            <p class="text-xs text-amber-700 dark:text-amber-300">Avg cycle hours</p>
+          </div>
+          <div class="rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:border-violet-800 p-4">
+            <p class="text-xs uppercase tracking-wide text-violet-700 dark:text-violet-300">Workflow Bottlenecks</p>
+            <p id="obs-stale-open-requests" class="text-2xl font-bold text-violet-900 dark:text-violet-100">{{ number_format(data_get($observability ?? [], 'summary.stale_open_requests', 0)) }}</p>
+            <p class="text-xs text-violet-700 dark:text-violet-300">Stale requests (48h+)</p>
+          </div>
+        </div>
+
+        <div class="p-4 pt-0 grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Operational Throughput</h4>
+            <div class="relative chart-container !h-72">
+              <canvas id="observabilityThroughputChart"></canvas>
+            </div>
+          </div>
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Request Stage Latency</h4>
+            <div class="relative chart-container !h-72">
+              <canvas id="observabilityLatencyChart"></canvas>
+            </div>
+          </div>
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Error Tracking Trend</h4>
+            <div class="relative chart-container !h-72">
+              <canvas id="observabilityErrorChart"></canvas>
+            </div>
+          </div>
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Open Queue By Status</h4>
+            <div class="relative chart-container !h-72">
+              <canvas id="observabilityBottleneckChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 pt-0 grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-200">Top Error Categories</div>
+            <div class="max-h-52 overflow-y-auto">
+              <table class="w-full text-sm">
+                <thead class="sticky top-0 bg-white dark:bg-gray-800 text-xs uppercase text-gray-500 dark:text-gray-400">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Category</th>
+                    <th class="px-4 py-2 text-right">Count</th>
+                  </tr>
+                </thead>
+                <tbody id="obs-top-errors-body" class="divide-y divide-gray-100 dark:divide-gray-700">
+                  @forelse(data_get($observability ?? [], 'errors.top_categories', []) as $row)
+                    <tr>
+                      <td class="px-4 py-2 text-gray-700 dark:text-gray-200">{{ data_get($row, 'label', 'unknown') }}</td>
+                      <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">{{ (int) data_get($row, 'count', 0) }}</td>
+                    </tr>
+                  @empty
+                    <tr><td class="px-4 py-3 text-gray-500" colspan="2">No error categories found for the selected period.</td></tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-200">Aging Open Requests</div>
+            <div class="max-h-52 overflow-y-auto">
+              <table class="w-full text-sm">
+                <thead class="sticky top-0 bg-white dark:bg-gray-800 text-xs uppercase text-gray-500 dark:text-gray-400">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Request</th>
+                    <th class="px-4 py-2 text-left">Status</th>
+                    <th class="px-4 py-2 text-right">Age (hours)</th>
+                  </tr>
+                </thead>
+                <tbody id="obs-aging-requests-body" class="divide-y divide-gray-100 dark:divide-gray-700">
+                  @forelse(data_get($observability ?? [], 'bottlenecks.top_aging_requests', []) as $row)
+                    <tr>
+                      <td class="px-4 py-2 text-gray-700 dark:text-gray-200">#{{ data_get($row, 'id') }} - {{ data_get($row, 'department', '-') }}</td>
+                      <td class="px-4 py-2 text-gray-700 dark:text-gray-200">{{ ucfirst((string) data_get($row, 'status', '')) }} ({{ data_get($row, 'priority', '-') }})</td>
+                      <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">{{ (int) data_get($row, 'age_hours', 0) }}</td>
+                    </tr>
+                  @empty
+                    <tr><td class="px-4 py-3 text-gray-500" colspan="3">No open requests currently detected.</td></tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      {{-- END SYSTEM OBSERVABILITY DASHBOARD --}}
+
 
       {{-- 2. PREDICTIVE FORECAST & URGENT ACTIONS --}}
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
@@ -642,6 +765,7 @@
         compareData: @json($compareData),
         compareName: @json($compareSeasonalProduct->generic_name ?? null),
       },
+      observability: @json($observability ?? []),
       // Initial Filter Labels
       filterLabels: {
           timespan: @json($filterTimespanLabel),
@@ -688,6 +812,21 @@ const distinctPieColors = [
     
     const seasonalColor1 = 'rgb(168, 85, 247)'; // purple-600
     const seasonalColor2 = 'rgb(234, 179, 8)'; // yellow-500 (same as patient visit, but used in different chart)
+
+    const observabilityColors = {
+      throughputCombined: 'rgb(37, 99, 235)',
+      throughputMovement: 'rgb(16, 185, 129)',
+      throughputRequest: 'rgb(245, 158, 11)',
+      throughputAudit: 'rgb(139, 92, 246)',
+      latencyCycle: 'rgb(217, 119, 6)',
+      latencyApproval: 'rgb(59, 130, 246)',
+      latencyFulfillment: 'rgb(236, 72, 153)',
+      errorCombined: 'rgb(220, 38, 38)',
+      errorAudit: 'rgb(249, 115, 22)',
+      errorRequest: 'rgb(234, 179, 8)',
+      errorHistory: 'rgb(168, 85, 247)',
+      bottleneck: 'rgb(14, 165, 233)',
+    };
     
     // --- CSRF Token for AJAX ---
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -871,6 +1010,11 @@ const distinctPieColors = [
            initialChartData.filterLabels.product = data.drilldownProductName ?? 'All Products'; 
            initialChartData.filterLabels.drilldownProduct = data.drilldownProductName;
 
+           // Update observability widgets using the same filter context
+           if (data.observability) {
+              applyObservabilityPayload(data.observability);
+           }
+
            // Update URL
            window.history.pushState({}, '', url);
 
@@ -991,6 +1135,135 @@ const distinctPieColors = [
           subtitle += productFilter;
           
           element.textContent = subtitle + '.';
+      }
+    }
+
+    function formatNumber(value, decimals = 0) {
+      const numericValue = Number(value || 0);
+      return numericValue.toLocaleString(undefined, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
+    }
+
+    function renderObservabilityRows(containerId, rows, emptyColSpan, formatter) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        container.innerHTML = `<tr><td class="px-4 py-3 text-gray-500" colspan="${emptyColSpan}">No records available.</td></tr>`;
+        return;
+      }
+
+      container.innerHTML = rows.map((row) => formatter(row)).join('');
+    }
+
+    function applyObservabilityPayload(payload) {
+      if (!payload || typeof payload !== 'object') return;
+
+      initialChartData.observability = payload;
+
+      const summary = payload.summary || {};
+      const throughput = payload.throughput || {};
+      const latency = payload.latency || {};
+      const errors = payload.errors || {};
+      const bottlenecks = payload.bottlenecks || {};
+
+      const generatedAtEl = document.getElementById('observability-generated-at');
+      if (generatedAtEl && payload.generated_at) {
+        generatedAtEl.textContent = `Updated: ${payload.generated_at}`;
+      }
+
+      const cardMap = [
+        ['obs-operations-total', formatNumber(summary.operations_total)],
+        ['obs-operations-per-hour', formatNumber(summary.operations_per_hour, 2)],
+        ['obs-error-events', formatNumber(summary.error_events)],
+        ['obs-error-rate', formatNumber(summary.error_rate, 2)],
+        ['obs-cycle-hours', formatNumber(summary.avg_cycle_time_hours, 2)],
+        ['obs-stale-open-requests', formatNumber(summary.stale_open_requests)],
+      ];
+      cardMap.forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      });
+
+      if (window.myCharts.observabilityThroughputChart) {
+        window.myCharts.observabilityThroughputChart.data.labels = throughput.labels || [];
+        window.myCharts.observabilityThroughputChart.data.datasets[0].data = throughput.combined || [];
+        window.myCharts.observabilityThroughputChart.data.datasets[1].data = throughput.movements || [];
+        window.myCharts.observabilityThroughputChart.data.datasets[2].data = throughput.requests || [];
+        window.myCharts.observabilityThroughputChart.data.datasets[3].data = throughput.audit_events || [];
+        window.myCharts.observabilityThroughputChart.update();
+      }
+
+      if (window.myCharts.observabilityLatencyChart) {
+        window.myCharts.observabilityLatencyChart.data.labels = latency.labels || [];
+        window.myCharts.observabilityLatencyChart.data.datasets[0].data = latency.cycle_hours || [];
+        window.myCharts.observabilityLatencyChart.data.datasets[1].data = latency.approval_hours || [];
+        window.myCharts.observabilityLatencyChart.data.datasets[2].data = latency.fulfillment_hours || [];
+        window.myCharts.observabilityLatencyChart.update();
+      }
+
+      if (window.myCharts.observabilityErrorChart) {
+        window.myCharts.observabilityErrorChart.data.labels = errors.labels || [];
+        window.myCharts.observabilityErrorChart.data.datasets[0].data = errors.combined || [];
+        window.myCharts.observabilityErrorChart.data.datasets[1].data = errors.audit_failed || [];
+        window.myCharts.observabilityErrorChart.data.datasets[2].data = errors.request_denied || [];
+        window.myCharts.observabilityErrorChart.data.datasets[3].data = errors.history_failed || [];
+        window.myCharts.observabilityErrorChart.update();
+      }
+
+      if (window.myCharts.observabilityBottleneckChart) {
+        window.myCharts.observabilityBottleneckChart.data.labels = bottlenecks.status_labels || [];
+        window.myCharts.observabilityBottleneckChart.data.datasets[0].data = bottlenecks.status_counts || [];
+        window.myCharts.observabilityBottleneckChart.update();
+      }
+
+      renderObservabilityRows(
+        'obs-top-errors-body',
+        errors.top_categories || [],
+        2,
+        (row) => `
+          <tr>
+            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">${row.label || 'unknown'}</td>
+            <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">${formatNumber(row.count || 0)}</td>
+          </tr>
+        `
+      );
+
+      renderObservabilityRows(
+        'obs-aging-requests-body',
+        bottlenecks.top_aging_requests || [],
+        3,
+        (row) => `
+          <tr>
+            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">#${row.id || '-'} - ${row.department || '-'}</td>
+            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">${row.status || '-'} (${row.priority || '-'})</td>
+            <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">${formatNumber(row.age_hours || 0)}</td>
+          </tr>
+        `
+      );
+    }
+
+    async function refreshObservabilityWidget() {
+      const form = document.getElementById('dashboard-filter-form');
+      if (!form) return;
+
+      const formData = new FormData(form);
+      formData.append('ajax_update', 'observability');
+      const queryString = new URLSearchParams(formData).toString();
+      const url = `${form.action}?${queryString}`;
+
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        });
+        if (!response.ok) throw new Error('Failed to refresh observability metrics.');
+        const data = await response.json();
+        applyObservabilityPayload(data.observability || {});
+      } catch (error) {
+        // Quiet fail: dashboard should remain usable even if refresh fails.
       }
     }
 
@@ -1133,6 +1406,10 @@ const distinctPieColors = [
             initialChartData.filterLabels.product = data.filterProductLabel;
             initialChartData.filterLabels.drilldownProduct = data.drilldownProductName;
             updateDrilldownIndicator(data.drilldownProductName);
+
+            if (data.observability) {
+                applyObservabilityPayload(data.observability);
+            }
 
             // Update URL
             window.history.pushState({}, '', url);
@@ -1578,6 +1855,195 @@ const distinctPieColors = [
            ctx.font = "16px Arial"; ctx.fillStyle = "#aaa"; ctx.textAlign = "center";
            ctx.fillText("No seasonal data for selected product(s)", seasonalCtx.canvas.width / 2, seasonalCtx.canvas.height / 2);
         }
+
+      // 6. Observability Throughput Chart
+      const obsThroughputCtx = document.getElementById('observabilityThroughputChart').getContext('2d');
+      const obsThroughputConfig = {
+        type: 'line',
+        data: {
+          labels: initialChartData.observability?.throughput?.labels || [],
+          datasets: [
+            {
+              label: 'Combined Throughput',
+              data: initialChartData.observability?.throughput?.combined || [],
+              borderColor: observabilityColors.throughputCombined,
+              backgroundColor: 'rgba(37, 99, 235, 0.15)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Stock Movements',
+              data: initialChartData.observability?.throughput?.movements || [],
+              borderColor: observabilityColors.throughputMovement,
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: false,
+              tension: 0.25
+            },
+            {
+              label: 'Requests',
+              data: initialChartData.observability?.throughput?.requests || [],
+              borderColor: observabilityColors.throughputRequest,
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              fill: false,
+              tension: 0.25
+            },
+            {
+              label: 'Audit Events',
+              data: initialChartData.observability?.throughput?.audit_events || [],
+              borderColor: observabilityColors.throughputAudit,
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              fill: false,
+              tension: 0.25
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Events' } },
+            x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          }
+        }
+      };
+      window.myCharts.observabilityThroughputChart = new Chart(obsThroughputCtx, obsThroughputConfig);
+      window.originalChartConfigs.observabilityThroughputChart = JSON.parse(JSON.stringify(obsThroughputConfig));
+
+      // 7. Observability Latency Chart
+      const obsLatencyCtx = document.getElementById('observabilityLatencyChart').getContext('2d');
+      const obsLatencyConfig = {
+        type: 'bar',
+        data: {
+          labels: initialChartData.observability?.latency?.labels || [],
+          datasets: [
+            {
+              label: 'Cycle Hours',
+              data: initialChartData.observability?.latency?.cycle_hours || [],
+              backgroundColor: 'rgba(217, 119, 6, 0.75)',
+              borderColor: observabilityColors.latencyCycle,
+              borderWidth: 1
+            },
+            {
+              label: 'Approval Hours',
+              data: initialChartData.observability?.latency?.approval_hours || [],
+              backgroundColor: 'rgba(59, 130, 246, 0.75)',
+              borderColor: observabilityColors.latencyApproval,
+              borderWidth: 1
+            },
+            {
+              label: 'Fulfillment Hours',
+              data: initialChartData.observability?.latency?.fulfillment_hours || [],
+              backgroundColor: 'rgba(236, 72, 153, 0.75)',
+              borderColor: observabilityColors.latencyFulfillment,
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Hours' } },
+            x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          }
+        }
+      };
+      window.myCharts.observabilityLatencyChart = new Chart(obsLatencyCtx, obsLatencyConfig);
+      window.originalChartConfigs.observabilityLatencyChart = JSON.parse(JSON.stringify(obsLatencyConfig));
+
+      // 8. Observability Error Chart
+      const obsErrorCtx = document.getElementById('observabilityErrorChart').getContext('2d');
+      const obsErrorConfig = {
+        type: 'line',
+        data: {
+          labels: initialChartData.observability?.errors?.labels || [],
+          datasets: [
+            {
+              label: 'Combined Error Signals',
+              data: initialChartData.observability?.errors?.combined || [],
+              borderColor: observabilityColors.errorCombined,
+              backgroundColor: 'rgba(220, 38, 38, 0.15)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Audit Failed',
+              data: initialChartData.observability?.errors?.audit_failed || [],
+              borderColor: observabilityColors.errorAudit,
+              fill: false,
+              tension: 0.25
+            },
+            {
+              label: 'Requests Denied',
+              data: initialChartData.observability?.errors?.request_denied || [],
+              borderColor: observabilityColors.errorRequest,
+              fill: false,
+              tension: 0.25
+            },
+            {
+              label: 'History Fail/Error',
+              data: initialChartData.observability?.errors?.history_failed || [],
+              borderColor: observabilityColors.errorHistory,
+              fill: false,
+              tension: 0.25
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Events' } },
+            x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          }
+        }
+      };
+      window.myCharts.observabilityErrorChart = new Chart(obsErrorCtx, obsErrorConfig);
+      window.originalChartConfigs.observabilityErrorChart = JSON.parse(JSON.stringify(obsErrorConfig));
+
+      // 9. Observability Bottleneck Chart
+      const obsBottleneckCtx = document.getElementById('observabilityBottleneckChart').getContext('2d');
+      const obsBottleneckConfig = {
+        type: 'bar',
+        data: {
+          labels: initialChartData.observability?.bottlenecks?.status_labels || [],
+          datasets: [
+            {
+              label: 'Open Requests',
+              data: initialChartData.observability?.bottlenecks?.status_counts || [],
+              backgroundColor: 'rgba(14, 165, 233, 0.75)',
+              borderColor: observabilityColors.bottleneck,
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Requests' } },
+            x: { ticks: { autoSkip: false, maxRotation: 0 } }
+          }
+        }
+      };
+      window.myCharts.observabilityBottleneckChart = new Chart(obsBottleneckCtx, obsBottleneckConfig);
+      window.originalChartConfigs.observabilityBottleneckChart = JSON.parse(JSON.stringify(obsBottleneckConfig));
       
       // --- TOGGLE BUTTONS ---
       document.querySelectorAll('.chart-toggle').forEach(button => {
@@ -1695,6 +2161,8 @@ const distinctPieColors = [
         updateChartSubtitle('barangayChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
         updateChartSubtitle('patientVisitChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct); 
         updateChartSubtitle('hotspotsSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
+        applyObservabilityPayload(initialChartData.observability || {});
+        setInterval(refreshObservabilityWidget, 60000);
 
         // Event Listener for AJAX Clear Drilldown
           const clearAjaxButton = document.getElementById('clear-drilldown-ajax');

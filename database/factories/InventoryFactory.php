@@ -12,12 +12,14 @@ class InventoryFactory extends Factory
     {
         // Randomly pick RHU 1 or RHU 2
         $branch = Branch::whereIn('name', ['RHU 1', 'RHU 2'])->inRandomOrder()->first();
+        $quantity = $this->faker->numberBetween(10, 1000);
 
         return [
             'product_id'    => Product::inRandomOrder()->first()->id ?? Product::factory(),
             'branch_id'     => $branch?->id,
             'batch_number'  => 'BATCH-' . $this->faker->unique()->numerify('####'),
-            'quantity'      => $this->faker->numberBetween(10, 1000),
+            'quantity'      => $quantity,
+            'hold_qty'      => 0,
             'expiry_date'   => $this->faker->dateTimeBetween('+1 month', '+5 years')->format('Y-m-d'),
             'is_archived'   => false, // better to use boolean, not 2
         ];

@@ -134,6 +134,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/{hold}', [HoldController::class, 'show'])->name('show');
                 Route::post('/{hold}/approve', [HoldController::class, 'approve'])->name('approve');
                 Route::put('/{hold}/release', [HoldController::class, 'release'])->name('release');
+                Route::put('/{hold}/cancel', [HoldController::class, 'cancel'])->name('cancel');
+                Route::post('/pull-out', [HoldController::class, 'pullOut'])->name('pullout');
             });
 
             // == Incoming Requests Workflow Routes ==

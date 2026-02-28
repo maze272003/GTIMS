@@ -156,7 +156,7 @@
             <option value="" disabled selected>-- Select Batch --</option>
             @foreach($batches ?? [] as $batch)
                 <option value="{{ $batch->id }}" data-product="{{ $batch->product_id }}">
-                    {{ $batch->batch_number }} (Qty: {{ $batch->quantity }})
+                    {{ $batch->batch_number }} (Available: {{ $batch->available_quantity }}, On-hand: {{ $batch->onhand_qty ?? $batch->quantity }})
                 </option>
             @endforeach
         </select>
