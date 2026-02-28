@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Moderator;
 use App\Models\User;
 use App\Models\UserLevel;
 use App\Models\Branch;
@@ -146,6 +147,26 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
+        $response->assertRedirect(route('moderator.dashboard'));
+    }
+
+    public function test_dedicated_moderator_table_account_can_login_via_moderator_portal(): void
+    {
+        $moderator = Moderator::query()->create([
+            'name' => 'Portal Moderator',
+            'email' => 'portal.moderator@example.com',
+            'password' => bcrypt('password'),
+        ]);
+        $moderator->email_verified_at = now();
+        $moderator->save();
+
+        $response = $this->post('/moderator/login', [
+            'email' => $moderator->email,
+            'password' => 'password',
+            'g-recaptcha-response' => 'test-token',
+        ]);
+
+        $this->assertAuthenticated('moderator');
         $response->assertRedirect(route('moderator.dashboard'));
     }
 }

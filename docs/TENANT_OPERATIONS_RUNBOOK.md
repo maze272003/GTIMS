@@ -153,29 +153,23 @@ php artisan tenant:smoke-test
 ## 8. Artisan Command Reference
 
 ```bash
-# Health & Monitoring
 php artisan tenant:health-check
 php artisan tenant:health-check --province=1
 php artisan tenant:health-check --barangay=5
 php artisan tenant:usage:report
 
-# Seeding
 php artisan db:seed --class=DemoSeeder
 php artisan tenant:seed-demo --province=bulacan
 
-# Reconciliation
 php artisan tenant:migration reconcile
 php artisan tenant:migration null-scan
 php artisan tenant:validate-slugs
 
-# Cache
 php artisan tenant:cache:clear
 php artisan tenant:cache:clear --province=1
 
-# Queue Validation
 php artisan tenant:queue:validate-deploy
 
-# Testing
 php artisan tenant:smoke-test
 php vendor/bin/phpunit tests/Feature/Tenancy/
 ```

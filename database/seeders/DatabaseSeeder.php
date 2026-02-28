@@ -12,21 +12,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Tawagin muna ang UserLevelSeeder para may laman
-        // ang user_levels table bago ang UserSeeder.
+        // Single entry point so `php artisan migrate:fresh --seed` seeds everything.
         $this->call([
-             BranchSeeder::class,
-            UserLevelSeeder::class,
-            UserSeeder::class,
-            ProductSeeder::class,
-            InventorySeeder::class,
-            BarangaySeeder::class,
-            PatientRecordsSeeder::class,
-            PermissionSeeder::class,
-            LowStockSettingSeeder::class,
-            TransactionLogSeeder::class,
+            DemoSeeder::class,
         ]);
-        
-        // \App\Models\User::factory(10)->create();
     }
 }

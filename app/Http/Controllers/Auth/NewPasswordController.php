@@ -33,9 +33,16 @@ class NewPasswordController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $status = $this->passwordFlowService->resetPassword(
-            $request->only('email', 'password', 'password_confirmation', 'token')
-        );
+        $broker = $request->routeIs('moderator.*') ? 'moderators' : 'users';
+        $payload = $request->only('email', 'password', 'password_confirmation', 'token');
+        $status = $this->passwordFlowService->resetPassword($payload, $broker);
+        if (
+            $broker === 'moderators'
+            && $status === Password::INVALID_USER
+            && config('tenancy.rbac.allow_legacy_moderator_fallback', false)
+        ) {
+            $status = $this->passwordFlowService->resetPassword($payload, 'users');
+        }
 
         $successRedirect = route('login');
 

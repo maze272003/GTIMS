@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Moderator;
 use App\Models\User;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use Illuminate\Auth\Events\PasswordReset;
@@ -19,20 +20,22 @@ class PasswordFlowService
 
     public function confirmPassword(User $user, string $password): bool
     {
-        return Auth::guard('web')->validate([
+        $guard = $user instanceof Moderator ? 'moderator' : 'web';
+
+        return Auth::guard($guard)->validate([
             'email' => $user->email,
             'password' => $password,
         ]);
     }
 
-    public function sendResetLink(array $credentials): string
+    public function sendResetLink(array $credentials, string $broker = 'users'): string
     {
-        return Password::sendResetLink($credentials);
+        return Password::broker($broker)->sendResetLink($credentials);
     }
 
-    public function resetPassword(array $payload): string
+    public function resetPassword(array $payload, string $broker = 'users'): string
     {
-        return Password::reset(
+        return Password::broker($broker)->reset(
             $payload,
             function (User $user) use ($payload) {
                 $user->forceFill([
@@ -47,9 +50,16 @@ class PasswordFlowService
 
     public function updatePassword(User $user, string $plainPassword): void
     {
+        if ($user instanceof Moderator) {
+            $user->forceFill([
+                'password' => Hash::make($plainPassword),
+            ])->save();
+
+            return;
+        }
+
         $this->userRepository->update($user->id, [
             'password' => Hash::make($plainPassword),
         ]);
     }
 }
-

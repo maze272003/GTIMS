@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Mail\NewLoginNotification;
 use App\Models\User;
-use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Tenancy\TenantContext;
 use App\Tenancy\TenantResolver;
 use Illuminate\Support\Facades\Auth;
@@ -15,7 +14,6 @@ use Illuminate\Support\Facades\Route;
 class AuthSessionService
 {
     public function __construct(
-        protected UserRepositoryInterface $userRepository,
         protected TenantResolver $tenantResolver,
         protected TenantEmailSettingsService $tenantEmailSettingsService,
         protected TenantTwoFactorService $tenantTwoFactorService,
@@ -24,12 +22,10 @@ class AuthSessionService
 
     public function getAuthenticatedRedirectUrl(?TenantContext $tenantContext = null, string $loginMode = 'legacy'): ?string
     {
-        if (!Auth::check()) {
+        $user = $this->resolveAuthenticatedUser($loginMode);
+        if (!$user) {
             return null;
         }
-
-        /** @var User $user */
-        $user = Auth::user();
 
         return $this->getRedirectUrl($user, $tenantContext, $loginMode) ?? route('admin.dashboard');
     }
@@ -274,6 +270,34 @@ class AuthSessionService
             }
         }
 
-        $this->userRepository->updateLoginMetadata($user->id, $currentIp);
+        $user->last_login_at = now();
+        $user->last_login_ip = $currentIp;
+        $user->save();
+    }
+
+    protected function resolveAuthenticatedUser(string $loginMode = 'legacy'): ?User
+    {
+        if ($loginMode === 'moderator' && Auth::guard('moderator')->check()) {
+            /** @var User $user */
+            $user = Auth::guard('moderator')->user();
+
+            return $user;
+        }
+
+        if (Auth::guard('web')->check()) {
+            /** @var User $user */
+            $user = Auth::guard('web')->user();
+
+            return $user;
+        }
+
+        if (Auth::guard('moderator')->check()) {
+            /** @var User $user */
+            $user = Auth::guard('moderator')->user();
+
+            return $user;
+        }
+
+        return null;
     }
 }

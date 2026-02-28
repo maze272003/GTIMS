@@ -41,7 +41,20 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        $credentials = $this->only('email', 'password');
+        $remember = $this->boolean('remember');
+
+        if ($this->routeIs('moderator.*')) {
+            $authenticated = Auth::guard('moderator')->attempt($credentials, $remember);
+
+            if (!$authenticated && config('tenancy.rbac.allow_legacy_moderator_fallback', false)) {
+                $authenticated = Auth::guard('web')->attempt($credentials, $remember);
+            }
+        } else {
+            $authenticated = Auth::guard('web')->attempt($credentials, $remember);
+        }
+
+        if (!$authenticated) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

@@ -4,61 +4,71 @@ namespace Database\Seeders;
 
 use App\Models\Branch;
 use App\Models\Inventory;
+use App\Models\LowStockSetting;
+use App\Models\Patientrecords;
 use App\Models\Permission;
 use App\Models\Product;
+use App\Models\User;
 use App\Models\UserLevel;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 
 class DemoSeeder extends Seeder
 {
     public function run(): void
     {
+        // Tenant geo bootstrap (idempotent and safe to rerun).
         $this->call([
             ProvinceBarangaySeeder::class,
         ]);
 
-        if (Branch::query()->count() === 0) {
-            $this->call([BranchSeeder::class]);
+        // Core legacy/module seeders (guarded to avoid duplicate bulk inserts on reruns).
+        $this->seedIfEmpty(Branch::class, BranchSeeder::class);
+        $this->seedIfEmpty(UserLevel::class, UserLevelSeeder::class);
+        $this->seedIfEmpty(User::class, UserSeeder::class);
+        $this->seedIfEmpty(Permission::class, PermissionSeeder::class);
+        $this->seedIfEmpty(Product::class, ProductSeeder::class);
+        $this->seedIfEmpty(Inventory::class, InventorySeeder::class);
+        $this->seedIfEmpty(LowStockSetting::class, LowStockSettingSeeder::class);
+        $this->seedIfEmpty(Patientrecords::class, PatientRecordsSeeder::class);
+        if (!DB::table('notifications')->exists()) {
+            $this->call([TransactionLogSeeder::class]);
         }
 
-        if (UserLevel::query()->count() === 0) {
-            $this->call([UserLevelSeeder::class]);
-        }
-
-        if (Permission::query()->count() === 0) {
-            $this->call([PermissionSeeder::class]);
-        }
-
-        if (Product::query()->count() === 0) {
-            $this->call([ProductSeeder::class]);
-        }
-
-        if (Inventory::query()->count() === 0) {
-            $this->call([InventorySeeder::class]);
-        }
-
+        // Tenancy demo/admin accounts and tenant-scoped sample data.
         $this->call([
             ModeratorSeeder::class,
             SuperAdminSeeder::class,
             AdminUserSeeder::class,
             TenantDemoDataSeeder::class,
-            LowStockSettingSeeder::class,
         ]);
 
         $chunk = max(100, (int) config('tenancy.seeder.chunk_size', 500));
 
-        Artisan::call('tenant:migration', [
+        $this->runArtisan('tenant:migration', [
             'action' => 'backfill',
             '--chunk' => $chunk,
         ]);
-        $this->command?->line(trim((string) Artisan::output()));
+        $this->runArtisan('tenant:sync-rbac');
+        $this->runArtisan('tenant:validate-slugs');
+    }
 
-        Artisan::call('tenant:sync-rbac');
-        $this->command?->line(trim((string) Artisan::output()));
+    protected function seedIfEmpty(string $modelClass, string $seederClass): void
+    {
+        if ($modelClass::query()->exists()) {
+            return;
+        }
 
-        Artisan::call('tenant:validate-slugs');
-        $this->command?->line(trim((string) Artisan::output()));
+        $this->call([$seederClass]);
+    }
+
+    protected function runArtisan(string $command, array $arguments = []): void
+    {
+        Artisan::call($command, $arguments);
+        $output = trim((string) Artisan::output());
+        if ($output !== '') {
+            $this->command?->line($output);
+        }
     }
 }
-

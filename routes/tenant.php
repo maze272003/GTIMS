@@ -172,7 +172,7 @@ Route::prefix('{provinceSlug}/{barangaySlug}')
 */
 
 Route::prefix('moderator')
-    ->middleware(['auth', 'verified', 'moderator.only'])
+    ->middleware(['auth:web,moderator', 'verified', 'moderator.only'])
     ->name('moderator.')
     ->group(function () {
 
@@ -247,7 +247,7 @@ Route::prefix('{provinceSlug}/{barangaySlug}')
     });
 
 Route::prefix('moderator')
-    ->middleware('guest')
+    ->middleware('guest:web,moderator')
     ->name('moderator.')
     ->group(function () {
         Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -267,7 +267,7 @@ Route::prefix('moderator')
     });
 
 Route::prefix('moderator')
-    ->middleware('auth')
+    ->middleware('auth:web,moderator')
     ->name('moderator.')
     ->group(function () {
         Route::get('/verify-email', EmailVerificationPromptController::class)

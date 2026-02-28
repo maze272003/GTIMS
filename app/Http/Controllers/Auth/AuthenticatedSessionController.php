@@ -10,6 +10,7 @@ use App\Tenancy\TenantResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
@@ -63,8 +64,20 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
         $request->session()->regenerate();
 
-        /** @var \App\Models\User $user */
-        $user = Auth::user();
+        $guard = $this->resolveAuthenticatedGuard($request);
+        /** @var \App\Models\User|null $user */
+        $user = Auth::guard($guard)->user();
+        if (!$user) {
+            Log::warning('Authentication succeeded but no user was resolved from guard.', [
+                'guard' => $guard,
+                'path' => $request->path(),
+            ]);
+
+            return back()->withErrors([
+                'email' => trans('auth.failed'),
+            ]);
+        }
+
         /** @var TenantContext|null $tenantContext */
         $tenantContext = $request->attributes->get('tenantContext');
         if (!$tenantContext && $request->route('provinceSlug') && $request->route('barangaySlug')) {
@@ -81,7 +94,7 @@ class AuthenticatedSessionController extends Controller
         $access = $this->authSessionService->canAccessApplication($user, $tenantContext, $loginMode);
 
         if (!$access['ok']) {
-            Auth::guard('web')->logout();
+            Auth::guard($guard)->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
@@ -107,7 +120,11 @@ class AuthenticatedSessionController extends Controller
 
     public function destroy(Request $request): RedirectResponse
     {
-        Auth::guard('web')->logout();
+        foreach (['web', 'moderator'] as $guard) {
+            if (Auth::guard($guard)->check()) {
+                Auth::guard($guard)->logout();
+            }
+        }
 
         foreach (config('tenancy.session_keys', []) as $sessionKey) {
             $request->session()->forget($sessionKey);
@@ -117,5 +134,14 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
+    }
+
+    protected function resolveAuthenticatedGuard(Request $request): string
+    {
+        if ($request->routeIs('moderator.*') && Auth::guard('moderator')->check()) {
+            return 'moderator';
+        }
+
+        return 'web';
     }
 }

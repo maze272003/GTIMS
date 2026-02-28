@@ -34,7 +34,15 @@ class PasswordResetLinkController extends Controller
             $request->session()->put('tenant.route_slug_barangay', $barangaySlug);
         }
 
-        $status = $this->passwordFlowService->sendResetLink($request->only('email'));
+        $broker = $request->routeIs('moderator.*') ? 'moderators' : 'users';
+        $status = $this->passwordFlowService->sendResetLink($request->only('email'), $broker);
+        if (
+            $broker === 'moderators'
+            && $status === Password::INVALID_USER
+            && config('tenancy.rbac.allow_legacy_moderator_fallback', false)
+        ) {
+            $status = $this->passwordFlowService->sendResetLink($request->only('email'), 'users');
+        }
 
         return $status == Password::RESET_LINK_SENT
             ? back()->with('status', __($status))

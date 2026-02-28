@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Mail\SendOtpMail;
+use App\Models\Moderator;
+use App\Models\User;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Tenancy\TenantContext;
 use App\Tenancy\TenantResolver;
@@ -22,13 +24,12 @@ class OtpLoginService
 
     public function sendOtp(Request $request, string $email): array
     {
-        $user = $this->userRepository->findByEmailWithRelations($email, ['level']);
+        [$loginMode, $tenantContext] = $this->resolveLoginModeAndContext($request);
+        [$user] = $this->resolveUserAndGuard($email, $loginMode, ['level']);
 
         if (!$user) {
             return ['success' => false, 'status' => 422, 'message' => 'User not found.'];
         }
-
-        [$loginMode, $tenantContext] = $this->resolveLoginModeAndContext($request);
 
         $access = $this->authSessionService->canAccessApplication($user, $tenantContext, $loginMode);
         if (!$access['ok']) {
@@ -37,7 +38,9 @@ class OtpLoginService
 
         $otp = (string) random_int(100000, 999999);
         $expiresAt = Carbon::now()->addMinutes(5);
-        $this->userRepository->updateOtp($user->id, $otp, $expiresAt);
+        $user->otp = $otp;
+        $user->otp_expires_at = $expiresAt;
+        $user->save();
 
         try {
             Mail::to($user->email)->send(new SendOtpMail($otp));
@@ -50,7 +53,8 @@ class OtpLoginService
 
     public function verifyOtp(Request $request, string $email, string $otp): array
     {
-        $user = $this->userRepository->findByEmailWithRelations($email, ['level.permissions']);
+        [$loginMode, $tenantContext] = $this->resolveLoginModeAndContext($request);
+        [$user, $guard] = $this->resolveUserAndGuard($email, $loginMode, ['level.permissions']);
 
         if (
             !$user
@@ -61,16 +65,17 @@ class OtpLoginService
             return ['success' => false, 'status' => 401, 'message' => 'Invalid or expired OTP. Please try again.'];
         }
 
-        Auth::login($user);
+        Auth::guard($guard)->login($user);
         $request->session()->regenerate();
 
-        $this->userRepository->updateOtp($user->id, null, null);
+        $user->otp = null;
+        $user->otp_expires_at = null;
+        $user->save();
 
-        [$loginMode, $tenantContext] = $this->resolveLoginModeAndContext($request);
         $access = $this->authSessionService->canAccessApplication($user, $tenantContext, $loginMode);
 
         if (!$access['ok']) {
-            Auth::guard('web')->logout();
+            Auth::guard($guard)->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
@@ -119,5 +124,25 @@ class OtpLoginService
         }
 
         return [$loginMode, $tenantContext];
+    }
+
+    /**
+     * @param  array<int, string>  $relations
+     * @return array{0: User|null, 1: string}
+     */
+    protected function resolveUserAndGuard(string $email, string $loginMode, array $relations = []): array
+    {
+        if ($loginMode === 'moderator') {
+            $moderator = Moderator::query()->with($relations)->where('email', $email)->first();
+            if ($moderator) {
+                return [$moderator, 'moderator'];
+            }
+
+            if (!config('tenancy.rbac.allow_legacy_moderator_fallback', false)) {
+                return [null, 'moderator'];
+            }
+        }
+
+        return [$this->userRepository->findByEmailWithRelations($email, $relations), 'web'];
     }
 }

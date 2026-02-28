@@ -72,7 +72,7 @@ class User extends Authenticatable
 
     public function productMovements()
     {
-        return $this->hasMany(ProductMovement::class);
+        return $this->hasMany(ProductMovement::class, 'user_id');
     }
     public function branch()
     {
@@ -81,7 +81,7 @@ class User extends Authenticatable
 
     public function tenantMemberships()
     {
-        return $this->hasMany(TenantMembership::class);
+        return $this->hasMany(TenantMembership::class, 'user_id');
     }
 
     public function memberships()
@@ -91,12 +91,12 @@ class User extends Authenticatable
 
     public function roleAssignments()
     {
-        return $this->hasMany(RoleAssignment::class);
+        return $this->hasMany(RoleAssignment::class, 'user_id');
     }
 
     public function tenantApiTokens()
     {
-        return $this->hasMany(TenantApiToken::class);
+        return $this->hasMany(TenantApiToken::class, 'user_id');
     }
 
     public function hasPermission(string $permissionName, ?TenantContext $tenantContext = null, ?array $targetTenant = null): bool
