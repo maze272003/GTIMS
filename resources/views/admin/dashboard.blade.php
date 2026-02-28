@@ -1,7 +1,7 @@
 @php
   use Carbon\Carbon;
   // Get validated inputs from controller, default to empty array if not passed
-  $filterInputs = $inputs ?? []; 
+  $filterInputs = $inputs ?? [];
 @endphp
 <x-app-layout>
 <body class="bg-gray-50 dark:bg-gray-900">
@@ -56,6 +56,394 @@
         />
       </div>
       {{-- End KPI Cards --}}
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+
+        {{-- STOCK DEPLETION FORECAST --}}
+        <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+            {{-- Header with Filter --}}
+          <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                <i class="fa-regular fa-chart-line-down text-red-600 mr-2"></i>Stock Depletion Forecast
+              </h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400">Predicts run-out based on recent consumption.</p>
+            </div>
+              {{-- Forecast History Filter (Moved Here) --}}
+            <div class="mt-2 sm:mt-0">
+              <form action="{{ route('admin.dashboard') }}" method="GET" id="forecast-filter-form" class="flex items-center gap-x-2">
+                  {{-- Persist other filters --}}
+                  @foreach($filterInputs as $key => $value)
+                    @if($key != 'forecast_days' && $value)
+                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                    @endif
+                  @endforeach
+                  <label for="forecast_days_select" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">History:</label>
+                  <select name="forecast_days" id="forecast_days_select" class="pl-2 pr-8 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                    <option value="30" @selected( ($filterInputs['forecast_days'] ?? 90) == 30)>30 Days</option>
+                    <option value="60" @selected( ($filterInputs['forecast_days'] ?? 90) == 60)>60 Days</option>
+                    <option value="90" @selected( ($filterInputs['forecast_days'] ?? 90) == 90)>90 Days</option>
+                    <option value="180" @selected( ($filterInputs['forecast_days'] ?? 90) == 180)>180 Days</option>
+                  </select>
+              </form>
+            </div>
+          </div>
+          {{-- Table --}}
+          <div class="overflow-y-auto h-96 relative"> {{-- Added relative for loader --}}
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+              <thead class="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-100 dark:bg-gray-700 sticky top-0">
+                <tr>
+                  <th scope="col" class="px-6 py-3">Product</th>
+                  <th scope="col" class="px-6 py-3 text-center">Days Remaining</th>
+                  <th scope="col" class="px-6 py-3 text-center">Current Stock</th>
+                  <th scope="col" class="px-6 py-3 text-center">Avg. Daily Usage</th>
+                </tr>
+              </thead>
+              {{-- Added ID for AJAX update --}}
+              <tbody id="forecast-table-body">
+                {{-- Render partial for initial load and for AJAX updates --}}
+                @include('admin.partials._forecast_table_body', ['forecast' => $forecast])
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {{-- URGENT ALERTS --}}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <i class="fa-regular fa-triangle-exclamation text-orange-600 mr-2"></i>Actionable Alerts
+            </h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Items needing immediate attention.</p>
+          </div>
+          <div class="p-4 overflow-y-auto h-96">
+            {{-- Low Stock --}}
+            <h4 class="font-semibold text-orange-600">Critical Low Stock (<= 100)</h4>
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700 mt-2">
+              @forelse($urgent_low_stock as $item)
+                <li class="py-2 flex justify-between items-center">
+                  <div>
+                    <p class="font-medium text-sm text-gray-800 dark:text-gray-200">{{ $item->product->generic_name }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item->batch_number }}</p>
+                  </div>
+                  <span class="font-bold text-sm text-orange-600">{{ $item->quantity }} left</span>
+                </li>
+              @empty
+                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No products are critically low.</li>
+              @endforelse
+            </ul>
+
+            {{-- Expiring Soon --}}
+            <h4 class="font-semibold text-yellow-600 mt-4">Expiring in 30 Days</h4>
+            <ul class="divide-y divide-gray-200 dark:divide-gray-700 mt-2">
+              @forelse($urgent_expiring_soon as $item)
+                <li class="py-2 flex justify-between items-center">
+                  <div>
+                    <p class="font-medium text-sm text-gray-800 dark:text-gray-200">{{ $item->product->generic_name }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item->batch_number }}</p>
+                  </div>
+                  <span class="font-bold text-sm text-yellow-600">
+                    {{ Carbon::parse($item->expiry_date)->format('M d, Y') }}
+                  </span>
+                </li>
+              @empty
+                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No batches are expiring soon.</li>
+              @endforelse
+            </ul>
+          </div>
+        </div>
+
+      </div>
+      {{-- End Predictive & Urgent --}}
+
+      {{-- 0. CHART FILTERS --}}
+      <div class="my-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        {{-- Drill-down Indicator --}}
+        <div class="drilldown-indicator p-4 bg-blue-50 dark:bg-blue-900 border-b border-blue-200 dark:border-blue-400 flex items-center justify-between" style="display: {{ $drilldown_product_name ? 'flex' : 'none' }};">
+          <div class="flex items-center">
+            <i class="fa-regular fa-filter-list text-blue-600 mr-3"></i>
+            <span class="text-sm font-medium text-blue-800 dark:text-blue-200">
+              Drill-Down Active: Showing chart data for <strong id="drilldown-indicator-name">{{ $drilldown_product_name ?? '' }}</strong>.
+            </span>
+          </div>
+            {{-- Updated link to use AJAX clear function --}}
+          <a href="#" id="clear-drilldown-ajax" class="px-3 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-600 rounded-full hover:bg-blue-100 dark:bg-gray-700 dark:text-blue-300 dark:border-blue-400 dark:hover:bg-gray-600">Clear Drill-Down</a>
+        </div>
+
+        {{-- Main Filter Form --}}
+        <form id="dashboard-filter-form" action="{{ route('admin.dashboard') }}" method="GET">
+          {{-- Hidden field for drill-down (retains value) --}}
+          <input type="hidden" name="drilldown_product_id" id="drilldown_product_id" value="{{ $inputs['drilldown_product_id'] ?? '' }}">
+          {{-- Hidden field for forecast days (to persist it) --}}
+          <input type="hidden" name="forecast_days" value="{{ $inputs['forecast_days'] ?? 90 }}">
+
+
+          <div class="p-6">
+            {{-- Increased to 4 columns to accommodate the new filter --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+              {{-- Timespan --}}
+              <div>
+                <label for="filter_timespan" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time Period</label>
+                <select name="filter_timespan" id="filter_timespan" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                  <option value="7d"    @selected( ($filterInputs['filter_timespan'] ?? '30d') == '7d')>Last 7 Days</option>
+                  <option value="30d"  @selected( ($filterInputs['filter_timespan'] ?? '30d') == '30d')>Last 30 Days</option>
+                  <option value="90d"  @selected( ($filterInputs['filter_timespan'] ?? '30d') == '90d')>Last 90 Days</option>
+                  <option value="1y"    @selected( ($filterInputs['filter_timespan'] ?? '30d') == '1y')>Last 1 Year</option>
+                  <option value="all"  @selected( ($filterInputs['filter_timespan'] ?? '30d') == 'all')>All Time</option>
+                  <option value="custom" @selected( ($filterInputs['filter_timespan'] ?? '30d') == 'custom')>Custom Range</option>
+                </select>
+              </div>
+
+              {{-- <--- NEW: BRANCH FILTER ---/> --}}
+              <div>
+                <label for="filter_branch" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Branch</label>
+                <select name="filter_branch" id="filter_branch" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                  <option value="">All Branches</option>
+                  @foreach($filter_branches as $branch)
+                    <option value="{{ $branch->id }}" @selected(($filterInputs['filter_branch'] ?? '') == $branch->id)>
+                      {{ $branch->name }}
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+
+              {{-- Barangay Filter --}}
+              <div>
+                <label for="filter_barangay" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Barangay</label>
+                <select name="filter_barangay" id="filter_barangay" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                  <option value="">All Barangays</option>
+                  @foreach($filter_barangays as $barangay)
+                    <option value="{{ $barangay }}" @selected( ($filterInputs['filter_barangay'] ?? '') == $barangay)>
+                      {{ $barangay }}
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+
+              {{-- Product Filter --}}
+              <div>
+                <label for="filter_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product</label>
+                <select name="filter_product_id" id="filter_product_id" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                  <option value="">All Products</option>
+                  @foreach($filter_products as $product)
+                    <option value="{{ $product->id }}" @selected( ($filterInputs['filter_product_id'] ?? '') == $product->id)>
+                      {{ $product->generic_name }} ({{ $product->brand_name }})
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+
+              {{-- Grouping (Moved to next row/auto-placed) --}}
+              <div>
+                <label for="grouping" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group Trend By</label>
+                <select name="grouping" id="grouping" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                  <option value="day" @selected( ($filterInputs['grouping'] ?? 'day') == 'day')>Day</option>
+                  <option value="week" @selected( ($filterInputs['grouping'] ?? 'day') == 'week')>Week</option>
+                  <option value="month" @selected( ($filterInputs['grouping'] ?? 'day') == 'month')>Month</option>
+                </select>
+              </div>
+
+            </div>
+          </div>
+
+          {{-- Custom Date Range (hidden by default) --}}
+          <div id="custom_dates_container" class="p-6 pt-0 {{ ($filterInputs['filter_timespan'] ?? '30d') == 'custom' ? '' : 'hidden' }}">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label for="filter_start" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
+                <input type="date" name="filter_start" id="filter_start" value="{{ $filterInputs['filter_start'] ?? '' }}" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+              </div>
+              <div>
+                <label for="filter_end" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
+                <input type="date" name="filter_end" id="filter_end" value="{{ $filterInputs['filter_end'] ?? '' }}" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+              </div>
+            </div>
+          </div>
+
+          {{-- Form Actions --}}
+          <div class="px-6 pb-4 flex justify-end items-center gap-x-3">
+              {{-- This button reloads the page to clear ALL state, which is correct --}}
+            <button type="button" onclick="clearAllFilters()" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300">Clear Filters</button>
+            <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">Apply Filters</button>
+          </div>
+        </form>
+      </div>
+
+
+      {{-- 3. CONSUMPTION CHARTS --}}
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {{-- Consumption Trend --}}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
+              {{-- Title updates dynamically via JS --}}
+            <h3 id="consumptionChartTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Dispensation Trend (Items)</h3>
+            <div id="consumptionChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <button data-type="line" class="chart-toggle active-toggle">
+                <i class="fa-regular fa-chart-line text-sm"></i>
+              </button>
+              <button data-type="bar" class="chart-toggle">
+                <i class="fa-regular fa-chart-bar text-sm"></i>
+              </button>
+            </div>
+          </div>
+          {{-- Subtitle for filters --}}
+          <p id="consumptionChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p>
+          <div class="relative chart-container"> {{-- Constrained Height --}}
+            <canvas id="consumptionChart"></canvas>
+          </div>
+        </div>
+
+        {{-- Top Products --}}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Top 10 Most Dispensed</h3>
+            <div id="topProductsChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <button data-type="bar" class="chart-toggle active-toggle">
+                <i class="fa-regular fa-chart-bar text-sm"></i>
+              </button>
+              <button data-type="pie" class="chart-toggle">
+                <i class="fa-regular fa-chart-pie text-sm"></i>
+              </button>
+            </div>
+          </div>
+            {{-- Subtitle for filters --}}
+          <p id="topProductsChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-1"></p>
+          <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Click on a product (bar chart only) to drill-down</p>
+          <div class="relative chart-container"> {{-- Constrained Height --}}
+            <canvas id="topProductsChart"></canvas>
+          </div>
+        </div>
+      </div>
+      {{-- End Consumption Charts --}}
+
+
+      {{-- 4. PATIENT CHARTS --}}
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+        {{-- Patients by Barangay (Stacked Bar) --}}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Patients by Barangay & Category</h3>
+          <p id="barangayChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p>
+          <div class="relative chart-container"> {{-- Constrained Height --}}
+            <canvas id="barangayChart"></canvas>
+          </div>
+        </div>
+
+        {{-- Patient Visit Trend Chart --}}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+          {{-- Title updates dynamically --}}
+          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
+            <h3 id="patientVisitChartTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Patient Visit Trend</h3>
+
+            {{-- ADDED TOGGLE --}}
+            <div id="patientVisitChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <button data-type="line" class="chart-toggle active-toggle">
+                <i class="fa-regular fa-chart-line text-sm"></i>
+              </button>
+              <button data-type="bar" class="chart-toggle">
+                <i class="fa-regular fa-chart-bar text-sm"></i>
+              </button>
+            </div>
+            {{-- END TOGGLE --}}
+
+          </div>
+          <p id="patientVisitChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p>
+          <div class="relative chart-container"> {{-- Constrained Height --}}
+            <canvas id="patientVisitChart"></canvas>
+          </div>
+        </div>
+
+      </div>
+      {{-- End Patient Charts --}}
+
+      {{-- 5. NEW: SEASONAL & HOTSPOT ANALYSIS --}}
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+
+        {{-- Product Seasonal Trend --}}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+            {{-- Added ID to form, removed action/method --}}
+          <form id="seasonal-filter-form">
+              {{-- Persist existing CHART filters --}}
+             @foreach($filterInputs as $key => $value)
+               @if(!in_array($key, ['seasonal_product_id', 'compare_product_id', 'forecast_days']) && $value)
+                 <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+               @endif
+             @endforeach
+             {{-- Persist forecast filter too --}}
+             <input type="hidden" name="forecast_days" value="{{ $inputs['forecast_days'] ?? 90 }}">
+
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+              <div>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Product Seasonal Trend</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">View & compare monthly dispensation (up to 3 yrs).</p>
+              </div>
+              <button type="submit" class="mt-2 sm:mt-0 px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">Update Chart</button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label for="seasonal_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product 1</label>
+                <select name="seasonal_product_id" id="seasonal_product_id" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                  @foreach($filter_products as $product)
+                      {{-- Ensure $selectedSeasonalProduct is not null before accessing id --}}
+                    <option value="{{ $product->id }}" @selected( ($filterInputs['seasonal_product_id'] ?? ($selectedSeasonalProduct->id ?? null)) == $product->id)>
+                      {{ $product->generic_name }}
+                    </option>
+                  @endforeach
+                </select>
+              </div>
+              <div>
+                <label for="compare_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product 2 (Compare)</label>
+                <select name="compare_product_id" id="compare_product_id" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
+                  <option value="">None</option>
+                  @foreach($filter_products as $product)
+                      {{-- Avoid comparing a product with itself --}}
+                    @if( ($selectedSeasonalProduct->id ?? null) != $product->id)
+                      <option value="{{ $product->id }}" @selected( ($filterInputs['compare_product_id'] ?? '') == $product->id)>
+                        {{ $product->generic_name }}
+                      </option>
+                    @endif
+                  @endforeach
+                </select>
+              </div>
+            </div>
+          </form>
+
+          <div id="seasonal-chart-anchor" class="relative chart-container mt-4"> {{-- Constrained Height --}}
+            <canvas id="seasonalChart"></canvas>
+          </div>
+
+          <div class="mt-4 text-center">
+            <button id="get-ai-analysis" class="inline-flex items-center px-4 py-2 text-sm text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50">
+              <i class="fa-regular fa-stars mr-2"></i>
+              <span id="ai-button-text">Get AI Analysis of this Trend</span>
+            </button>
+          </div>
+        </div>
+
+        {{-- Patient Dispensation Hotspots --}}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Dispensation Hotspots</h3>
+           <p id="hotspotsSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p> {{-- Dynamic Subtitle --}}
+           <div class="overflow-y-auto h-96 relative"> {{-- Added relative for loader --}}
+            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
+              <thead class="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-100 dark:bg-gray-700 sticky top-0">
+                <tr>
+                  <th scope="col" class="px-6 py-3">Barangay</th>
+                  <th scope="col" class="px-6 py-3">Category</th>
+                  <th scope="col" class="px-6 py-3 text-right">Total Items</th>
+                  <th scope="col" class="px-6 py-3 text-right">Patients</th> {{-- NEW --}}
+                </tr>
+              </thead>
+              <tbody id="hotspots-table-body"> {{-- Add ID for AJAX update --}}
+                  {{-- Include the partial for initial load --}}
+                  @include('admin.partials._hotspots_table_body', ['patientHotspots' => $patientHotspots])
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {{-- End New Analytics --}}
 
       {{-- SYSTEM OBSERVABILITY DASHBOARD --}}
       <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
@@ -179,396 +567,6 @@
         </div>
       </div>
       {{-- END SYSTEM OBSERVABILITY DASHBOARD --}}
-
-
-      {{-- 2. PREDICTIVE FORECAST & URGENT ACTIONS --}}
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        
-        {{-- STOCK DEPLETION FORECAST --}}
-        <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-            {{-- Header with Filter --}}
-          <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                <i class="fa-regular fa-chart-line-down text-red-600 mr-2"></i>Stock Depletion Forecast
-              </h3>
-              <p class="text-sm text-gray-500 dark:text-gray-400">Predicts run-out based on recent consumption.</p>
-            </div>
-              {{-- Forecast History Filter (Moved Here) --}}
-            <div class="mt-2 sm:mt-0">
-              <form action="{{ route('admin.dashboard') }}" method="GET" id="forecast-filter-form" class="flex items-center gap-x-2">
-                  {{-- Persist other filters --}}
-                  @foreach($filterInputs as $key => $value)
-                    @if($key != 'forecast_days' && $value)
-                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-                    @endif
-                  @endforeach
-                  <label for="forecast_days_select" class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">History:</label>
-                  <select name="forecast_days" id="forecast_days_select" class="pl-2 pr-8 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-                    <option value="30" @selected( ($filterInputs['forecast_days'] ?? 90) == 30)>30 Days</option>
-                    <option value="60" @selected( ($filterInputs['forecast_days'] ?? 90) == 60)>60 Days</option>
-                    <option value="90" @selected( ($filterInputs['forecast_days'] ?? 90) == 90)>90 Days</option>
-                    <option value="180" @selected( ($filterInputs['forecast_days'] ?? 90) == 180)>180 Days</option>
-                  </select>
-              </form>
-            </div>
-          </div>
-          {{-- Table --}}
-          <div class="overflow-y-auto h-96 relative"> {{-- Added relative for loader --}}
-            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-              <thead class="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-100 dark:bg-gray-700 sticky top-0">
-                <tr>
-                  <th scope="col" class="px-6 py-3">Product</th>
-                  <th scope="col" class="px-6 py-3 text-center">Days Remaining</th>
-                  <th scope="col" class="px-6 py-3 text-center">Current Stock</th>
-                  <th scope="col" class="px-6 py-3 text-center">Avg. Daily Usage</th>
-                </tr>
-              </thead>
-              {{-- Added ID for AJAX update --}}
-              <tbody id="forecast-table-body"> 
-                {{-- Render partial for initial load and for AJAX updates --}}
-                @include('admin.partials._forecast_table_body', ['forecast' => $forecast])
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {{-- URGENT ALERTS --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-          <div class="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              <i class="fa-regular fa-triangle-exclamation text-orange-600 mr-2"></i>Actionable Alerts
-            </h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Items needing immediate attention.</p>
-          </div>
-          <div class="p-4 overflow-y-auto h-96">
-            {{-- Low Stock --}}
-            <h4 class="font-semibold text-orange-600">Critical Low Stock (<= 100)</h4>
-            <ul class="divide-y divide-gray-200 dark:divide-gray-700 mt-2">
-              @forelse($urgent_low_stock as $item)
-                <li class="py-2 flex justify-between items-center">
-                  <div>
-                    <p class="font-medium text-sm text-gray-800 dark:text-gray-200">{{ $item->product->generic_name }}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item->batch_number }}</p>
-                  </div>
-                  <span class="font-bold text-sm text-orange-600">{{ $item->quantity }} left</span>
-                </li>
-              @empty
-                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No products are critically low.</li>
-              @endforelse
-            </ul>
-
-            {{-- Expiring Soon --}}
-            <h4 class="font-semibold text-yellow-600 mt-4">Expiring in 30 Days</h4>
-            <ul class="divide-y divide-gray-200 dark:divide-gray-700 mt-2">
-              @forelse($urgent_expiring_soon as $item)
-                <li class="py-2 flex justify-between items-center">
-                  <div>
-                    <p class="font-medium text-sm text-gray-800 dark:text-gray-200">{{ $item->product->generic_name }}</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $item->batch_number }}</p>
-                  </div>
-                  <span class="font-bold text-sm text-yellow-600">
-                    {{ Carbon::parse($item->expiry_date)->format('M d, Y') }}
-                  </span>
-                </li>
-              @empty
-                <li class="py-2 text-sm text-gray-500 dark:text-gray-400">No batches are expiring soon.</li>
-              @endforelse
-            </ul>
-          </div>
-        </div>
-
-      </div>
-      {{-- End Predictive & Urgent --}}
-
-      {{-- 0. CHART FILTERS --}}
-      <div class="my-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-        {{-- Drill-down Indicator --}}
-        <div class="drilldown-indicator p-4 bg-blue-50 dark:bg-blue-900 border-b border-blue-200 dark:border-blue-400 flex items-center justify-between" style="display: {{ $drilldown_product_name ? 'flex' : 'none' }};">
-          <div class="flex items-center">
-            <i class="fa-regular fa-filter-list text-blue-600 mr-3"></i>
-            <span class="text-sm font-medium text-blue-800 dark:text-blue-200">
-              Drill-Down Active: Showing chart data for <strong id="drilldown-indicator-name">{{ $drilldown_product_name ?? '' }}</strong>.
-            </span>
-          </div>
-            {{-- Updated link to use AJAX clear function --}}
-          <a href="#" id="clear-drilldown-ajax" class="px-3 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-600 rounded-full hover:bg-blue-100 dark:bg-gray-700 dark:text-blue-300 dark:border-blue-400 dark:hover:bg-gray-600">Clear Drill-Down</a>
-        </div>
-        
-        {{-- Main Filter Form --}}
-        <form id="dashboard-filter-form" action="{{ route('admin.dashboard') }}" method="GET">
-          {{-- Hidden field for drill-down (retains value) --}}
-          <input type="hidden" name="drilldown_product_id" id="drilldown_product_id" value="{{ $inputs['drilldown_product_id'] ?? '' }}">
-          {{-- Hidden field for forecast days (to persist it) --}}
-          <input type="hidden" name="forecast_days" value="{{ $inputs['forecast_days'] ?? 90 }}">
-
-          
-          <div class="p-6">
-            {{-- Increased to 4 columns to accommodate the new filter --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> 
-              
-              {{-- Timespan --}}
-              <div>
-                <label for="filter_timespan" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time Period</label>
-                <select name="filter_timespan" id="filter_timespan" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-                  <option value="7d"    @selected( ($filterInputs['filter_timespan'] ?? '30d') == '7d')>Last 7 Days</option>
-                  <option value="30d"  @selected( ($filterInputs['filter_timespan'] ?? '30d') == '30d')>Last 30 Days</option>
-                  <option value="90d"  @selected( ($filterInputs['filter_timespan'] ?? '30d') == '90d')>Last 90 Days</option>
-                  <option value="1y"    @selected( ($filterInputs['filter_timespan'] ?? '30d') == '1y')>Last 1 Year</option>
-                  <option value="all"  @selected( ($filterInputs['filter_timespan'] ?? '30d') == 'all')>All Time</option>
-                  <option value="custom" @selected( ($filterInputs['filter_timespan'] ?? '30d') == 'custom')>Custom Range</option>
-                </select>
-              </div>
-
-              {{-- <--- NEW: BRANCH FILTER ---/> --}}
-              <div>
-                <label for="filter_branch" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Branch</label>
-                <select name="filter_branch" id="filter_branch" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-                  <option value="">All Branches</option>
-                  @foreach($filter_branches as $branch)
-                    <option value="{{ $branch->id }}" @selected(($filterInputs['filter_branch'] ?? '') == $branch->id)>
-                      {{ $branch->name }}
-                    </option>
-                  @endforeach
-                </select>
-              </div>
-
-              {{-- Barangay Filter --}}
-              <div>
-                <label for="filter_barangay" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Barangay</label>
-                <select name="filter_barangay" id="filter_barangay" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-                  <option value="">All Barangays</option>
-                  @foreach($filter_barangays as $barangay)
-                    <option value="{{ $barangay }}" @selected( ($filterInputs['filter_barangay'] ?? '') == $barangay)>
-                      {{ $barangay }}
-                    </option>
-                  @endforeach
-                </select>
-              </div>
-              
-              {{-- Product Filter --}}
-              <div>
-                <label for="filter_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product</label>
-                <select name="filter_product_id" id="filter_product_id" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-                  <option value="">All Products</option>
-                  @foreach($filter_products as $product)
-                    <option value="{{ $product->id }}" @selected( ($filterInputs['filter_product_id'] ?? '') == $product->id)>
-                      {{ $product->generic_name }} ({{ $product->brand_name }})
-                    </option>
-                  @endforeach
-                </select>
-              </div>
-
-              {{-- Grouping (Moved to next row/auto-placed) --}}
-              <div>
-                <label for="grouping" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Group Trend By</label>
-                <select name="grouping" id="grouping" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-                  <option value="day" @selected( ($filterInputs['grouping'] ?? 'day') == 'day')>Day</option>
-                  <option value="week" @selected( ($filterInputs['grouping'] ?? 'day') == 'week')>Week</option>
-                  <option value="month" @selected( ($filterInputs['grouping'] ?? 'day') == 'month')>Month</option>
-                </select>
-              </div>
-
-            </div>
-          </div>
-          
-          {{-- Custom Date Range (hidden by default) --}}
-          <div id="custom_dates_container" class="p-6 pt-0 {{ ($filterInputs['filter_timespan'] ?? '30d') == 'custom' ? '' : 'hidden' }}">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label for="filter_start" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Date</label>
-                <input type="date" name="filter_start" id="filter_start" value="{{ $filterInputs['filter_start'] ?? '' }}" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-              </div>
-              <div>
-                <label for="filter_end" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Date</label>
-                <input type="date" name="filter_end" id="filter_end" value="{{ $filterInputs['filter_end'] ?? '' }}" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-              </div>
-            </div>
-          </div>
-
-          {{-- Form Actions --}}
-          <div class="px-6 pb-4 flex justify-end items-center gap-x-3">
-              {{-- This button reloads the page to clear ALL state, which is correct --}}
-            <button type="button" onclick="clearAllFilters()" class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300">Clear Filters</button>
-            <button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">Apply Filters</button>
-          </div>
-        </form>
-      </div>
-
-
-      {{-- 3. CONSUMPTION CHARTS --}}
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {{-- Consumption Trend --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
-              {{-- Title updates dynamically via JS --}}
-            <h3 id="consumptionChartTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Dispensation Trend (Items)</h3>
-            <div id="consumptionChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <button data-type="line" class="chart-toggle active-toggle">
-                <i class="fa-regular fa-chart-line text-sm"></i>
-              </button>
-              <button data-type="bar" class="chart-toggle">
-                <i class="fa-regular fa-chart-bar text-sm"></i>
-              </button>
-            </div>
-          </div>
-          {{-- Subtitle for filters --}}
-          <p id="consumptionChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p>
-          <div class="relative chart-container"> {{-- Constrained Height --}}
-            <canvas id="consumptionChart"></canvas>
-          </div>
-        </div>
-
-        {{-- Top Products --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Top 10 Most Dispensed</h3>
-            <div id="topProductsChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <button data-type="bar" class="chart-toggle active-toggle">
-                <i class="fa-regular fa-chart-bar text-sm"></i>
-              </button>
-              <button data-type="pie" class="chart-toggle">
-                <i class="fa-regular fa-chart-pie text-sm"></i>
-              </button>
-            </div>
-          </div>
-            {{-- Subtitle for filters --}}
-          <p id="topProductsChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-1"></p>
-          <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Click on a product (bar chart only) to drill-down</p>
-          <div class="relative chart-container"> {{-- Constrained Height --}}
-            <canvas id="topProductsChart"></canvas>
-          </div>
-        </div>
-      </div>
-      {{-- End Consumption Charts --}}
-
-
-      {{-- 4. PATIENT CHARTS --}}
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {{-- Patients by Barangay (Stacked Bar) --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Patients by Barangay & Category</h3>
-          <p id="barangayChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p>
-          <div class="relative chart-container"> {{-- Constrained Height --}}
-            <canvas id="barangayChart"></canvas>
-          </div>
-        </div>
-
-        {{-- Patient Visit Trend Chart --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          {{-- Title updates dynamically --}}
-          <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
-            <h3 id="patientVisitChartTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Patient Visit Trend</h3>
-            
-            {{-- ADDED TOGGLE --}}
-            <div id="patientVisitChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
-              <button data-type="line" class="chart-toggle active-toggle">
-                <i class="fa-regular fa-chart-line text-sm"></i>
-              </button>
-              <button data-type="bar" class="chart-toggle">
-                <i class="fa-regular fa-chart-bar text-sm"></i>
-              </button>
-            </div>
-            {{-- END TOGGLE --}}
-
-          </div>
-          <p id="patientVisitChartSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p>
-          <div class="relative chart-container"> {{-- Constrained Height --}}
-            <canvas id="patientVisitChart"></canvas>
-          </div>
-        </div>
-        
-      </div>
-      {{-- End Patient Charts --}}
-
-      {{-- 5. NEW: SEASONAL & HOTSPOT ANALYSIS --}}
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        
-        {{-- Product Seasonal Trend --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-            {{-- Added ID to form, removed action/method --}}
-          <form id="seasonal-filter-form">
-              {{-- Persist existing CHART filters --}}
-             @foreach($filterInputs as $key => $value)
-               @if(!in_array($key, ['seasonal_product_id', 'compare_product_id', 'forecast_days']) && $value)
-                 <input type="hidden" name="{{ $key }}" value="{{ $value }}">
-               @endif
-             @endforeach
-             {{-- Persist forecast filter too --}}
-             <input type="hidden" name="forecast_days" value="{{ $inputs['forecast_days'] ?? 90 }}">
-            
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
-              <div>
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Product Seasonal Trend</h3>
-                <p class="text-sm text-gray-500 dark:text-gray-400">View & compare monthly dispensation (up to 3 yrs).</p>
-              </div>
-              <button type="submit" class="mt-2 sm:mt-0 px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">Update Chart</button>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label for="seasonal_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product 1</label>
-                <select name="seasonal_product_id" id="seasonal_product_id" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-                  @foreach($filter_products as $product)
-                      {{-- Ensure $selectedSeasonalProduct is not null before accessing id --}}
-                    <option value="{{ $product->id }}" @selected( ($filterInputs['seasonal_product_id'] ?? ($selectedSeasonalProduct->id ?? null)) == $product->id)>
-                      {{ $product->generic_name }}
-                    </option>
-                  @endforeach
-                </select>
-              </div>
-              <div>
-                <label for="compare_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product 2 (Compare)</label>
-                <select name="compare_product_id" id="compare_product_id" class="w-full pl-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:outline-none focus:border-blue-500 text-sm">
-                  <option value="">None</option>
-                  @foreach($filter_products as $product)
-                      {{-- Avoid comparing a product with itself --}}
-                    @if( ($selectedSeasonalProduct->id ?? null) != $product->id) 
-                      <option value="{{ $product->id }}" @selected( ($filterInputs['compare_product_id'] ?? '') == $product->id)>
-                        {{ $product->generic_name }}
-                      </option>
-                    @endif
-                  @endforeach
-                </select>
-              </div>
-            </div>
-          </form>
-          
-          <div id="seasonal-chart-anchor" class="relative chart-container mt-4"> {{-- Constrained Height --}}
-            <canvas id="seasonalChart"></canvas>
-          </div>
-          
-          <div class="mt-4 text-center">
-            <button id="get-ai-analysis" class="inline-flex items-center px-4 py-2 text-sm text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50">
-              <i class="fa-regular fa-stars mr-2"></i>
-              <span id="ai-button-text">Get AI Analysis of this Trend</span>
-            </button>
-          </div>
-        </div>
-
-        {{-- Patient Dispensation Hotspots --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Dispensation Hotspots</h3>
-           <p id="hotspotsSubtitle" class="text-sm text-gray-500 dark:text-gray-400 mb-4"></p> {{-- Dynamic Subtitle --}}
-           <div class="overflow-y-auto h-96 relative"> {{-- Added relative for loader --}}
-            <table class="w-full text-sm text-left text-gray-500 dark:text-gray-400">
-              <thead class="text-xs text-gray-700 dark:text-gray-300 uppercase bg-gray-100 dark:bg-gray-700 sticky top-0">
-                <tr>
-                  <th scope="col" class="px-6 py-3">Barangay</th>
-                  <th scope="col" class="px-6 py-3">Category</th>
-                  <th scope="col" class="px-6 py-3 text-right">Total Items</th>
-                  <th scope="col" class="px-6 py-3 text-right">Patients</th> {{-- NEW --}}
-                </tr>
-              </thead>
-              <tbody id="hotspots-table-body"> {{-- Add ID for AJAX update --}}
-                  {{-- Include the partial for initial load --}}
-                  @include('admin.partials._hotspots_table_body', ['patientHotspots' => $patientHotspots])
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-      {{-- End New Analytics --}}
     </main>
     {{-- @else --}}
             {{-- UNAUTHORIZED VIEW (Added this else block) --}}
@@ -610,7 +608,7 @@
 
   {{-- ADDED: Zoom Plugin --}}
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
-  
+
   {{-- ADDED: Register Zoom Plugin --}}
   <script>
     Chart.register(window.ChartZoom);
@@ -741,7 +739,7 @@
         labels: @json($consumptionLabels),
         data: @json($consumptionData),
         // This is the active product ID's name (either drilldown or filter_product_id)
-        productName: @json($drilldown_product_name) 
+        productName: @json($drilldown_product_name)
       },
       topProducts: {
         labels: @json($topProducts->keys()),
@@ -776,7 +774,7 @@
           drilldownProduct: @json($drilldown_product_name)
       }
     };
-    
+
     // Store chart instances
     window.myCharts = {};
     // Store original configurations
@@ -803,13 +801,13 @@ const distinctPieColors = [
     ];
 
     const pieColors = Object.values(distinctPieColors); // Use consistent colors for pie chart
-    
+
     const consumptionLineColor = 'rgb(34, 197, 94)'; // green-600
     const topProductsBarColor = 'rgba(59, 130, 246, 0.7)'; // blue-600 with alpha
-    
+
     // NEW: Patient Visit Color
     const patientVisitColor = 'rgb(234, 179, 8)'; // yellow-500
-    
+
     const seasonalColor1 = 'rgb(168, 85, 247)'; // purple-600
     const seasonalColor2 = 'rgb(234, 179, 8)'; // yellow-500 (same as patient visit, but used in different chart)
 
@@ -827,7 +825,7 @@ const distinctPieColors = [
       errorHistory: 'rgb(168, 85, 247)',
       bottleneck: 'rgb(14, 165, 233)',
     };
-    
+
     // --- CSRF Token for AJAX ---
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
@@ -842,9 +840,9 @@ const distinctPieColors = [
         // 1. Get the CURRENT data from the live chart instance
         // This data was updated by your AJAX calls
         const currentData = chart.config.data;
-        
+
         // 2. Clone the ORIGINAL config (this preserves scales, plugins, onClick handlers, etc.)
-        const newConfig = JSON.parse(JSON.stringify(originalConfig)); 
+        const newConfig = JSON.parse(JSON.stringify(originalConfig));
 
         // 3. Inject the CURRENT, up-to-date data into the new config
         // We must clone currentData to avoid any weird reference issues
@@ -855,8 +853,8 @@ const distinctPieColors = [
         newConfig.options.onClick = originalConfig.options.onClick; // Reset click handler
 
         if (newType === 'pie' || newType === 'doughnut') {
-            newConfig.options.indexAxis = 'x'; 
-            newConfig.options.scales = {}; 
+            newConfig.options.indexAxis = 'x';
+            newConfig.options.scales = {};
             newConfig.options.plugins.legend.display = true;
             newConfig.options.onClick = null; // Disable click for pie
 
@@ -867,17 +865,17 @@ const distinctPieColors = [
                 newConfig.data.datasets[0].borderColor = '#ffffff';
                 newConfig.data.datasets[0].borderWidth = 1;
                 newConfig.data.datasets[0].hoverOffset = 4;
-                delete newConfig.data.datasets[0].tension; 
-                delete newConfig.data.datasets[0].fill; 
+                delete newConfig.data.datasets[0].tension;
+                delete newConfig.data.datasets[0].fill;
             }
         } else { // Adjustments for bar/line
-            newConfig.options.indexAxis = originalConfig.options.indexAxis || 'x'; 
+            newConfig.options.indexAxis = originalConfig.options.indexAxis || 'x';
             newConfig.options.scales = JSON.parse(JSON.stringify(originalConfig.options.scales)) || { x: { beginAtZero: true }, y: { beginAtZero: true } };
-            newConfig.options.plugins.legend.display = false; 
+            newConfig.options.plugins.legend.display = false;
 
             if (newConfig.data.datasets && newConfig.data.datasets.length > 0) {
                 const dataset = newConfig.data.datasets[0];
-                
+
                 // UPDATED: Handle colors for multiple charts
                 let lineColor, barColor, barBgColor;
                 if (chartId === 'consumptionChart') {
@@ -915,27 +913,27 @@ const distinctPieColors = [
         const ctx = document.getElementById(chartId).getContext('2d');
         window.myCharts[chartId] = new Chart(ctx, newConfig);
     }
-    
+
     // --- DRILL-DOWN FUNCTION (NOW AJAX) ---
   async function handleDrillDown(productId) {
       showLoader('consumptionChart');
       showLoader('barangayChart');
-      showLoader('patientVisitChart'); 
-      showLoader('hotspots-table-body'); 
-      document.getElementById('drilldown_product_id').value = productId; 
-      
+      showLoader('patientVisitChart');
+      showLoader('hotspots-table-body');
+      document.getElementById('drilldown_product_id').value = productId;
+
       // Also clear the main product filter if a drilldown is initiated
       document.getElementById('filter_product_id').value = '';
-      
+
       const form = document.getElementById('dashboard-filter-form');
       const formData = new FormData(form);
       if (productId) {
-          formData.set('drilldown_product_id', productId); 
+          formData.set('drilldown_product_id', productId);
       } else {
           formData.delete('drilldown_product_id'); // Ensure it's not sent if null
       }
       formData.append('ajax_update', 'main_charts'); // Explicitly set update type
-      
+
       const queryString = new URLSearchParams(formData).toString();
       const url = `${form.action}?${queryString}`;
 
@@ -955,59 +953,59 @@ const distinctPieColors = [
           if (window.myCharts.consumptionChart) {
               window.myCharts.consumptionChart.data.labels = data.consumptionLabels;
               window.myCharts.consumptionChart.data.datasets[0].data = data.consumptionData;
-              
+
               const title = data.drilldownProductName ? `Dispensation Trend for ${data.drilldownProductName} (Items)` : 'Dispensation Trend (Items)';
               document.getElementById('consumptionChartTitle').textContent = title; // Update h3 title
-              
+
               updateChartSubtitle('consumptionChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
               window.myCharts.consumptionChart.update();
           }
 
           // 2. Update Barangay Chart (Stacked)
           if (window.myCharts.barangayChart) {
-               window.myCharts.barangayChart.data.labels = data.barangay.labels; 
-               const stackedData = data.barangay.stackedData; 
+               window.myCharts.barangayChart.data.labels = data.barangay.labels;
+               const stackedData = data.barangay.stackedData;
                const categories = Object.keys(stackedData);
-               
+
                // Rebuild datasets
                window.myCharts.barangayChart.data.datasets = categories.map(category => ({
                    label: category,
                    data: stackedData[category],
                    backgroundColor: categoryColors[category] || '#cccccc'
                }));
-               
+
                updateChartSubtitle('barangayChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
                window.myCharts.barangayChart.update();
           }
 
           // 3. Update Patient Visit Trend Chart
           if (window.myCharts.patientVisitChart) {
-               window.myCharts.patientVisitChart.data.labels = data.patientVisit.labels; 
-               window.myCharts.patientVisitChart.data.datasets[0].data = data.patientVisit.data; 
-               
+               window.myCharts.patientVisitChart.data.labels = data.patientVisit.labels;
+               window.myCharts.patientVisitChart.data.datasets[0].data = data.patientVisit.data;
+
                // Update title dynamically
                let title = 'Patient Visit Trend';
                if (data.filterBarangayLabel !== 'All Barangays') {
                    title += ` in ${data.filterBarangayLabel}`;
                }
                document.getElementById('patientVisitChartTitle').textContent = title; // Update h3 title
-               
+
                updateChartSubtitle('patientVisitChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
                window.myCharts.patientVisitChart.update();
           }
-          
+
           // 4. Update Hotspots Table Body
           document.getElementById('hotspots-table-body').innerHTML = data.hotspotsHtml;
           updateChartSubtitle('hotspotsSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
-          
+
           // 5. Update Drilldown Indicator Bar
           updateDrilldownIndicator(data.drilldownProductName);
-          
+
            // Update filter labels stored in JS (Including product label)
            initialChartData.filterLabels.timespan = data.filterTimespanLabel;
            initialChartData.filterLabels.barangay = data.filterBarangayLabel;
            initialChartData.filterLabels.branch = data.filterBranchLabel; // <--- UPDATE BRANCH
-           initialChartData.filterLabels.product = data.drilldownProductName ?? 'All Products'; 
+           initialChartData.filterLabels.product = data.drilldownProductName ?? 'All Products';
            initialChartData.filterLabels.drilldownProduct = data.drilldownProductName;
 
            // Update observability widgets using the same filter context
@@ -1023,11 +1021,11 @@ const distinctPieColors = [
     } finally {
            hideLoader('consumptionChart');
            hideLoader('barangayChart');
-           hideLoader('patientVisitChart'); 
+           hideLoader('patientVisitChart');
            hideLoader('hotspots-table-body');
     }
   }
-    
+
     // --- Helper to show/hide loader ---
     function showLoader(elementId) {
         let loader = document.getElementById(`${elementId}-loader`);
@@ -1047,7 +1045,7 @@ const distinctPieColors = [
             parentContainer.appendChild(loader);
         }
         loader.style.display = 'block';
-        
+
         // Optionally hide the content while loading
         if (document.getElementById(elementId)?.tagName === 'CANVAS') {
             document.getElementById(elementId).style.opacity = '0.3';
@@ -1067,11 +1065,11 @@ const distinctPieColors = [
              contentElement.style.opacity = '1';
         }
     }
-      
+
     // --- Helper to update drilldown indicator ---
     function updateDrilldownIndicator(productName) {
         let indicator = document.querySelector('.drilldown-indicator');
-        
+
         if (indicator && productName) {
             document.getElementById('drilldown-indicator-name').textContent = productName;
             indicator.style.display = 'flex'; // Ensure it's visible
@@ -1079,7 +1077,7 @@ const distinctPieColors = [
             indicator.style.display = 'none'; // Hide if no product name
         }
     }
-      
+
     // --- Function to clear drilldown via AJAX ---
     async function clearDrilldown() {
         document.getElementById('drilldown_product_id').value = ''; // Clear hidden input
@@ -1088,19 +1086,19 @@ const distinctPieColors = [
            document.getElementById('filter_product_id').value = '';
         }
         // Use the same AJAX logic as handleDrillDown, but with a null product ID
-        await handleDrillDown(null); 
+        await handleDrillDown(null);
         // Hide the indicator bar
         const indicator = document.querySelector('.drilldown-indicator');
         if (indicator) indicator.style.display = 'none';
     }
-      
+
     // --- Function to clear ALL filters (including drilldown) and reload ---
     function clearAllFilters() {
         // Construct base URL without any query parameters
         const baseUrl = window.location.origin + window.location.pathname;
         window.location.href = baseUrl; // Reload the page with default filters
     }
-      
+
       // --- Helper function to update chart subtitles ---
     function updateChartSubtitle(elementId, timespan, barangay, drilldown) {
       const element = document.getElementById(elementId);
@@ -1109,14 +1107,14 @@ const distinctPieColors = [
           // Show drilldown product name if active (takes precedence over main filter)
           if (drilldown) {
               productFilter = `, Product: ${drilldown}`;
-          } 
+          }
           // If no drilldown, check if the main product filter is set and display it
           else if (document.getElementById('filter_product_id')?.value) {
              const productSelect = document.getElementById('filter_product_id');
              const selectedOption = productSelect.options[productSelect.selectedIndex];
              productFilter = `, Product: ${selectedOption.textContent.trim()}`;
           }
-          
+
           // NEW: Get Branch Name from Dropdown or Initial Data
           let branchFilter = '';
           const branchSelect = document.getElementById('filter_branch');
@@ -1133,7 +1131,7 @@ const distinctPieColors = [
               subtitle += `, ${barangay}`;
           }
           subtitle += productFilter;
-          
+
           element.textContent = subtitle + '.';
       }
     }
@@ -1272,7 +1270,7 @@ const distinctPieColors = [
         const form = document.getElementById('forecast-filter-form');
         const formData = new FormData(form);
         formData.append('ajax_update', 'forecast'); // Signal to backend
-        
+
         // Also append filter_branch from main form to forecast query
         const branchVal = document.getElementById('filter_branch').value;
         if(branchVal) formData.append('filter_branch', branchVal);
@@ -1288,9 +1286,9 @@ const distinctPieColors = [
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             });
             if (!response.ok) throw new Error('Network response was not ok');
-            
+
             const data = await response.json(); // Expecting { forecastHtml: '...' }
-            
+
             if (data.forecastHtml) {
                 document.getElementById('forecast-table-body').innerHTML = data.forecastHtml;
                 // Persist the new forecast_days value in the *main* filter form
@@ -1312,11 +1310,11 @@ const distinctPieColors = [
         const form = document.getElementById('dashboard-filter-form');
         const formData = new FormData(form);
         formData.append('ajax_update', 'main_charts'); // Signal to backend
-        
+
         // If a new filter_product_id is selected, clear any active drilldown
         const selectedProductId = document.getElementById('filter_product_id').value;
         const drilldownProductId = document.getElementById('drilldown_product_id').value;
-        
+
         if (selectedProductId && selectedProductId !== drilldownProductId) {
              document.getElementById('drilldown_product_id').value = ''; // Clear drilldown
              formData.delete('drilldown_product_id'); // Ensure cleared in form data
@@ -1325,7 +1323,7 @@ const distinctPieColors = [
              document.getElementById('drilldown_product_id').value = '';
              formData.delete('drilldown_product_id');
         }
-        
+
         const queryString = new URLSearchParams(formData).toString();
         const url = `${form.action}?${queryString}`;
 
@@ -1370,14 +1368,14 @@ const distinctPieColors = [
                 window.myCharts.barangayChart.data.labels = data.barangay.labels;
                 const stackedData = data.barangay.stackedData;
                 const categories = Object.keys(stackedData);
-                
+
                 // Rebuild datasets
                 window.myCharts.barangayChart.data.datasets = categories.map(category => ({
                     label: category,
                     data: stackedData[category],
                     backgroundColor: categoryColors[category] || '#cccccc'
                 }));
-                
+
                 updateChartSubtitle('barangayChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
                 window.myCharts.barangayChart.update();
             }
@@ -1394,7 +1392,7 @@ const distinctPieColors = [
                 updateChartSubtitle('patientVisitChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
                 window.myCharts.patientVisitChart.update();
             }
-            
+
             // 5. Update Hotspots Table
             document.getElementById('hotspots-table-body').innerHTML = data.hotspotsHtml;
             updateChartSubtitle('hotspotsSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
@@ -1425,7 +1423,7 @@ const distinctPieColors = [
             hideLoader('hotspots-table-body');
         }
     }
-    
+
     // --- NEW: AJAX FOR SEASONAL CHART FILTER ---
     async function handleSeasonalFilterSubmit() {
         const form = document.getElementById('seasonal-filter-form');
@@ -1439,7 +1437,7 @@ const distinctPieColors = [
                 formData.append(key, value);
             }
         });
-        
+
         const queryString = new URLSearchParams(formData).toString();
         const url = `{{ route('admin.dashboard') }}?${queryString}#seasonal-chart-anchor`;
 
@@ -1458,7 +1456,7 @@ const distinctPieColors = [
             initialChartData.seasonal = data.seasonal;
 
             const seasonalCtx = document.getElementById('seasonalChart').getContext('2d');
-            
+
             // Destroy old chart if it exists
             if (window.myCharts.seasonalChart) {
                 window.myCharts.seasonalChart.destroy();
@@ -1505,7 +1503,7 @@ const distinctPieColors = [
                  window.originalChartConfigs.seasonalChart = JSON.parse(JSON.stringify(seasonalConfig));
             } else {
                  // Draw "No data" message
-                 const ctx = seasonalCtx.getContext('2d'); 
+                 const ctx = seasonalCtx.getContext('2d');
                  ctx.clearRect(0, 0, seasonalCtx.canvas.width, seasonalCtx.canvas.height); // Clear old chart
                  ctx.font = "16px Arial"; ctx.fillStyle = "#aaa"; ctx.textAlign = "center";
                  ctx.fillText("No seasonal data for selected product(s)", seasonalCtx.canvas.width / 2, seasonalCtx.canvas.height / 2);
@@ -1534,7 +1532,7 @@ const distinctPieColors = [
 
 
     document.addEventListener('DOMContentLoaded', function () {
-    
+
       // Filter toggle logic for custom dates
       // --- START: New Timespan & Grouping Logic ---
         // Get all the elements we need
@@ -1573,7 +1571,7 @@ const distinctPieColors = [
                     groupingSelect.value = 'day';
                 }
             }
-            
+
             // 3. Handle the custom dates visibility
             if (customDates) {
                 if (selectedTimespan === 'custom') {
@@ -1587,20 +1585,20 @@ const distinctPieColors = [
         // Add the listener to the timespan select
         if (timespanSelect) {
             timespanSelect.addEventListener('change', updateGroupingOptions);
-            
+
             // IMPORTANT: Run it once on page load to set the initial state
             updateGroupingOptions();
         }
         // --- END: New Timespan & Grouping Logic ---
 
       // Set initial chart data
-      
+
       // --- CHART INITIALIZATION ---
-      
+
       // 1. Consumption Chart (Line)
       const consumptionCtx = document.getElementById('consumptionChart').getContext('2d');
       const consumptionConfig = {
-        type: 'line', 
+        type: 'line',
         data: {
           labels: initialChartData.consumption.labels,
           datasets: [{
@@ -1615,12 +1613,12 @@ const distinctPieColors = [
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { 
+          plugins: {
             legend: { display: false },
             title: {
                  display: false, // Title is now the H3 tag
                  text: '...', // Kept for config, but H3 is used
-                 padding: { bottom: 5 } 
+                 padding: { bottom: 5 }
             },
             tooltip: {
                 mode: 'index',
@@ -1640,22 +1638,22 @@ const distinctPieColors = [
             }
             // END Zoom
           },
-          scales: { 
-              y: { beginAtZero: true, title: { display: true, text: 'Quantity' } }, 
-              x: { ticks: { autoSkip: true, maxRotation: 0 } } 
-          }, 
+          scales: {
+              y: { beginAtZero: true, title: { display: true, text: 'Quantity' } },
+              x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          },
           animation: { duration: 1000, easing: 'easeOutQuad' }
         }
       };
       // Set initial H3 title
       document.getElementById('consumptionChartTitle').textContent = initialChartData.consumption.productName ? `Dispensation Trend for ${initialChartData.consumption.productName} (Items)` : 'Dispensation Trend (Items)';
       window.myCharts.consumptionChart = new Chart(consumptionCtx, consumptionConfig);
-      window.originalChartConfigs.consumptionChart = JSON.parse(JSON.stringify(consumptionConfig)); 
+      window.originalChartConfigs.consumptionChart = JSON.parse(JSON.stringify(consumptionConfig));
 
       // 2. Top Products Chart (Bar)
       const topProductsCtx = document.getElementById('topProductsChart').getContext('2d');
       const topProductsConfig = {
-        type: 'bar', 
+        type: 'bar',
         data: {
           labels: initialChartData.topProducts.labels,
           datasets: [{
@@ -1670,8 +1668,8 @@ const distinctPieColors = [
           indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
-          scales: { x: { beginAtZero: true, title: { display: true, text: 'Total Quantity Dispensed' } }, y: { ticks: { autoSkip: false } } }, 
-          plugins: { 
+          scales: { x: { beginAtZero: true, title: { display: true, text: 'Total Quantity Dispensed' } }, y: { ticks: { autoSkip: false } } },
+          plugins: {
               legend: { display: false },
               title: { display: false } // No title needed here usually
           },
@@ -1684,7 +1682,7 @@ const distinctPieColors = [
                       const index = firstPoint.index;
                       const clickedItem = initialChartData.topProducts.drilldown[index];
                       if (clickedItem && clickedItem.id) {
-                          handleDrillDown(clickedItem.id); 
+                          handleDrillDown(clickedItem.id);
                       }
                   }
               }
@@ -1692,7 +1690,7 @@ const distinctPieColors = [
         }
       };
       window.myCharts.topProductsChart = new Chart(topProductsCtx, topProductsConfig);
-      window.originalChartConfigs.topProductsChart = JSON.parse(JSON.stringify(topProductsConfig)); 
+      window.originalChartConfigs.topProductsChart = JSON.parse(JSON.stringify(topProductsConfig));
 
 
       // 3. Barangay Chart (STACKED Bar)
@@ -1708,32 +1706,32 @@ const distinctPieColors = [
             }))
           },
           options: {
-            indexAxis: 'x', 
+            indexAxis: 'x',
             responsive: true,
             maintainAspectRatio: false,
-            scales: { 
-              y: { 
-                  beginAtZero: true, 
+            scales: {
+              y: {
+                  beginAtZero: true,
                   stacked: true, // Enable stacking
-                  title: { display: true, text: 'Number of Patients' } 
-              }, 
-              x: { 
+                  title: { display: true, text: 'Number of Patients' }
+              },
+              x: {
                   stacked: true, // Enable stacking
                   ticks: { autoSkip: false } // Show all barangay labels
-              } 
+              }
             },
-            plugins: { 
-              legend: { 
+            plugins: {
+              legend: {
                   display: true, // Show legend for categories
-                  position: 'bottom' 
+                  position: 'bottom'
               },
-                title: { display: false } 
+                title: { display: false }
             },
               animation: { duration: 1000, easing: 'easeOutQuad' }
           }
         };
       window.myCharts.barangayChart = new Chart(barangayCtx, barangayConfig);
-      window.originalChartConfigs.barangayChart = JSON.parse(JSON.stringify(barangayConfig)); 
+      window.originalChartConfigs.barangayChart = JSON.parse(JSON.stringify(barangayConfig));
 
       // 4. NEW: Patient Visit Trend Chart (Line)
       const patientVisitCtx = document.getElementById('patientVisitChart').getContext('2d');
@@ -1755,10 +1753,10 @@ const distinctPieColors = [
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { 
+          plugins: {
             legend: { display: false },
-              title: { 
-                  display: false, 
+              title: {
+                  display: false,
                   text: '...',
                   padding: { bottom: 5 }
               },
@@ -1778,10 +1776,10 @@ const distinctPieColors = [
                 }
               }
           },
-          scales: { 
-              y: { beginAtZero: true, title: { display: true, text: 'Number of Patients' } }, 
-              x: { ticks: { autoSkip: true, maxRotation: 0 } } 
-          }, 
+          scales: {
+              y: { beginAtZero: true, title: { display: true, text: 'Number of Patients' } },
+              x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          },
           animation: { duration: 1000, easing: 'easeOutQuad' }
         }
       };
@@ -1803,7 +1801,7 @@ const distinctPieColors = [
           responsive: true,
           maintainAspectRatio: false,
           scales: { y: { beginAtZero: true, title: { display: true, text: 'Quantity Dispensed' } }, x: { ticks: { autoSkip: true, maxRotation: 0 } } },
-          plugins: { 
+          plugins: {
             legend: { display: true },
             tooltip: {
                 mode: 'index',
@@ -1820,7 +1818,7 @@ const distinctPieColors = [
                     mode: 'x',
                 }
             }
-          }, 
+          },
           animation: { duration: 1000, easing: 'easeOutQuad' }
         }
       };
@@ -1851,7 +1849,7 @@ const distinctPieColors = [
            window.myCharts.seasonalChart = new Chart(seasonalCtx, seasonalConfig);
            window.originalChartConfigs.seasonalChart = JSON.parse(JSON.stringify(seasonalConfig)); // Store original
         } else {
-           const ctx = seasonalCtx.getContext('2d'); 
+           const ctx = seasonalCtx.getContext('2d');
            ctx.font = "16px Arial"; ctx.fillStyle = "#aaa"; ctx.textAlign = "center";
            ctx.fillText("No seasonal data for selected product(s)", seasonalCtx.canvas.width / 2, seasonalCtx.canvas.height / 2);
         }
@@ -2044,20 +2042,20 @@ const distinctPieColors = [
       };
       window.myCharts.observabilityBottleneckChart = new Chart(obsBottleneckCtx, obsBottleneckConfig);
       window.originalChartConfigs.observabilityBottleneckChart = JSON.parse(JSON.stringify(obsBottleneckConfig));
-      
+
       // --- TOGGLE BUTTONS ---
       document.querySelectorAll('.chart-toggle').forEach(button => {
         button.addEventListener('click', (e) => {
           const btn = e.currentTarget;
           const newType = btn.dataset.type;
           const parent = btn.parentElement;
-          
+
           let chartId;
           if (parent.id === 'consumptionChartToggle') {
               chartId = 'consumptionChart';
           } else if (parent.id === 'topProductsChartToggle') {
               chartId = 'topProductsChart';
-          } else if (parent.id === 'patientVisitChartToggle') { 
+          } else if (parent.id === 'patientVisitChartToggle') {
               chartId = 'patientVisitChart';
           }
 
@@ -2086,7 +2084,7 @@ const distinctPieColors = [
            if (!initialChartData.seasonal.productName || !initialChartData.seasonal.data || initialChartData.seasonal.data.length === 0) {
                return; // Prevent running if disabled
            }
-           
+
         aiButton.disabled = true;
         aiButtonText.textContent = 'Analyzing...';
         aiResponseContent.innerHTML = '<p>Loading analysis...</p>';
@@ -2097,13 +2095,13 @@ const distinctPieColors = [
           const dataForBackend = initialChartData.seasonal.labels && initialChartData.seasonal.data ? initialChartData.seasonal.labels.map((label, index) => {
             return { label: label, data: initialChartData.seasonal.data[index] ?? 0 };
           }) : [];
-          
+
           const compareForBackend = initialChartData.seasonal.compareName && initialChartData.seasonal.labels && initialChartData.seasonal.compareData ? initialChartData.seasonal.labels.map((label, index) => {
                // Ensure compareData has a value for the index, default to 0
                const compareValue = (initialChartData.seasonal.compareData && index < initialChartData.seasonal.compareData.length) ? initialChartData.seasonal.compareData[index] : 0;
             return { label: label, data: compareValue };
           }) : [];
-          
+
           const payload = {
             product_name: initialChartData.seasonal.productName,
             seasonal_data: dataForBackend,
@@ -2111,7 +2109,7 @@ const distinctPieColors = [
             compare_data: compareForBackend
             // No need to send _token in body for POST via fetch if using X-CSRF-TOKEN header
           };
-          
+
           const response = await fetch("{{ route('admin.ai.analysis') }}", {
             method: 'POST',
             headers: {
@@ -2151,15 +2149,15 @@ const distinctPieColors = [
       closeAiModal.addEventListener('click', () => {
         aiModal.classList.add('hidden');
       });
-      
+
         // Initial Drilldown Indicator Update on page load
         updateDrilldownIndicator(initialChartData.consumption.productName);
-        
+
         // Initial Subtitle Updates
         updateChartSubtitle('consumptionChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
         updateChartSubtitle('topProductsChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.product === 'All Products' ? null : initialChartData.filterLabels.product); // Uses main product filter if no drilldown
         updateChartSubtitle('barangayChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
-        updateChartSubtitle('patientVisitChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct); 
+        updateChartSubtitle('patientVisitChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
         updateChartSubtitle('hotspotsSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
         applyObservabilityPayload(initialChartData.observability || {});
         setInterval(refreshObservabilityWidget, 60000);
@@ -2174,7 +2172,7 @@ const distinctPieColors = [
           }
 
         // NEW: ADD AJAX EVENT LISTENERS
-        
+
         // 1. Forecast Filter
         document.getElementById('forecast_days_select').addEventListener('change', handleForecastFilterUpdate);
 

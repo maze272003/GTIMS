@@ -3,35 +3,12 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==============================================================
     // 1. GLOBAL VARIABLES & HELPERS
     // ==============================================================
-    const tableContainer = document.getElementById('table-container');
     const filterModal = document.getElementById('filterModal');
     
     // Helper: Clear Validation Errors
     function clearValidation(modal) {
         const errorMessages = modal.querySelectorAll('.error-message');
         errorMessages.forEach(error => error.remove());
-    }
-
-    // Helper: AJAX Fetch Table Data (Pagination & Search)
-    function fetchTableData(url) {
-        if(!tableContainer) return;
-        
-        tableContainer.style.opacity = '0.5'; // Loading effect
-
-        fetch(url, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(response => response.text())
-        .then(html => {
-            tableContainer.innerHTML = html;
-            tableContainer.style.opacity = '1';
-            // Update URL without reload
-            window.history.pushState(null, '', url);
-        })
-        .catch(function () {
-            if (typeof gtToast !== 'undefined') gtToast.error('Failed to load patient records.');
-            tableContainer.style.opacity = '1';
-        });
     }
 
     // Helper: Initialize Searchable Dropdown (For Add Modal)
@@ -81,15 +58,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==============================================================
     document.addEventListener('click', function (e) {
 
-        // --- A. PAGINATION LINKS ---
-        const paginationLink = e.target.closest('.pagination-links a');
-        if (paginationLink && tableContainer.contains(paginationLink)) {
-            e.preventDefault();
-            fetchTableData(paginationLink.getAttribute('href'));
-            return;
-        }
-
-        // --- B. VIEW MEDICATIONS MODAL ---
+        // --- A. VIEW MEDICATIONS MODAL ---
         const viewBtn = e.target.closest('.view-medications-btn');
         if (viewBtn) {
             const row = viewBtn.closest('tr');
@@ -128,7 +97,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // --- C. EDIT RECORD MODAL ---
+        // --- B. EDIT RECORD MODAL ---
         const editBtn = e.target.closest('.editrecordbtn');
         if (editBtn) {
             const row = editBtn.closest('tr');
@@ -143,27 +112,27 @@ document.addEventListener('DOMContentLoaded', function () {
             const barangaySelect = document.getElementById('edit-barangay_id');
             if(barangaySelect) barangaySelect.value = row.dataset.barangayId;
 
-            document.getElementById('edit-record-title').textContent = `Edit #${row.dataset.recordId} – ${row.dataset.patientName}`;
+            document.getElementById('edit-record-title').textContent = `Edit #${row.dataset.recordId} - ${row.dataset.patientName}`;
             
             modal.classList.remove('hidden');
             return;
         }
 
-        // --- D. ADD RECORD MODAL TRIGGER ---
+        // --- C. ADD RECORD MODAL TRIGGER ---
         const addBtn = e.target.closest('#adddispensationbtn');
         if (addBtn) {
             document.getElementById('adddispensationmodal').classList.remove('hidden');
             return;
         }
 
-        // --- E. FILTER MODAL TRIGGER ---
+        // --- D. FILTER MODAL TRIGGER ---
         const filterBtn = e.target.closest('#openFilterModal');
         if (filterBtn) {
             filterModal.classList.remove('hidden');
             return;
         }
 
-        // --- F. CLOSE MODALS ---
+        // --- E. CLOSE MODALS ---
         if (e.target.closest('#closeadddispensationmodal')) {
             const m = document.getElementById('adddispensationmodal');
             m.classList.add('hidden');
@@ -328,30 +297,19 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
-    // Clear Filters
-    const clearFilterBtn = document.getElementById('clearFilters');
-    if (clearFilterBtn) {
-        clearFilterBtn.addEventListener('click', () => {
-            const baseUrl = new URL(window.location.href);
-            const params = baseUrl.searchParams;
-            ['from_date', 'to_date', 'category', 'barangay_id', 'page'].forEach(p => params.delete(p));
-            if (!params.has('branch_filter')) params.delete('page');
-            window.location.href = baseUrl.toString();
-        });
-    }
-
-    // Search Debounce
+    // Search Debounce (GET query persistence)
     const searchInput = document.getElementById('patientrecords-search-input');
+    const searchForm = document.getElementById('patientrecords-search-form');
+    const searchPageInput = document.getElementById('patientrecords-search-page');
     let debounceTimer;
-    if (searchInput) {
+    if (searchInput && searchForm) {
         searchInput.addEventListener('input', function () {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
-                const query = this.value;
-                const currentUrl = new URL(window.location.href);
-                currentUrl.searchParams.set('search', query);
-                currentUrl.searchParams.set('page', 1);
-                fetchTableData(currentUrl.toString());
+                if (searchPageInput) {
+                    searchPageInput.value = '1';
+                }
+                searchForm.submit();
             }, 500);
         });
     }
@@ -360,72 +318,79 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // add dispensation sweet alert 
 
-document.getElementById('add-dispensation-btn').addEventListener('click', function() {
-    const form = document.getElementById('add-dispensation-form');
-    const inputs = form.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], select');
-    let allFilled = true;
-
-    inputs.forEach(input => {
-        if (input.value.trim() === '') {
-        allFilled = false;
+const addDispensationBtn = document.getElementById('add-dispensation-btn');
+if (addDispensationBtn) {
+    addDispensationBtn.addEventListener('click', function () {
+        const form = document.getElementById('add-dispensation-form');
+        if (!form) {
+            return;
         }
-    });
 
-    if (!allFilled) {
-        Swal.fire({
-        title: 'Incomplete Form',
-        text: 'Please fill in all required fields before submitting.',
-        icon: 'warning',
-        confirmButtonText: 'OK',
-        allowOutsideClick: false,
-        customClass: {
-            container: 'swal-container',
-            popup: 'swal-popup',
-            title: 'swal-title',
-            htmlContainer: 'swal-content',
-            confirmButton: 'swal-confirm-button',
-            icon: 'swal-icon'
-        }
+        const inputs = form.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], select');
+        let allFilled = true;
+
+        inputs.forEach(input => {
+            if (input.value.trim() === '') {
+                allFilled = false;
+            }
         });
-        return;
-    }
 
-    Swal.fire({
-        title: 'Are you sure?',
-        text: "Please confirm if you want to proceed.",
-        icon: 'info',
-        showCancelButton: true,
-        cancelButtonText: 'Cancel',
-        confirmButtonText: 'Confirm',
-        allowOutsideClick: false,
-        customClass: {
-            container: 'swal-container',
-            popup: 'swal-popup',
-            title: 'swal-title',
-            htmlContainer: 'swal-content',
-            confirmButton: 'swal-confirm-button',
-            cancelButton: 'swal-cancel-button',
-            icon: 'swal-icon'
+        if (!allFilled) {
+            Swal.fire({
+                title: 'Incomplete Form',
+                text: 'Please fill in all required fields before submitting.',
+                icon: 'warning',
+                confirmButtonText: 'OK',
+                allowOutsideClick: false,
+                customClass: {
+                    container: 'swal-container',
+                    popup: 'swal-popup',
+                    title: 'swal-title',
+                    htmlContainer: 'swal-content',
+                    confirmButton: 'swal-confirm-button',
+                    icon: 'swal-icon'
+                }
+            });
+            return;
         }
-    }).then((result) => {
-        if (result.isConfirmed) {
+
         Swal.fire({
-            title: 'Processing...',
-            text: "Please wait, your request is being processed.",
+            title: 'Are you sure?',
+            text: "Please confirm if you want to proceed.",
+            icon: 'info',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel',
+            confirmButtonText: 'Confirm',
             allowOutsideClick: false,
             customClass: {
                 container: 'swal-container',
                 popup: 'swal-popup',
                 title: 'swal-title',
                 htmlContainer: 'swal-content',
+                confirmButton: 'swal-confirm-button',
                 cancelButton: 'swal-cancel-button',
                 icon: 'swal-icon'
-                },
-            didOpen: () => {
-            Swal.showLoading();
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Processing...',
+                    text: "Please wait, your request is being processed.",
+                    allowOutsideClick: false,
+                    customClass: {
+                        container: 'swal-container',
+                        popup: 'swal-popup',
+                        title: 'swal-title',
+                        htmlContainer: 'swal-content',
+                        cancelButton: 'swal-cancel-button',
+                        icon: 'swal-icon'
+                    },
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                form.submit();
             }
         });
-        form.submit();
-        }
     });
-});
+}

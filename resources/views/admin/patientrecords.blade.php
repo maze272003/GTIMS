@@ -71,21 +71,34 @@
                         <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-center justify-between gap-3">
                             
                             {{-- Search Bar --}}
-                            <div class="relative w-full sm:w-1/3">
+                            <form id="patientrecords-search-form" method="GET" action="{{ route('admin.patientrecords') }}" class="relative w-full sm:w-1/3">
+                                @if(auth()->user()->hasPermission('patients.manage'))
+                                    <input type="hidden" name="branch_filter" value="{{ $filters['branch_filter'] ?? 'all' }}">
+                                @endif
+                                <input type="hidden" name="category" value="{{ $filters['category'] ?? 'all' }}">
+                                <input type="hidden" name="barangay_id" value="{{ $filters['barangay_id'] ?? '' }}">
+                                <input type="hidden" name="from_date" value="{{ $filters['from_date'] ?? '' }}">
+                                <input type="hidden" name="to_date" value="{{ $filters['to_date'] ?? '' }}">
+                                <input type="hidden" name="page" id="patientrecords-search-page" value="1">
                                 <i class="fa-regular fa-magnifying-glass absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 text-sm"></i>
-                                <input type="text" id="patientrecords-search-input" placeholder="Search records..." class="w-full pl-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400">
-                            </div>
+                                <input type="text" name="search" id="patientrecords-search-input" value="{{ $filters['search'] ?? '' }}" placeholder="Search resident, barangay, purok, branch..." class="w-full pl-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400">
+                            </form>
 
                             <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
                                 {{-- === ADMIN FILTER DROPDOWN === --}}
                                 @if(auth()->user()->hasPermission('patients.manage') && isset($branches)) 
                                     <form method="GET" action="{{ route('admin.patientrecords') }}" class="flex items-center">
+                                        <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
+                                        <input type="hidden" name="category" value="{{ $filters['category'] ?? 'all' }}">
+                                        <input type="hidden" name="barangay_id" value="{{ $filters['barangay_id'] ?? '' }}">
+                                        <input type="hidden" name="from_date" value="{{ $filters['from_date'] ?? '' }}">
+                                        <input type="hidden" name="to_date" value="{{ $filters['to_date'] ?? '' }}">
                                         <div class="relative">
                                             <i class="fa-regular fa-filter absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 dark:text-gray-400 text-xs"></i>
                                             <select name="branch_filter" onchange="this.form.submit()" class="pl-8 p-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 cursor-pointer">
-                                                <option value="all" {{ ($currentFilter ?? 'all') == 'all' ? 'selected' : '' }}>All Branches</option>
+                                                <option value="all" {{ ($filters['branch_filter'] ?? 'all') === 'all' ? 'selected' : '' }}>All Branches</option>
                                                 @foreach($branches as $branch)
-                                                    <option value="{{ $branch->id }}" {{ ($currentFilter ?? '') == $branch->id ? 'selected' : '' }}>
+                                                    <option value="{{ $branch->id }}" {{ (string) ($filters['branch_filter'] ?? '') === (string) $branch->id ? 'selected' : '' }}>
                                                         {{ $branch->name }}
                                                     </option>
                                                 @endforeach
@@ -102,13 +115,13 @@
 
                                 <div class="flex gap-2">
                                     {{-- PDF Button --}}
-                                    <a href="{{ route('admin.patientrecords.exportPdf', request()->all()) }}" target="_blank" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                    <a href="{{ route('admin.patientrecords.exportPdf', request()->except('page')) }}" target="_blank" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
                                         <i class="fa-regular fa-file-pdf text-lg text-red-600 dark:text-red-400"></i>
                                         <span class="ml-2 hidden sm:inline">PDF</span>
                                     </a>
 
                                     {{-- EXCEL Button --}}
-                                    <a href="{{ route('admin.patientrecords.exportExcel', request()->all()) }}" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                    <a href="{{ route('admin.patientrecords.exportExcel', request()->except('page')) }}" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
                                         <i class="fa-regular fa-file-excel text-lg text-green-600 dark:text-green-400"></i>
                                         <span class="ml-2 hidden sm:inline">Excel</span>
                                     </a>
@@ -140,18 +153,19 @@
 
                             {{-- Preserve branch filter for Admin --}}
                             @if(auth()->user()->hasPermission('patients.manage'))
-                                <input type="hidden" name="branch_filter" value="{{ request('branch_filter', 'all') }}">
+                                <input type="hidden" name="branch_filter" value="{{ $filters['branch_filter'] ?? 'all' }}">
                             @endif
+                            <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
 
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">From Date</label>
-                                    <input type="date" name="from_date" value="{{ request('from_date') }}"
+                                    <input type="date" name="from_date" value="{{ $filters['from_date'] ?? '' }}"
                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To Date</label>
-                                    <input type="date" name="to_date" value="{{ request('to_date') }}"
+                                    <input type="date" name="to_date" value="{{ $filters['to_date'] ?? '' }}"
                                         class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                                 </div>
                             </div>
@@ -159,10 +173,10 @@
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
                                 <select name="category" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                                    <option value="">All Categories</option>
-                                    <option value="Adult" {{ request('category') == 'Adult' ? 'selected' : '' }}>Adult</option>
-                                    <option value="Child" {{ request('category') == 'Child' ? 'selected' : '' }}>Child</option>
-                                    <option value="Senior" {{ request('category') == 'Senior' ? 'selected' : '' }}>Senior</option>
+                                    <option value="all" {{ ($filters['category'] ?? 'all') === 'all' ? 'selected' : '' }}>All Categories</option>
+                                    <option value="Adult" {{ ($filters['category'] ?? '') === 'Adult' ? 'selected' : '' }}>Adult</option>
+                                    <option value="Child" {{ ($filters['category'] ?? '') === 'Child' ? 'selected' : '' }}>Child</option>
+                                    <option value="Senior" {{ ($filters['category'] ?? '') === 'Senior' ? 'selected' : '' }}>Senior</option>
                                 </select>
                             </div>
 
@@ -171,7 +185,7 @@
                                 <select name="barangay_id" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                                     <option value="">All Barangays</option>
                                     @foreach($barangays as $barangay)
-                                        <option value="{{ $barangay->id }}" {{ request('barangay_id') == $barangay->id ? 'selected' : '' }}>
+                                        <option value="{{ $barangay->id }}" {{ (string) ($filters['barangay_id'] ?? '') === (string) $barangay->id ? 'selected' : '' }}>
                                             {{ $barangay->barangay_name }}
                                         </option>
                                     @endforeach
@@ -179,9 +193,9 @@
                             </div>
 
                             <div class="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-700">
-                                <button type="button" id="clearFilters" class="px-5 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition font-medium">
+                                <a href="{{ route('admin.patientrecords') }}" class="px-5 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition font-medium">
                                     Clear All Filters
-                                </button>
+                                </a>
                                 <button type="submit" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium">
                                     Apply Filters
                                 </button>
