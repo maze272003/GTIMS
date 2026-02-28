@@ -14,6 +14,7 @@ use App\Services\AvailabilityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class IncomingRequestController extends Controller
 {
@@ -40,7 +41,7 @@ class IncomingRequestController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        $branches = Branch::all();
+        $branches = Branch::query()->active()->orderBy('name')->get();
 
         return view('admin.requests.index', compact('requests', 'branches'));
     }
@@ -48,14 +49,17 @@ class IncomingRequestController extends Controller
     public function create()
     {
         $products = Product::where('is_archived', false)->get();
-        $branches = Branch::all();
+        $branches = Branch::query()->active()->orderBy('name')->get();
         return view('admin.requests.create', compact('products', 'branches'));
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => [
+                'required',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
             'department' => 'nullable|string|max:255',
             'priority' => 'required|in:low,normal,high,urgent',
             'remarks' => 'nullable|string',

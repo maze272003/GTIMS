@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Http\Request;
+use App\Models\Branch;
 use App\Repositories\Interfaces\OrderRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -27,54 +28,42 @@ class OrderAdminService
     }
 
    
-    public function create()
+public function create()
 {
     $user = Auth::user();
     $currentBranchId = $user->branch_id;
+    $branches = Branch::query()->active()->orderBy('name')->get();
 
-    // 1. Fetch ALL active inventory grouped by Product and Branch
-    // This gives us raw rows like: [Prod 1, Branch 1, Qty 50], [Prod 1, Branch 2, Qty 20]
+    // 1. Fetch ALL active inventory grouped by Product and Branch.
     $rawInventory = $this->orderRepository->getGroupedActiveInventoryTotals();
 
-    // 2. Build the Master StockMap
-    // Structure: [ ProductID => ['rhu1' => 50, 'rhu2' => 20, 'total' => 70] ]
+    // 2. Build a dynamic StockMap.
+    // Structure: [ productId => ['branches' => [branchId => qty], 'total' => qty] ]
     $stockMap = [];
     foreach($rawInventory as $item) {
         $pid = $item->product_id;
-        
+
         if (!isset($stockMap[$pid])) {
-            $stockMap[$pid] = ['rhu1' => 0, 'rhu2' => 0, 'total' => 0];
+            $stockMap[$pid] = ['branches' => [], 'total' => 0];
         }
 
-        // Assign quantity to specific branch keys
-        // Assuming ID 1 is RHU 1 and ID 2 is RHU 2
-        if ($item->branch_id == 1) {
-            $stockMap[$pid]['rhu1'] = (int)$item->total_qty;
-        } elseif ($item->branch_id == 2) {
-            $stockMap[$pid]['rhu2'] = (int)$item->total_qty;
-        }
-
-        // Add to total
+        $stockMap[$pid]['branches'][(int) $item->branch_id] = (int) $item->total_qty;
         $stockMap[$pid]['total'] += (int)$item->total_qty;
     }
 
-    // 3. Generate Suggested Items (Low Stock logic)
-    // We only suggest items that are low in the CURRENT user's branch
+    // 3. Generate Suggested Items (Low Stock logic for current user's branch).
     $products = $this->orderRepository->getActiveProductsOrdered();
     $suggestedItems = [];
 
     foreach($products as $product) {
-        $stats = $stockMap[$product->id] ?? ['rhu1' => 0, 'rhu2' => 0, 'total' => 0];
-        
-        // Determine stock for the user's specific branch
-        $myBranchStock = ($currentBranchId == 1) ? $stats['rhu1'] : $stats['rhu2'];
+        $stats = $stockMap[$product->id] ?? ['branches' => [], 'total' => 0];
+        $myBranchStock = (int) ($stats['branches'][$currentBranchId] ?? 0);
 
         if ($myBranchStock <= 100) {
             $suggestedItems[] = [
                 'product_id' => $product->id,
                 'product_name' => $product->generic_name . ' (' . $product->brand_name . ')',
-                'rhu1_stock' => $stats['rhu1'],
-                'rhu2_stock' => $stats['rhu2'],
+                'branch_stocks' => $stats['branches'],
                 'total_stock' => $stats['total'],
                 'suggested_qty' => 1000 - $myBranchStock
             ];
@@ -84,7 +73,8 @@ class OrderAdminService
     return view('admin.orders.create', [
         'suggestedItems' => $suggestedItems,
         'allProducts' => $products,
-        'stockMap' => $stockMap
+        'stockMap' => $stockMap,
+        'branches' => $branches,
     ]);
 }
     /**

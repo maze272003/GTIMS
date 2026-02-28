@@ -3,32 +3,31 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
+use App\Models\Branch;
+use Illuminate\Support\Str;
 
 class BranchSeeder extends Seeder
 {
     public function run()
     {
-        DB::table('branches')->insert([
-            [
-                'id' => 1,
-                'name' => 'RHU 1',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'id' => 2,
-                'name' => 'RHU 2',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            // // nag add ako neto para sa superadmin baka kaylanganin nyo kung sakali..
-            // [
-            //     'id' => 3,
-            //     'name' => 'Multi-Branchs',
-            //     'created_at' => now(),
-            //     'updated_at' => now(),
-            // ],
-        ]);
+        Branch::query()->update(['is_main' => false]);
+
+        $defaults = [
+            ['name' => 'RHU 1', 'is_main' => true],
+            ['name' => 'RHU 2', 'is_main' => false],
+        ];
+
+        foreach ($defaults as $index => $branch) {
+            $code = Str::slug($branch['name']);
+
+            Branch::query()->updateOrCreate(
+                ['name' => $branch['name']],
+                [
+                    'code' => $code !== '' ? $code : 'branch-'.($index + 1),
+                    'is_main' => $branch['is_main'],
+                    'is_archived' => false,
+                ]
+            );
+        }
     }
 }

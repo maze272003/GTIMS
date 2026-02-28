@@ -32,7 +32,7 @@ class HoldController extends Controller
             20
         );
 
-        $branches = Branch::all();
+        $branches = Branch::query()->active()->orderBy('name')->get();
 
         return view('admin.holds.index', compact('holds', 'branches'));
     }
@@ -40,7 +40,7 @@ class HoldController extends Controller
     public function create()
     {
         $products = $this->productRepository->getActive();
-        $branches = Branch::all();
+        $branches = Branch::query()->active()->orderBy('name')->get();
         $barangays = Barangay::orderBy('barangay_name')->get();
         $batches = $this->holdRepository->getAvailableBatches();
 

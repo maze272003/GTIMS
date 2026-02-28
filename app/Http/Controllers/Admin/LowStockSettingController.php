@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Services\AnalyticsService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\Rule;
 
 class LowStockSettingController extends Controller
 {
@@ -46,7 +47,10 @@ class LowStockSettingController extends Controller
             ->get();
 
         // Branches: avoid unknown column errors (don’t assume "name" exists)
-        $branches = Branch::orderBy('id')->get();
+        $branches = Branch::query()
+            ->active()
+            ->orderBy('name')
+            ->get();
 
         $globalThreshold = $globalSetting?->threshold ?? 100;
 
@@ -109,7 +113,10 @@ class LowStockSettingController extends Controller
     public function storeBranchDefault(Request $request)
     {
         $validated = $request->validate([
-            'branch_id' => 'required|exists:branches,id',
+            'branch_id' => [
+                'required',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
             'threshold' => 'required|integer|min:1',
         ]);
 
@@ -129,7 +136,10 @@ class LowStockSettingController extends Controller
     {
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
-            'branch_id'  => 'nullable|exists:branches,id',
+            'branch_id'  => [
+                'nullable',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
             'threshold'  => 'required|integer|min:1',
         ]);
 

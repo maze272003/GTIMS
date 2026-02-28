@@ -83,7 +83,7 @@ class LowStockSetting extends Model
     public static function getLowStockProducts(): array
     {
         $products = Product::where('is_archived', false)->get();
-        $branches = Branch::all();
+        $branches = Branch::query()->active()->get();
         $alerts = [];
 
         foreach ($products as $product) {

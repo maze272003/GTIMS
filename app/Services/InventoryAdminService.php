@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth; // <-- added
 use App\Models\ProductMovement; // <-- ADD THIS
 use App\Repositories\Interfaces\InventoryAdminRepositoryInterface;
+use Illuminate\Validation\Rule;
 
 class InventoryAdminService
 {
@@ -33,7 +34,7 @@ public function showinventory(Request $request)
 
         if ($focusedInventory) {
             $focusBranch = (int) $focusedInventory->branch_id;
-            $focusSearchKey = 'search_rhu' . $focusBranch;
+            $focusSearchKey = 'search_branch_' . $focusBranch;
 
             if (!$request->filled($focusSearchKey)) {
                 $request->merge([
@@ -49,87 +50,60 @@ public function showinventory(Request $request)
     $branches = $this->inventoryAdminRepository->getSupportedBranches();
     $inventorycount = $this->inventoryAdminRepository->getActiveInventories(); // Count all active
 
-    // 2. RHU 1 Query Setup
-    // Using != 1 to catch both status 0 and 2 (active stocks)
-    $query1 = $this->inventoryAdminRepository->activeInventoryByBranchQuery(1);
+    $branchInventories = [];
 
-    // Search RHU 1
-    if ($request->filled('search_rhu1')) {
-        $search = strtolower($request->search_rhu1);
-        $query1->where(function ($q) use ($search) {
-            $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
-            ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])
-                                        ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
-        });
+    foreach ($branches as $branch) {
+        $branchId = (int) $branch->id;
+        $query = $this->inventoryAdminRepository->activeInventoryByBranchQuery($branchId);
+
+        $searchKey = 'search_branch_'.$branchId;
+        $filterKey = 'filter_branch_'.$branchId;
+        $pageKey = 'page_branch_'.$branchId;
+
+        if ($request->filled($searchKey)) {
+            $search = strtolower((string) $request->input($searchKey));
+            $query->where(function ($q) use ($search) {
+                $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
+                    ->orWhereHas('product', fn ($p) => $p
+                        ->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])
+                        ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
+            });
+        }
+
+        if ($request->filled($filterKey)) {
+            match ($request->input($filterKey)) {
+                'in_stock'       => $query->where('quantity', '>=', 100),
+                'low_stock'      => $query->where('quantity', '>', 0)->where('quantity', '<', 100),
+                'out_of_stock'   => $query->where('quantity', '<=', 0),
+                'nearly_expired' => $query->where('expiry_date', '>', now())->where('expiry_date', '<', now()->addDays(30)),
+                'expired'        => $query->where('expiry_date', '<', now()),
+                default          => null,
+            };
+        }
+
+        if ($focusedInventory && $focusBranch === $branchId) {
+            $query->where('id', $focusedInventory->id);
+        }
+
+        $branchInventories[$branchId] = $query->with('product')
+            ->orderBy('expiry_date', 'asc')
+            ->paginate(20, ['*'], $pageKey);
     }
-
-    // Filter RHU 1
-    if ($request->filled('filter_rhu1')) {
-        match ($request->filter_rhu1) {
-            'in_stock'       => $query1->where('quantity', '>=', 100),
-            'low_stock'      => $query1->where('quantity', '>', 0)->where('quantity', '<', 100),
-            'out_of_stock'   => $query1->where('quantity', '<=', 0),
-            'nearly_expired' => $query1->where('expiry_date', '>', now())->where('expiry_date', '<', now()->addDays(30)),
-            'expired'        => $query1->where('expiry_date', '<', now()),
-            default          => null,
-        };
-    }
-
-    if ($focusedInventory && $focusBranch === 1) {
-        $query1->where('id', $focusedInventory->id);
-    }
-
-    // Paginate RHU 1 (explicit page name 'page_rhu1')
-    $inventories_rhu1 = $query1->with('product')
-        ->orderBy('expiry_date', 'asc')
-        ->paginate(20, ['*'], 'page_rhu1');
-
-        // RHU 2
-        $query2 = $this->inventoryAdminRepository->activeInventoryByBranchQuery(2);
-
-    // Search RHU 2
-    if ($request->filled('search_rhu2')) {
-        $search = strtolower($request->search_rhu2);
-        $query2->where(function ($q) use ($search) {
-            $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
-            ->orWhereHas('product', fn($p) => $p->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])
-                                        ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
-        });
-    }
-
-    // Filter RHU 2
-    if ($request->filled('filter_rhu2')) {
-        match ($request->filter_rhu2) {
-            'in_stock'       => $query2->where('quantity', '>=', 100),
-            'low_stock'      => $query2->where('quantity', '>', 0)->where('quantity', '<', 100),
-            'out_of_stock'   => $query2->where('quantity', '<=', 0),
-            'nearly_expired' => $query2->where('expiry_date', '>', now())->where('expiry_date', '<', now()->addDays(30)),
-            'expired'        => $query2->where('expiry_date', '<', now()),
-            default          => null,
-        };
-    }
-
-    if ($focusedInventory && $focusBranch === 2) {
-        $query2->where('id', $focusedInventory->id);
-    }
-
-    // Paginate RHU 2 (explicit page name 'page_rhu2')
-    $inventories_rhu2 = $query2->with('product')
-        ->orderBy('expiry_date', 'asc')
-        ->paginate(20, ['*'], 'page_rhu2');
-
 
     // 4. AJAX Handling
     if ($request->ajax()) {
-        // Retrieve which branch is being requested. Default to 1.
-        $branch = $request->input('branch', 1);
+        $defaultBranch = (int) ($branches->first()?->id ?? 0);
+        $branchId = (int) $request->input('branch', $defaultBranch);
+        $selectedInventories = $branchInventories[$branchId] ?? null;
 
-        // Select the correct dataset based on the requested branch
-        $selectedInventories = ($branch == 2) ? $inventories_rhu2 : $inventories_rhu1;
+        if (!$selectedInventories) {
+            abort(404, 'Branch not found.');
+        }
 
         return view('admin.partials._inventory_table', [
             'inventories' => $selectedInventories,
-            'branch' => $branch
+            'branch' => $branchId,
+            'focusInventoryId' => $focusedInventory?->id,
         ])->render();
     }
 
@@ -139,8 +113,7 @@ public function showinventory(Request $request)
         'archiveproducts' => $archiveproducts,
         'branches' => $branches,
         'inventorycount' => $inventorycount,
-        'inventories_rhu1' => $inventories_rhu1,
-        'inventories_rhu2' => $inventories_rhu2,
+        'branchInventories' => $branchInventories,
         'focusInventoryId' => $focusedInventory?->id,
         'focusBranch' => $focusBranch,
     ]);
@@ -326,14 +299,17 @@ public function showinventory(Request $request)
     public function addStock(Request $request) {
         $validated = $request->validateWithBag( 'addstock', [
             'product_id' => 'required|exists:products,id',
-            'branch_id' => 'required|integer|in:1,2|exists:branches,id',
+            'branch_id' => [
+                'required',
+                'integer',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
             'batchnumber' => 'required|min:3|max:120',
             'quantity' => 'required|numeric',
             'expiry' => 'required|date',
         ], [
             'product_id.required'=> 'Product ID is required.',
             'branch_id.required'=> 'Branch ID is required.',
-            'branch_id.in'=> 'Please select a valid branch.',
             'branch_id.exists'=> 'The selected branch does not exist.',
             'batchnumber.required'=> 'Batch number is required.',
             'quantity.required'=> 'Quantity is required.',
@@ -503,10 +479,19 @@ public function showinventory(Request $request)
         $request->validate([
             'inventory_id' => 'required|exists:inventories,id',
             'quantity'     => 'required|numeric|min:1',
-            'destination_branch' => 'required|in:1,2',
+            'destination_branch' => [
+                'required',
+                'integer',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
         ]);
 
         $sourceInventory = $this->inventoryAdminRepository->findInventoryWithProductOrFail((int) $request->inventory_id);
+        $destinationBranchId = (int) $request->destination_branch;
+
+        if ((int) $sourceInventory->branch_id === $destinationBranchId) {
+            return back()->with('error', 'Destination branch must be different from source branch.');
+        }
 
         if ($sourceInventory->quantity < $request->quantity) {
             return back()->with('error', 'Not enough stock to transfer.');
@@ -515,7 +500,12 @@ public function showinventory(Request $request)
         $sourceInventory->quantity -= $request->quantity;
         $sourceInventory->save();
 
-        $destInventory = $this->inventoryAdminRepository->findTransferDestinationStock($sourceInventory, (int) $request->destination_branch);
+        $destInventory = $this->inventoryAdminRepository->findTransferDestinationStock($sourceInventory, $destinationBranchId);
+
+        $sourceBranchName = $sourceInventory->branch?->name
+            ?? ('Branch #'.$sourceInventory->branch_id);
+        $destinationBranchName = $this->inventoryAdminRepository->findBranchName($destinationBranchId)
+            ?? ('Branch #'.$destinationBranchId);
 
         $oldQty = 0;
 
@@ -529,7 +519,7 @@ public function showinventory(Request $request)
                 'batch_number'  => $sourceInventory->batch_number,
                 'quantity'      => $request->quantity,
                 'expiry_date'   => $sourceInventory->expiry_date,
-                'branch_id'     => $request->destination_branch,
+                'branch_id'     => $destinationBranchId,
                 'is_archived'   => 0,
             ]);
         }
@@ -543,7 +533,7 @@ public function showinventory(Request $request)
             'quantity' => $request->quantity,
             'quantity_before' => $sourceInventory->quantity + $request->quantity,
             'quantity_after' => $sourceInventory->quantity,
-            'description' => 'Stock transfer from RHU ' . ($sourceInventory->branch_id == 1 ? '1' : '2') . ' to RHU ' . ($request->destination_branch == 1 ? '1' : '2') . '.',
+            'description' => "Stock transfer from {$sourceBranchName} to {$destinationBranchName}.",
         ]);
 
         // Add another product movement for the received stock
@@ -555,7 +545,7 @@ public function showinventory(Request $request)
             'quantity' => $request->quantity,
             'quantity_before' => $oldQty,
             'quantity_after' => $destInventory->quantity,
-            'description' => 'Stock received from RHU ' . ($sourceInventory->branch_id == 1 ? '1' : '2') . ' to RHU ' . ($request->destination_branch == 1 ? '1' : '2') . '.',
+            'description' => "Stock received from {$sourceBranchName} to {$destinationBranchName}.",
         ]);
 
         return redirect()->route('admin.inventory')->with('success', 'Stock transferred successfully!');

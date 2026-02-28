@@ -29,8 +29,9 @@
                             <thead>
                                 <tr class="text-xs uppercase text-gray-500 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
                                     <th class="py-3 px-4 font-medium min-w-[200px]">Product Name</th>
-                                    <th class="py-3 px-4 font-medium text-center text-blue-600">RHU 1 Stock</th>
-                                    <th class="py-3 px-4 font-medium text-center text-green-600">RHU 2 Stock</th>
+                                    @foreach($branches as $branch)
+                                        <th class="py-3 px-4 font-medium text-center text-blue-600">{{ $branch->name }} Stock</th>
+                                    @endforeach
                                     <th class="py-3 px-4 font-medium text-center text-gray-800 dark:text-gray-200">Total Stock</th>
                                     <th class="py-3 px-4 font-medium w-48">Quantity to Order</th>
                                     <th class="py-3 px-4 font-medium w-10 text-center">Action</th>
@@ -78,6 +79,7 @@
             // 1. Data
             const suggestedItems = @json($suggestedItems);
             const stockMap = @json($stockMap);
+            const branchList = @json($branches->map(fn($branch) => ['id' => (int) $branch->id, 'name' => $branch->name]));
 
             // 2. Elements
             const tableBody = document.getElementById('orderTableBody');
@@ -87,7 +89,7 @@
             const productOptionsHTML = masterSelect ? masterSelect.innerHTML : '<option>Error loading products</option>';
 
             // 3. Add Row Function
-            window.addItemRow = function (productId = null, productName = null, rhu1 = 0, rhu2 = 0, total = 0, suggestedQty = 1, isManual = false) {
+            window.addItemRow = function (productId = null, productName = null, branchStocks = {}, total = 0, suggestedQty = 1, isManual = false) {
                 const rowId = 'row_' + Date.now() + Math.random().toString(36).substr(2, 9);
                 const tr = document.createElement('tr');
                 tr.className = "border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition group";
@@ -109,10 +111,14 @@
                     `;
                 }
 
+                const branchCellsHtml = branchList.map((branch) => {
+                    const qty = Number(branchStocks?.[branch.id] ?? branchStocks?.[String(branch.id)] ?? 0);
+                    return `<td class=\"cell-branch-${branch.id} py-3 px-4 text-center text-blue-600 font-mono text-sm align-middle bg-blue-50/50 dark:bg-blue-900/10\">${isManual ? '-' : qty}</td>`;
+                }).join('');
+
                 tr.innerHTML = `
                     <td class="py-3 px-4 align-middle">${productCellHtml}</td>
-                    <td class="cell-rhu1 py-3 px-4 text-center text-blue-600 font-mono text-sm align-middle bg-blue-50/50 dark:bg-blue-900/10">${isManual ? '-' : rhu1}</td>
-                    <td class="cell-rhu2 py-3 px-4 text-center text-green-600 font-mono text-sm align-middle bg-green-50/50 dark:bg-green-900/10">${isManual ? '-' : rhu2}</td>
+                    ${branchCellsHtml}
                     <td class="cell-total py-3 px-4 text-center font-bold font-mono text-sm align-middle">${isManual ? '-' : total}</td>
                     <td class="py-3 px-4 align-middle">
                         <input type="number" name="items[${rowId}][quantity]" value="${suggestedQty}" min="1" 
@@ -129,15 +135,20 @@
 
                 if (isManual) {
                     const select = tr.querySelector('.manual-product-select');
-                    const cRhu1 = tr.querySelector('.cell-rhu1');
-                    const cRhu2 = tr.querySelector('.cell-rhu2');
                     const cTotal = tr.querySelector('.cell-total');
 
                     select.addEventListener('change', function () {
                         const pid = this.value;
-                        const stats = stockMap[pid] || { rhu1: 0, rhu2: 0, total: 0 };
-                        cRhu1.textContent = stats.rhu1;
-                        cRhu2.textContent = stats.rhu2;
+                        const stats = stockMap[pid] || { branches: {}, total: 0 };
+
+                        branchList.forEach((branch) => {
+                            const cell = tr.querySelector(`.cell-branch-${branch.id}`);
+                            if (cell) {
+                                const qty = Number(stats.branches?.[branch.id] ?? stats.branches?.[String(branch.id)] ?? 0);
+                                cell.textContent = qty;
+                            }
+                        });
+
                         cTotal.textContent = stats.total;
                     });
                 }
@@ -148,7 +159,7 @@
             // 4. Populate Suggested Items
             if (suggestedItems && suggestedItems.length > 0) {
                 suggestedItems.forEach(item => {
-                    addItemRow(item.product_id, item.product_name, item.rhu1_stock, item.rhu2_stock, item.total_stock, item.suggested_qty, false);
+                    addItemRow(item.product_id, item.product_name, item.branch_stocks || {}, item.total_stock, item.suggested_qty, false);
                 });
             } else {
                 checkEmptyState();
@@ -158,7 +169,7 @@
             if (addBtn) {
                 addBtn.addEventListener('click', e => {
                     e.preventDefault();
-                    addItemRow(null, null, 0, 0, 0, 100, true);
+                    addItemRow(null, null, {}, 0, 100, true);
                 });
             }
 

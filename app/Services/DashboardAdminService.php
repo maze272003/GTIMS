@@ -17,6 +17,7 @@ use Illuminate\View\View;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use App\Repositories\Interfaces\DashboardRepositoryInterface;
+use Illuminate\Validation\Rule;
 
 class DashboardAdminService
 {
@@ -39,7 +40,11 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             'filter_start' => 'nullable|date|required_if:filter_timespan,custom',
             'filter_end' => 'nullable|date|required_if:filter_timespan,custom|after_or_equal:filter_start',
             'filter_barangay' => 'nullable|string|max:255',
-            'filter_branch' => 'nullable|integer|exists:branches,id', // <--- ADDED BRANCH FILTER VALIDATION
+            'filter_branch' => [
+                'nullable',
+                'integer',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
             'filter_product_id' => 'nullable|integer|exists:products,id',
             'forecast_days' => 'nullable|integer|in:30,60,90,180',
             'grouping' => 'nullable|string|in:day,week,month',
@@ -419,7 +424,10 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         $filter_products = Product::where('is_archived', 0)->orderBy('generic_name')->get(['id', 'generic_name', 'brand_name']);
 
         // Load all branches for the dropdown
-        $filter_branches = Branch::all();
+        $filter_branches = Branch::query()
+            ->active()
+            ->orderBy('name')
+            ->get();
 
         $filter_barangays = Patientrecords::join('barangays', 'patientrecords.barangay_id', '=', 'barangays.id')
             ->when($filter_branch, fn($q) => $q->where('patientrecords.branch_id', $filter_branch)) // <--- Limit barangays to selected branch

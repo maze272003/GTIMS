@@ -34,7 +34,10 @@ class ManageAccountRepository implements ManageAccountRepositoryInterface
 
     public function getAllBranches(): Collection
     {
-        return Branch::all();
+        return Branch::query()
+            ->active()
+            ->orderBy('name')
+            ->get();
     }
 
     public function findUserLevelOrFail(int $id): UserLevel
@@ -64,4 +67,3 @@ class ManageAccountRepository implements ManageAccountRepositoryInterface
         return (bool) $user->save();
     }
 }
-

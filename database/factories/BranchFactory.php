@@ -11,8 +11,13 @@ class BranchFactory extends Factory
 
     public function definition(): array
     {
+        $name = $this->faker->unique()->words(2, true).' Branch';
+
         return [
-            'name' => $this->faker->unique()->word() . ' Branch',
+            'name' => $name,
+            'code' => $this->faker->unique()->slug(2),
+            'is_main' => false,
+            'is_archived' => false,
         ];
     }
 }

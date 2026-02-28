@@ -19,7 +19,8 @@ class InventoryControllerTest extends TestCase
     private function createAdminUser(): User
     {
         $level = UserLevel::firstOrCreate(['name' => 'admin']);
-        $branch = Branch::firstOrCreate(['name' => 'RHU 1']);
+        $branch = Branch::firstOrCreate(['name' => 'RHU 1'], ['code' => 'rhu-1']);
+        Branch::firstOrCreate(['name' => 'RHU 2'], ['code' => 'rhu-2']);
 
         $perms = collect([
             'inventory.view', 'inventory.add', 'inventory.edit',

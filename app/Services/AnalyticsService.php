@@ -121,6 +121,7 @@ class AnalyticsService
         $inventoryQuery = Inventory::query()
             ->where('is_archived', false)
             ->whereHas('product', fn($q) => $q->where('is_archived', false))
+            ->whereHas('branch', fn($q) => $q->where('is_archived', false))
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->with([
                 'product:id,generic_name,brand_name',

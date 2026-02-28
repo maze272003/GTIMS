@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\Branch;
 use App\Models\Patientrecords;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -73,11 +74,15 @@ class PatientRecordsExport implements
         $query = Patientrecords::with(['dispensedMedications', 'barangay', 'branch']);
         $filters = $this->filters;
         $user = $this->user;
+        $activeBranchIds = Branch::query()->active()->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         // Branch Logic (Same as Controller)
         if ($user->hasPermission('patients.manage')) {
             if (isset($filters['branch_filter']) && $filters['branch_filter'] !== 'all') {
-                $query->where('branch_id', $filters['branch_filter']);
+                $selectedBranchId = (int) $filters['branch_filter'];
+                if (in_array($selectedBranchId, $activeBranchIds, true)) {
+                    $query->where('branch_id', $selectedBranchId);
+                }
             }
         } else {
             $query->where('branch_id', $user->branch_id);

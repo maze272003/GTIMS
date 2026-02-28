@@ -21,6 +21,8 @@ class PatientRecordsAdminService
     public function showpatientrecords(Request $request)
     {
         $user = Auth::user();
+        $branches = $this->patientRecordsRepository->getAllBranches();
+        $activeBranchIds = $branches->pluck('id')->map(fn ($id) => (int) $id)->all();
 
         // === 1. BUILD THE QUERY ===
         $query = $this->patientRecordsRepository->patientRecordsQuery()
@@ -29,7 +31,10 @@ class PatientRecordsAdminService
         // --- Branch Filtering ---
         if ($user->hasPermission('patients.manage')) {
             if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
-                $query->where('branch_id', $request->branch_filter);
+                $selectedBranchId = (int) $request->branch_filter;
+                if (in_array($selectedBranchId, $activeBranchIds, true)) {
+                    $query->where('branch_id', $selectedBranchId);
+                }
             }
         } else {
             $query->where('branch_id', $user->branch_id);
@@ -60,14 +65,16 @@ class PatientRecordsAdminService
         // === 4. LOAD FULL PAGE DATA ===
         $products = $this->patientRecordsRepository->getActiveInventoriesWithProduct();
         $barangays = $this->patientRecordsRepository->getAllBarangays();
-        $branches = $this->patientRecordsRepository->getAllBranches();
 
         // Calculate Stats
         $statsQuery = $this->patientRecordsRepository->patientRecordsQuery();
 
         if ($user->hasPermission('patients.manage')) {
             if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
-                $statsQuery->where('branch_id', $request->branch_filter);
+                $selectedBranchId = (int) $request->branch_filter;
+                if (in_array($selectedBranchId, $activeBranchIds, true)) {
+                    $statsQuery->where('branch_id', $selectedBranchId);
+                }
             }
         } else {
             $statsQuery->where('branch_id', $user->branch_id);
@@ -268,6 +275,10 @@ class PatientRecordsAdminService
     public function exportPdf(Request $request)
     {
         $user = Auth::user();
+        $activeBranchIds = $this->patientRecordsRepository->getAllBranches()
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
         // 1. REUSE FILTERS
         $query = $this->patientRecordsRepository->patientRecordsQuery()
@@ -276,7 +287,10 @@ class PatientRecordsAdminService
         // --- Branch Filtering ---
         if ($user->hasPermission('patients.manage')) {
             if ($request->filled('branch_filter') && $request->branch_filter !== 'all') {
-                $query->where('branch_id', $request->branch_filter);
+                $selectedBranchId = (int) $request->branch_filter;
+                if (in_array($selectedBranchId, $activeBranchIds, true)) {
+                    $query->where('branch_id', $selectedBranchId);
+                }
             }
         } else {
             $query->where('branch_id', $user->branch_id);

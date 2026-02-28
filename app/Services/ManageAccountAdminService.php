@@ -43,7 +43,7 @@ class ManageAccountAdminService
         'name' => 'required|string|max:255',
         'email' => 'required|email|unique:users,email',
         'user_level_id' => 'required|exists:user_levels,id',
-        'branch_id' => 'nullable|exists:branches,id', 
+        'branch_id' => ['nullable', Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false))],
         'password' => [
             'required',
             'string',
@@ -99,7 +99,7 @@ class ManageAccountAdminService
             // Ignore current user email on update validation
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'user_level_id' => 'required|exists:user_levels,id',
-            'branch_id' => 'nullable|exists:branches,id',
+            'branch_id' => ['nullable', Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false))],
             'password' => 'nullable|min:8', // Password is optional on edit
         ]);
 

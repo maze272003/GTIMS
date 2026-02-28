@@ -10,6 +10,7 @@ use App\Models\Inventory;
 use App\Repositories\Interfaces\SupplierRepositoryInterface;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 
 class SupplierController extends Controller
@@ -57,6 +58,7 @@ class SupplierController extends Controller
             ->with(['product', 'branch'])
             ->where('is_archived', false)
             ->whereHas('product', fn ($query) => $query->where('is_archived', false))
+            ->whereHas('branch', fn ($query) => $query->where('is_archived', false))
             ->when($linkedInventoryIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $linkedInventoryIds))
             ->orderBy('expiry_date')
             ->orderBy('batch_number')
@@ -81,7 +83,10 @@ class SupplierController extends Controller
     public function linkInventory(Request $request, int $supplierId)
     {
         $validated = $request->validate([
-            'inventory_id' => 'required|exists:inventories,id',
+            'inventory_id' => [
+                'required',
+                Rule::exists('inventories', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
             'lead_time_days' => 'nullable|integer|min:1',
             'unit_cost' => 'nullable|numeric|min:0',
         ]);

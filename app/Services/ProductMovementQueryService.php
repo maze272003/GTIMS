@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Exports\ProductMovementsExport;
+use App\Models\Branch;
 use App\Repositories\Interfaces\ProductMovementRepositoryInterface;
 use App\Repositories\Interfaces\ProductRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
@@ -37,8 +38,8 @@ class ProductMovementQueryService
             'movements' => $movements,
             'products' => $this->productRepository->getActive()->sortBy('generic_name')->values(),
             'users' => $this->userRepository->getAllOrderedByName(),
+            'branches' => Branch::query()->active()->orderBy('name')->get(),
             ...$stats,
         ];
     }
 }
-

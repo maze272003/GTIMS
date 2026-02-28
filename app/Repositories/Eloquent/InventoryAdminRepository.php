@@ -33,12 +33,18 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
 
     public function getSupportedBranches(): Collection
     {
-        return Branch::whereIn('id', [1, 2])->orderBy('id')->get();
+        return Branch::query()
+            ->active()
+            ->orderBy('name')
+            ->get();
     }
 
     public function getActiveInventories(): Collection
     {
-        return Inventory::where('is_archived', '!=', 1)->get();
+        return Inventory::query()
+            ->where('is_archived', '!=', 1)
+            ->whereHas('branch', fn($query) => $query->where('is_archived', false))
+            ->get();
     }
 
     public function activeInventoryByBranchQuery(int $branchId): Builder
@@ -117,4 +123,3 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
             ->first();
     }
 }
-

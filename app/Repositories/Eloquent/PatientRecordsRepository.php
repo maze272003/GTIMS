@@ -22,7 +22,12 @@ class PatientRecordsRepository implements PatientRecordsRepositoryInterface
 
     public function getActiveInventoriesWithProduct(): Collection
     {
-        return Inventory::with('product')->where('is_archived', 0)->latest()->get();
+        return Inventory::query()
+            ->with('product')
+            ->where('is_archived', 0)
+            ->whereHas('branch', fn($query) => $query->where('is_archived', false))
+            ->latest()
+            ->get();
     }
 
     public function getAllBarangays(): Collection
@@ -32,7 +37,10 @@ class PatientRecordsRepository implements PatientRecordsRepositoryInterface
 
     public function getAllBranches(): Collection
     {
-        return Branch::all();
+        return Branch::query()
+            ->active()
+            ->orderBy('name')
+            ->get();
     }
 
     public function findInventoryWithProductOrFail(int $id): Inventory
@@ -71,4 +79,3 @@ class PatientRecordsRepository implements PatientRecordsRepositoryInterface
             ->update(['barangay_id' => $barangayId]);
     }
 }
-

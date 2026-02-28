@@ -40,6 +40,7 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
     public function getGroupedActiveInventoryTotals(): Collection
     {
         return Inventory::where('is_archived', 0)
+            ->whereHas('branch', fn($q) => $q->where('is_archived', false))
             ->select('product_id', 'branch_id', DB::raw('SUM(quantity) as total_qty'))
             ->groupBy('product_id', 'branch_id')
             ->get();

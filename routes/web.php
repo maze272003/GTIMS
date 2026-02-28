@@ -19,6 +19,7 @@ use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\Admin\AuditEventController;
 use App\Http\Controllers\Admin\AnalyticsApiController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\BranchManagementController;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
@@ -229,6 +230,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // L1: Role/Permission Management
             Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');
             Route::post('/roles', [RolePermissionController::class, 'update'])->name('roles.update');
+
+            // L1: Branch Management
+            Route::prefix('branches')
+                ->name('branches.')
+                ->middleware(['level.superadmin', 'permission:branches.manage'])
+                ->group(function () {
+                    Route::get('/', [BranchManagementController::class, 'index'])->name('index');
+                    Route::post('/', [BranchManagementController::class, 'store'])->name('store');
+                    Route::post('/{branch}/set-main', [BranchManagementController::class, 'setMain'])->name('set-main');
+                    Route::post('/{branch}/archive', [BranchManagementController::class, 'archive'])->name('archive');
+                    Route::post('/runs/{run}/rollback', [BranchManagementController::class, 'rollback'])->name('rollback');
+                });
         });
 
     }); // <-- End ng buong /admin group

@@ -60,6 +60,6 @@ class ProductMovement extends Model
     // Helper to get branch name easily
     public function getBranchNameAttribute()
     {
-        return $this->inventory?->branch_id == 1 ? 'RHU 1' : ($this->inventory?->branch_id == 2 ? 'RHU 2' : 'Unknown');
+        return $this->inventory?->branch?->name ?? 'Unknown';
     }
 }

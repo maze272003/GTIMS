@@ -27,19 +27,21 @@ class Product extends Model
         return $this->hasMany(ProductMovement::class);
     }
 
-    // Total stock from RHU 1 + RHU 2 only
+    // Total stock across all active branches
     public function getTotalRhuStockAttribute()
     {
         return $this->inventories()
-            ->whereHas('branch', fn($q) => $q->whereIn('name', ['RHU 1', 'RHU 2']))
+            ->whereHas('branch', fn($q) => $q->active())
             ->sum('quantity');
     }
 
-    // Load inventories from RHU 1 & RHU 2 only
+    // Load inventories from active branches only
     public function scopeWithRhuInventory($query)
     {
-        return $query->with(['inventories.branch' => fn($q) => 
-            $q->whereHas('branch', fn($b) => $b->whereIn('name', ['RHU 1', 'RHU 2']))
+        return $query->with([
+            'inventories' => fn($inventoryQuery) => $inventoryQuery
+                ->whereHas('branch', fn($branchQuery) => $branchQuery->active())
+                ->with('branch'),
         ]);
     }
 

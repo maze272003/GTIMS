@@ -49,6 +49,7 @@ class PermissionSeeder extends Seeder
             // Settings
             ['name' => 'settings.low_stock', 'group' => 'Settings', 'description' => 'Manage low stock settings'],
             ['name' => 'settings.roles', 'group' => 'Settings', 'description' => 'Manage role permissions'],
+            ['name' => 'branches.manage', 'group' => 'Settings', 'description' => 'Manage branch lifecycle and archival'],
 
             // Reports
             ['name' => 'reports.view', 'group' => 'Reports', 'description' => 'View reports and analytics'],
@@ -94,6 +95,7 @@ class PermissionSeeder extends Seeder
         // Admin gets most permissions except role management and user management
         if ($admin) {
             $adminPerms = Permission::where('name', '!=', 'settings.roles')
+                ->where('name', '!=', 'branches.manage')
                 ->where('name', '!=', 'users.manage')
                 ->pluck('id')->toArray();
             $admin->permissions()->sync($adminPerms);

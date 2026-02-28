@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Models\Branch;
 use App\Models\Inventory;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -32,6 +33,7 @@ class InventoryExport implements
     protected $filter;
     protected $search;
     protected $user;
+    protected string $branchName;
 
     public function __construct($branch, $filter = null, $search = null)
     {
@@ -39,6 +41,7 @@ class InventoryExport implements
         $this->filter = $filter;
         $this->search = $search;
         $this->user = Auth::user();
+        $this->branchName = Branch::query()->find((int) $branch)?->name ?? ('Branch #'.$branch);
     }
 
     public function drawings()
@@ -157,7 +160,7 @@ class InventoryExport implements
 
                 // Report Title (Row 7)
                 $sheet->mergeCells('A7:G7');
-                $sheet->setCellValue('A7', "RHU-{$this->branch} Inventory Report");
+                $sheet->setCellValue('A7', "{$this->branchName} Inventory Report");
                 $sheet->getStyle('A7')->applyFromArray([
                     'font' => ['bold' => true, 'size' => 16, 'color' => ['rgb' => '1F2937']],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],

@@ -17,11 +17,7 @@
                     {{-- Current Unit Badge --}}
                     <div class="flex items-center gap-2">
                         <span class="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">Current Unit:</span>
-                        <span class="px-3 py-1 rounded-full text-sm font-bold border flex items-center shadow-sm
-                            {{ auth()->user()->branch_id == 1 ? 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300' : '' }}
-                            {{ auth()->user()->branch_id == 2 ? 'bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300' : '' }}
-                            {{ auth()->user()->branch_id >= 3 ? 'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-300' : '' }}
-                        ">
+                        <span class="px-3 py-1 rounded-full text-sm font-bold border flex items-center shadow-sm bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300">
                             <i class="fa-regular fa-building-columns mr-2"></i>
                             {{ auth()->user()->branch->name ?? 'Unknown Branch' }}
                         </span>

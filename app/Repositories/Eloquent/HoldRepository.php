@@ -48,6 +48,7 @@ class HoldRepository extends BaseRepository implements HoldRepositoryInterface
     {
         return Inventory::query()
             ->where('quantity', '>', 0)
+            ->whereHas('branch', fn($query) => $query->where('is_archived', false))
             ->withSum([
                 'holdItems as held_quantity' => function ($query) {
                     $query->whereHas('hold', function ($holdQuery) {
