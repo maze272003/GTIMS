@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Repositories\Interfaces\OrderRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class OrderAdminService
 {
@@ -30,6 +31,8 @@ class OrderAdminService
    
 public function create()
 {
+    $this->checkAccess();
+
     $user = Auth::user();
     $currentBranchId = $user->branch_id;
     $branches = Branch::query()->active()->orderBy('name')->get();
@@ -75,22 +78,74 @@ public function create()
         'allProducts' => $products,
         'stockMap' => $stockMap,
         'branches' => $branches,
+        'defaultSourceBranchId' => (int) old('source_branch_id', $currentBranchId),
     ]);
 }
+
+    public function sourceInventoryOptions(Request $request)
+    {
+        $this->checkAccess();
+
+        $validated = $request->validate([
+            'branch_id' => [
+                'required',
+                'integer',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
+        ]);
+
+        $branchId = (int) $validated['branch_id'];
+        $inventoryRows = $this->orderRepository->getAvailableSourceInventoryByBranch($branchId);
+        $grouped = [];
+
+        foreach ($inventoryRows as $row) {
+            $productId = (int) $row->product_id;
+            $grouped[$productId] ??= [];
+            $grouped[$productId][] = [
+                'inventory_id' => (int) $row->id,
+                'product_id' => $productId,
+                'batch_number' => (string) $row->batch_number,
+                'available_quantity' => (int) ($row->available_qty ?? 0),
+                'expiry_date' => optional($row->expiry_date)->format('Y-m-d'),
+                'received_date' => optional($row->created_at)->format('Y-m-d'),
+                'label' => sprintf(
+                    'Batch #%s • Exp: %s • Avail: %d • Recv: %s',
+                    $row->batch_number ?: 'N/A',
+                    optional($row->expiry_date)->format('Y-m-d') ?? '-',
+                    (int) ($row->available_qty ?? 0),
+                    optional($row->created_at)->format('Y-m-d') ?? '-'
+                ),
+            ];
+        }
+
+        return response()->json([
+            'branch_id' => $branchId,
+            'inventory_by_product' => $grouped,
+        ]);
+    }
     /**
      * 2. Store the Order (Pharmacist/Admin Action)
      */
     public function store(Request $request)
     {
+        $this->checkAccess();
+
         $request->validate([
-            'items' => 'required|array',
+            'source_branch_id' => [
+                'required',
+                'integer',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
+            'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
+            'items.*.source_inventory_id' => 'required|exists:inventories,id',
         ]);
 
         try {
             $this->orderRepository->createOrderWithItems(
                 (int) Auth::user()->branch_id,
+                (int) $request->integer('source_branch_id'),
                 (int) Auth::id(),
                 $request->remarks,
                 $request->items
@@ -101,7 +156,9 @@ public function create()
 
         } catch (\Exception $e) {
             Log::error('Order Store Error: ' . $e->getMessage());
-            return back()->with('error', 'Failed to submit order. Please try again.');
+            return back()
+                ->withInput()
+                ->with('error', $e->getMessage() ?: 'Failed to submit order. Please try again.');
         }
     }
 

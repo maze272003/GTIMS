@@ -56,9 +56,16 @@
                                             <div class="mt-2 p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 text-xs">
                                                 <ul class="space-y-1">
                                                     @foreach($order->items as $item)
-                                                        <li class="flex justify-between">
-                                                            <span>{{ $item->product->generic_name }}</span>
-                                                            <span class="font-bold">x{{ $item->quantity_requested }}</span>
+                                                        <li class="rounded border border-gray-200 dark:border-gray-700 px-2 py-1">
+                                                            <div class="flex justify-between">
+                                                                <span>{{ $item->product->generic_name }}</span>
+                                                                <span class="font-bold">x{{ $item->quantity_requested }}</span>
+                                                            </div>
+                                                            <div class="text-[11px] text-gray-500 mt-1">
+                                                                Source:
+                                                                {{ $item->sourceBranch?->name ?? 'N/A' }}
+                                                                • Batch #{{ $item->source_batch_number ?? 'N/A' }}
+                                                            </div>
                                                         </li>
                                                     @endforeach
                                                 </ul>

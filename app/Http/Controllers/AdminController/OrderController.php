@@ -23,6 +23,11 @@ class OrderController extends Controller
         return $this->orderAdminService->store($request);
     }
 
+    public function sourceInventoryOptions(Request $request)
+    {
+        return $this->orderAdminService->sourceInventoryOptions($request);
+    }
+
     public function index()
     {
         return $this->orderAdminService->index();
@@ -38,4 +43,3 @@ class OrderController extends Controller
         return $this->orderAdminService->print($id);
     }
 }
-

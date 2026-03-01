@@ -262,15 +262,16 @@
                 </tr>
             </table>
         </div>
-
         <!-- Medicines Table -->
         <table class="items">
             <thead>
                 <tr>
                     <th style="width:6%;">#</th>
-                    <th style="width:44%;">Generic Name</th>
-                    <th style="width:35%;">Brand Name</th>
-                    <th style="width:15%;">Quantity Requested</th>
+                    <th style="width:28%;">Generic Name</th>
+                    <th style="width:22%;">Brand Name</th>
+                    <th style="width:20%;">Source Branch</th>
+                    <th style="width:14%;">Batch</th>
+                    <th style="width:10%;">Qty Requested</th>
                 </tr>
             </thead>
             <tbody>
@@ -278,7 +279,9 @@
                 <tr>
                     <td>{{ $index + 1 }}</td>
                     <td class="generic">{{ $item->product->generic_name }}</td>
-                    <td>{{ $item->product->brand_name ?? '—' }}</td>
+                    <td>{{ $item->product->brand_name ?? '-' }}</td>
+                    <td>{{ $item->sourceBranch?->name ?? 'N/A' }}</td>
+                    <td>{{ $item->source_batch_number ?? 'N/A' }}</td>
                     <td class="qty">{{ number_format($item->quantity_requested) }}</td>
                 </tr>
                 @endforeach

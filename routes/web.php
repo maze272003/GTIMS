@@ -83,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/', [OrderController::class, 'index'])->name('index');
                 Route::get('/create', [OrderController::class, 'create'])->name('create');
                 Route::post('/store', [OrderController::class, 'store'])->name('store');
+                Route::get('/source-inventory', [OrderController::class, 'sourceInventoryOptions'])->name('source-inventory');
                 Route::post('/{id}/update', [OrderController::class, 'updateStatus'])->name('update');
                 Route::get('/{id}/print', [OrderController::class, 'print'])->name('print');
             });
