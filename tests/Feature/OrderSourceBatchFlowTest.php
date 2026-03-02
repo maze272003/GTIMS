@@ -129,7 +129,7 @@ class OrderSourceBatchFlowTest extends TestCase
             ]);
 
         $response->assertRedirect(route('admin.orders.create'));
-        $response->assertSessionHas('error');
+        $response->assertSessionHasErrors(['items.0.quantity']);
 
         $this->assertDatabaseCount('orders', 0);
         $this->assertDatabaseCount('order_items', 0);

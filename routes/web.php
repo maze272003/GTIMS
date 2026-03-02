@@ -209,6 +209,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // });
             Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
         Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
+        Route::get('/filter-options', [LowStockSettingController::class, 'filterOptions'])->name('filter-options');
 
         // global threshold
         Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');

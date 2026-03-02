@@ -4,9 +4,11 @@ namespace App\Services;
 
 use Illuminate\Http\Request;
 use App\Models\Branch;
+use App\Models\Inventory;
 use App\Repositories\Interfaces\OrderRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class OrderAdminService
@@ -130,17 +132,70 @@ public function create()
     {
         $this->checkAccess();
 
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'source_branch_id' => [
                 'required',
                 'integer',
                 Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
             ],
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.product_id' => [
+                'required',
+                'integer',
+                Rule::exists('products', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.source_inventory_id' => 'required|exists:inventories,id',
+            'items.*.source_inventory_id' => [
+                'required',
+                'integer',
+                Rule::exists('inventories', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
         ]);
+
+        $validator->after(function ($validator) use ($request) {
+            $sourceBranchId = (int) $request->input('source_branch_id');
+            $items = $request->input('items', []);
+
+            foreach ($items as $index => $item) {
+                $productId = (int) ($item['product_id'] ?? 0);
+                $sourceInventoryId = (int) ($item['source_inventory_id'] ?? 0);
+                $quantity = (int) ($item['quantity'] ?? 0);
+
+                if (!$productId || !$sourceInventoryId || !$quantity) {
+                    continue;
+                }
+
+                $inventory = Inventory::query()
+                    ->where('id', $sourceInventoryId)
+                    ->where('is_archived', false)
+                    ->whereHas('branch', fn ($query) => $query->where('is_archived', false))
+                    ->whereHas('product', fn ($query) => $query->where('is_archived', false))
+                    ->first();
+
+                if (!$inventory) {
+                    $validator->errors()->add("items.{$index}.source_inventory_id", 'Selected source batch is unavailable.');
+                    continue;
+                }
+
+                if ((int) $inventory->branch_id !== $sourceBranchId) {
+                    $validator->errors()->add("items.{$index}.source_inventory_id", 'Selected source batch does not belong to the selected source branch.');
+                }
+
+                if ((int) $inventory->product_id !== $productId) {
+                    $validator->errors()->add("items.{$index}.source_inventory_id", 'Selected source batch does not match the chosen product.');
+                }
+
+                $onHand = (int) ($inventory->onhand_qty ?? $inventory->quantity ?? 0);
+                $held = (int) ($inventory->hold_qty ?? 0);
+                $available = max(0, $onHand - $held);
+
+                if ($quantity > $available) {
+                    $validator->errors()->add("items.{$index}.quantity", "Quantity exceeds available stock ({$available}) for the selected batch.");
+                }
+            }
+        });
+
+        $validator->validate();
 
         try {
             $this->orderRepository->createOrderWithItems(
