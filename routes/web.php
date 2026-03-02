@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\AnalyticsApiController;
 use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\BranchManagementController;
 use App\Http\Controllers\Admin\SystemAnalyticsController;
+use App\Http\Controllers\Admin\WorkflowController;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
@@ -259,6 +260,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     Route::post('/{branch}/archive', [BranchManagementController::class, 'archive'])->name('archive');
                     Route::post('/runs/{run}/rollback', [BranchManagementController::class, 'rollback'])->name('rollback');
                 });
+        });
+
+        // == D. AUTOMATION BUILDER ROUTES ==
+        Route::prefix('workflows')->name('workflows.')->group(function () {
+            Route::get('/', [WorkflowController::class, 'index'])->name('index');
+            Route::post('/', [WorkflowController::class, 'store'])->name('store');
+            Route::get('/catalog', [WorkflowController::class, 'catalog'])->name('catalog');
+            Route::get('/{workflow}/editor', [WorkflowController::class, 'editor'])->name('editor');
+            Route::post('/{workflow}/save-graph', [WorkflowController::class, 'saveGraph'])->name('save-graph');
+            Route::post('/{workflow}/validate', [WorkflowController::class, 'validate'])->name('validate');
+            Route::post('/{workflow}/publish', [WorkflowController::class, 'publish'])->name('publish');
+            Route::post('/{workflow}/disable', [WorkflowController::class, 'disable'])->name('disable');
+            Route::post('/{workflow}/run', [WorkflowController::class, 'run'])->name('run');
+            Route::get('/{workflow}/runs', [WorkflowController::class, 'runs'])->name('runs');
+            Route::get('/{workflow}/runs/{run}', [WorkflowController::class, 'showRun'])->name('runs.show');
+            Route::delete('/{workflow}', [WorkflowController::class, 'destroy'])->name('destroy');
+            Route::get('/{workflow}/permissions', [WorkflowController::class, 'permissions'])->name('permissions');
+            Route::post('/{workflow}/permissions', [WorkflowController::class, 'addPermission'])->name('permissions.add');
+            Route::delete('/{workflow}/permissions/{permission}', [WorkflowController::class, 'removePermission'])->name('permissions.remove');
         });
 
     }); // <-- End ng buong /admin group
