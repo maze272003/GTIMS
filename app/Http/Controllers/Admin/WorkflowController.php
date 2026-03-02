@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowVersion;
 use App\Models\WorkflowRun;
+use App\Models\WorkflowPermission;
 use App\Services\WorkflowEngineService;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
@@ -320,5 +321,61 @@ class WorkflowController extends Controller
         );
 
         return response()->json(['success' => true, 'message' => 'Workflow deleted.']);
+    }
+
+    /**
+     * List permissions for a workflow.
+     */
+    public function permissions(WorkflowDefinition $workflow)
+    {
+        $permissions = $workflow->permissions()->with('user:id,name,email')->get();
+
+        return response()->json(['permissions' => $permissions]);
+    }
+
+    /**
+     * Add a permission to a workflow.
+     */
+    public function addPermission(Request $request, WorkflowDefinition $workflow)
+    {
+        $validated = $request->validate([
+            'user_id' => 'required|integer|exists:users,id',
+            'permission' => ['required', Rule::in(['view', 'edit', 'publish', 'run'])],
+        ]);
+
+        $permission = WorkflowPermission::firstOrCreate([
+            'workflow_definition_id' => $workflow->id,
+            'user_id' => $validated['user_id'],
+            'permission' => $validated['permission'],
+        ]);
+
+        $this->auditService->record(
+            'workflow_permission_added', 'WorkflowPermission', $permission->id,
+            Auth::id(), null,
+            ['user_id' => $validated['user_id'], 'permission' => $validated['permission']],
+            'Workflow permission granted'
+        );
+
+        return response()->json(['success' => true, 'permission' => $permission->load('user:id,name,email')]);
+    }
+
+    /**
+     * Remove a permission from a workflow.
+     */
+    public function removePermission(WorkflowDefinition $workflow, WorkflowPermission $permission)
+    {
+        if ($permission->workflow_definition_id !== $workflow->id) {
+            return response()->json(['error' => 'Permission does not belong to this workflow.'], 403);
+        }
+
+        $this->auditService->record(
+            'workflow_permission_removed', 'WorkflowPermission', $permission->id,
+            Auth::id(), $permission->toArray(), null,
+            'Workflow permission revoked'
+        );
+
+        $permission->delete();
+
+        return response()->json(['success' => true, 'message' => 'Permission removed.']);
     }
 }

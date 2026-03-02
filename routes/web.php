@@ -274,6 +274,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/{workflow}/runs', [WorkflowController::class, 'runs'])->name('runs');
             Route::get('/{workflow}/runs/{run}', [WorkflowController::class, 'showRun'])->name('runs.show');
             Route::delete('/{workflow}', [WorkflowController::class, 'destroy'])->name('destroy');
+            Route::get('/{workflow}/permissions', [WorkflowController::class, 'permissions'])->name('permissions');
+            Route::post('/{workflow}/permissions', [WorkflowController::class, 'addPermission'])->name('permissions.add');
+            Route::delete('/{workflow}/permissions/{permission}', [WorkflowController::class, 'removePermission'])->name('permissions.remove');
         });
 
     }); // <-- End ng buong /admin group

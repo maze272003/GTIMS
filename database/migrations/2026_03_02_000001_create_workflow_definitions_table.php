@@ -14,7 +14,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->enum('status', ['draft', 'active', 'disabled'])->default('draft');
             $table->foreignId('created_by')->constrained('users');
-            $table->foreignId('updated_by')->nullable()->constrained('users');
+            $table->foreignId('updated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->foreignId('branch_id')->nullable()->constrained('branches');
             $table->unsignedInteger('current_version')->default(0);
             $table->unsignedInteger('max_concurrency')->default(5);
