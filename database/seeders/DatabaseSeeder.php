@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             PermissionSeeder::class,
             LowStockSettingSeeder::class,
             TransactionLogSeeder::class,
+            WorkflowSeeder::class,
         ]);
         
         // \App\Models\User::factory(10)->create();
