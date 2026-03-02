@@ -9,10 +9,6 @@ class LowStockSetting extends Model
 {
     use HasFactory;
 
-    public const SOURCE_BRANCH_OVERRIDE = 'branch_override';
-    public const SOURCE_GLOBAL_OVERRIDE = 'global_override';
-    public const SOURCE_DEFAULT_THRESHOLD = 'default_threshold';
-
     protected $fillable = ['product_id', 'branch_id', 'threshold', 'is_global'];
 
     protected $casts = [
@@ -31,71 +27,27 @@ class LowStockSetting extends Model
 
     public static function getThresholdFor(?int $productId = null, ?int $branchId = null): int
     {
-        return (int) self::resolveThresholdFor($productId, $branchId)['threshold'];
-    }
-
-    /**
-     * Resolve the effective threshold and source metadata.
-     *
-     * Resolution order:
-     * 1) Branch override (product+branch)
-     * 2) Branch override default (all products at a branch)
-     * 3) Global override (product across all branches)
-     * 4) Default threshold (global default row, or fallback 10)
-     */
-    public static function resolveThresholdFor(?int $productId = null, ?int $branchId = null): array
-    {
+        // Check for product+branch-specific override first
         if ($productId && $branchId) {
-            $branchProduct = self::query()
-                ->where('is_global', false)
-                ->where('product_id', $productId)
-                ->where('branch_id', $branchId)
-                ->first();
-
-            if ($branchProduct) {
-                return [
-                    'threshold' => (int) $branchProduct->threshold,
-                    'source' => self::SOURCE_BRANCH_OVERRIDE,
-                ];
-            }
+            $setting = self::where('product_id', $productId)->where('branch_id', $branchId)->first();
+            if ($setting) return $setting->threshold;
         }
 
-        if ($branchId) {
-            $branchDefault = self::query()
-                ->where('is_global', false)
-                ->whereNull('product_id')
-                ->where('branch_id', $branchId)
-                ->first();
-
-            if ($branchDefault) {
-                return [
-                    'threshold' => (int) $branchDefault->threshold,
-                    'source' => self::SOURCE_BRANCH_OVERRIDE,
-                ];
-            }
-        }
-
+        // Check for product-specific override
         if ($productId) {
-            $globalProduct = self::query()
-                ->where('is_global', false)
-                ->where('product_id', $productId)
-                ->whereNull('branch_id')
-                ->first();
-
-            if ($globalProduct) {
-                return [
-                    'threshold' => (int) $globalProduct->threshold,
-                    'source' => self::SOURCE_GLOBAL_OVERRIDE,
-                ];
-            }
+            $setting = self::where('product_id', $productId)->whereNull('branch_id')->first();
+            if ($setting) return $setting->threshold;
         }
 
-        $global = self::query()->where('is_global', true)->first();
+        // Check for branch default (all products at a branch)
+        if ($branchId) {
+            $setting = self::whereNull('product_id')->where('branch_id', $branchId)->first();
+            if ($setting) return $setting->threshold;
+        }
 
-        return [
-            'threshold' => (int) ($global?->threshold ?? 10),
-            'source' => self::SOURCE_DEFAULT_THRESHOLD,
-        ];
+        // Fall back to global default
+        $global = self::where('is_global', true)->first();
+        return $global ? $global->threshold : 10;
     }
 
     /**

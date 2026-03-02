@@ -15,7 +15,10 @@ return new class extends Migration
             $table->enum('permission', ['view', 'edit', 'publish', 'run']);
             $table->timestamps();
 
-            $table->unique(['workflow_definition_id', 'user_id', 'permission']);
+            $table->unique(
+                ['workflow_definition_id', 'user_id', 'permission'],
+                'wf_permissions_wf_user_perm_uq'
+            );
         });
     }
 

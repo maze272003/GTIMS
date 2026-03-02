@@ -131,24 +131,17 @@
 
                     {{-- Edges SVG Layer --}}
                     <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1;">
-                        <template x-for="edge in edges" :key="edge.source_node_id + '-' + edge.target_node_id">
-                            <line :x1="getNodeCenter(edge.source_node_id).x"
-                                  :y1="getNodeCenter(edge.source_node_id).y"
-                                  :x2="getNodeCenter(edge.target_node_id).x"
-                                  :y2="getNodeCenter(edge.target_node_id).y"
-                                  stroke="#6b7280" stroke-width="2" marker-end="url(#arrowhead)"/>
-                        </template>
+                        <g x-ref="edgesLayer"></g>
                         <defs>
                             <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                                 <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
                             </marker>
                         </defs>
                         {{-- Connecting line preview --}}
-                        <template x-if="connecting">
-                            <line :x1="connectStart.x" :y1="connectStart.y"
-                                  :x2="connectEnd.x" :y2="connectEnd.y"
-                                  stroke="#ef4444" stroke-width="2" stroke-dasharray="5,5"/>
-                        </template>
+                        <line x-show="connecting"
+                              :x1="connectStart.x" :y1="connectStart.y"
+                              :x2="connectEnd.x" :y2="connectEnd.y"
+                              stroke="#ef4444" stroke-width="2" stroke-dasharray="5,5"/>
                     </svg>
 
                     {{-- Nodes --}}
@@ -391,6 +384,8 @@
                     this.nodeCounter = this.nodes.length;
                 }
 
+                this.renderEdges();
+
                 // Global mouse events for dragging
                 document.addEventListener('mousemove', (e) => {
                     if (this.draggingNode) {
@@ -398,6 +393,7 @@
                         const rect = canvas.getBoundingClientRect();
                         this.draggingNode.position.x = Math.max(0, e.clientX - rect.left - this.dragOffset.x);
                         this.draggingNode.position.y = Math.max(0, e.clientY - rect.top - this.dragOffset.y);
+                        this.renderEdges();
                     }
                     if (this.connecting) {
                         const canvas = document.getElementById('workflow-canvas');
@@ -444,6 +440,7 @@
 
                 this.nodes.push(newNode);
                 this.selectNode(newNode);
+                this.renderEdges();
             },
 
             selectNode(node) {
@@ -488,6 +485,7 @@
                             label: null,
                             condition_branch: null
                         });
+                        this.renderEdges();
                     }
                 }
                 this.connecting = false;
@@ -509,12 +507,35 @@
                 if (this.selectedNode && this.selectedNode.node_id === nodeId) {
                     this.selectedNode = null;
                 }
+                this.renderEdges();
             },
 
             removeEdge(edge) {
                 this.edges = this.edges.filter(e =>
                     !(e.source_node_id === edge.source_node_id && e.target_node_id === edge.target_node_id)
                 );
+                this.renderEdges();
+            },
+
+            renderEdges() {
+                if (!this.$refs?.edgesLayer) return;
+
+                const lines = this.edges.map((edge) => {
+                    const source = this.getNodeCenter(edge.source_node_id);
+                    const target = this.getNodeCenter(edge.target_node_id);
+
+                    const valid =
+                        Number.isFinite(source.x) &&
+                        Number.isFinite(source.y) &&
+                        Number.isFinite(target.x) &&
+                        Number.isFinite(target.y);
+
+                    if (!valid) return '';
+
+                    return `<line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" stroke="#6b7280" stroke-width="2" marker-end="url(#arrowhead)"></line>`;
+                }).join('');
+
+                this.$refs.edgesLayer.innerHTML = lines;
             },
 
             async saveGraph() {

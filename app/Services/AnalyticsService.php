@@ -112,11 +112,7 @@ class AnalyticsService
      * inventory_id, product_id, branch_id, batch_number, product_name,
      * branch_name, current_stock, threshold, on_hand, held
      */
-    public function getLowStockAlerts(
-        ?int $branchId = null,
-        ?int $productId = null,
-        ?int $inventoryId = null
-    ): array
+    public function getLowStockAlerts(?int $branchId = null): array
     {
         $globalThreshold = (int) (LowStockSetting::where('is_global', true)->value('threshold') ?? 100);
         $rules = LowStockSetting::where('is_global', false)->get(['product_id', 'branch_id', 'threshold']);
@@ -127,8 +123,6 @@ class AnalyticsService
             ->whereHas('product', fn($q) => $q->where('is_archived', false))
             ->whereHas('branch', fn($q) => $q->where('is_archived', false))
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
-            ->when($productId, fn($q) => $q->where('product_id', $productId))
-            ->when($inventoryId, fn($q) => $q->where('id', $inventoryId))
             ->with([
                 'product:id,generic_name,brand_name',
                 'branch:id,name',
@@ -146,14 +140,12 @@ class AnalyticsService
         foreach ($batches as $batch) {
             $held = (int) ($batch->held_quantity ?? 0);
             $available = max(0, (int) $batch->quantity - $held);
-            $thresholdDetails = $this->resolveThreshold(
+            $threshold = $this->resolveThreshold(
                 (int) $batch->product_id,
                 (int) $batch->branch_id,
                 $ruleMap,
                 $globalThreshold
             );
-            $threshold = (int) ($thresholdDetails['threshold'] ?? $globalThreshold);
-            $thresholdSource = (string) ($thresholdDetails['source'] ?? LowStockSetting::SOURCE_DEFAULT_THRESHOLD);
 
             if ($available <= $threshold) {
                 $alerts[] = [
@@ -167,8 +159,6 @@ class AnalyticsService
                     'branch_name'   => $batch->branch?->name ?? 'Unknown Branch',
                     'current_stock' => (int) $available,
                     'threshold'     => (int) $threshold,
-                    'threshold_source' => $thresholdSource,
-                    'threshold_source_label' => $this->thresholdSourceLabel($thresholdSource),
                     'on_hand'       => (int) $batch->quantity,
                     'held'          => (int) $held,
                 ];
@@ -224,46 +214,16 @@ class AnalyticsService
         return $map;
     }
 
-    private function resolveThreshold(int $productId, int $branchId, array $map, int $globalThreshold): array
+    private function resolveThreshold(int $productId, int $branchId, array $map, int $globalThreshold): int
     {
         // Priority:
-        // 1) branch override (product+branch)
-        // 2) branch override default (all products at branch)
-        // 3) global override (product across all branches)
-        // 4) default threshold
-        if (array_key_exists("p{$productId}-b{$branchId}", $map)) {
-            return [
-                'threshold' => (int) $map["p{$productId}-b{$branchId}"],
-                'source' => LowStockSetting::SOURCE_BRANCH_OVERRIDE,
-            ];
-        }
-
-        if (array_key_exists("p0-b{$branchId}", $map)) {
-            return [
-                'threshold' => (int) $map["p0-b{$branchId}"],
-                'source' => LowStockSetting::SOURCE_BRANCH_OVERRIDE,
-            ];
-        }
-
-        if (array_key_exists("p{$productId}-b0", $map)) {
-            return [
-                'threshold' => (int) $map["p{$productId}-b0"],
-                'source' => LowStockSetting::SOURCE_GLOBAL_OVERRIDE,
-            ];
-        }
-
-        return [
-            'threshold' => (int) $globalThreshold,
-            'source' => LowStockSetting::SOURCE_DEFAULT_THRESHOLD,
-        ];
-    }
-
-    private function thresholdSourceLabel(string $source): string
-    {
-        return match ($source) {
-            LowStockSetting::SOURCE_BRANCH_OVERRIDE => 'Branch Override',
-            LowStockSetting::SOURCE_GLOBAL_OVERRIDE => 'Global Override',
-            default => 'Default Threshold',
-        };
+        // 1) product+branch
+        // 2) product (all branches)
+        // 3) branch default (all products)
+        // 4) global
+        return $map["p{$productId}-b{$branchId}"]
+            ?? $map["p{$productId}-b0"]
+            ?? $map["p0-b{$branchId}"]
+            ?? $globalThreshold;
     }
 }
