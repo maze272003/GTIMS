@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('workflow_permissions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('workflow_definition_id')->constrained('workflow_definitions')->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained('users');
+            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->enum('permission', ['view', 'edit', 'publish', 'run']);
             $table->timestamps();
 

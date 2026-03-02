@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('trigger_type')->nullable();
             $table->json('trigger_payload')->nullable();
             $table->json('context')->nullable();
-            $table->foreignId('triggered_by')->nullable()->constrained('users');
+            $table->foreignId('triggered_by')->nullable()->constrained('users')->nullOnDelete();
             $table->boolean('is_dry_run')->default(false);
             $table->string('idempotency_key')->nullable();
             $table->text('error_message')->nullable();

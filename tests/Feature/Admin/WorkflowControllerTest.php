@@ -11,6 +11,7 @@ use App\Models\WorkflowDefinition;
 use App\Models\WorkflowVersion;
 use App\Models\WorkflowNode;
 use App\Models\WorkflowEdge;
+use App\Models\WorkflowPermission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -213,5 +214,158 @@ class WorkflowControllerTest extends TestCase
 
         $response = $this->actingAs($this->user)->get(route('admin.workflows.runs', $workflow));
         $response->assertStatus(200);
+    }
+
+    public function test_list_permissions(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test',
+            'created_by' => $this->user->id,
+            'current_version' => 0,
+        ]);
+
+        WorkflowPermission::create([
+            'workflow_definition_id' => $workflow->id,
+            'user_id' => $this->user->id,
+            'permission' => 'view',
+        ]);
+
+        $response = $this->actingAs($this->user)->getJson(route('admin.workflows.permissions', $workflow));
+        $response->assertOk();
+        $response->assertJsonCount(1, 'permissions');
+        $response->assertJsonPath('permissions.0.permission', 'view');
+    }
+
+    public function test_add_permission(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test',
+            'created_by' => $this->user->id,
+            'current_version' => 0,
+        ]);
+
+        $otherUser = User::factory()->create([
+            'user_level_id' => $this->level->id,
+            'branch_id' => $this->user->branch_id,
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.permissions.add', $workflow), [
+            'user_id' => $otherUser->id,
+            'permission' => 'edit',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $this->assertDatabaseHas('workflow_permissions', [
+            'workflow_definition_id' => $workflow->id,
+            'user_id' => $otherUser->id,
+            'permission' => 'edit',
+        ]);
+    }
+
+    public function test_add_permission_is_idempotent(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test',
+            'created_by' => $this->user->id,
+            'current_version' => 0,
+        ]);
+
+        $data = [
+            'user_id' => $this->user->id,
+            'permission' => 'run',
+        ];
+
+        $this->actingAs($this->user)->postJson(route('admin.workflows.permissions.add', $workflow), $data);
+        $this->actingAs($this->user)->postJson(route('admin.workflows.permissions.add', $workflow), $data);
+
+        $this->assertEquals(1, WorkflowPermission::where([
+            'workflow_definition_id' => $workflow->id,
+            'user_id' => $this->user->id,
+            'permission' => 'run',
+        ])->count());
+    }
+
+    public function test_remove_permission(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test',
+            'created_by' => $this->user->id,
+            'current_version' => 0,
+        ]);
+
+        $permission = WorkflowPermission::create([
+            'workflow_definition_id' => $workflow->id,
+            'user_id' => $this->user->id,
+            'permission' => 'view',
+        ]);
+
+        $response = $this->actingAs($this->user)->deleteJson(route('admin.workflows.permissions.remove', [$workflow, $permission]));
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+        $this->assertDatabaseMissing('workflow_permissions', ['id' => $permission->id]);
+    }
+
+    public function test_add_permission_validates_input(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test',
+            'created_by' => $this->user->id,
+            'current_version' => 0,
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.permissions.add', $workflow), [
+            'user_id' => 999999,
+            'permission' => 'invalid',
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_permissions_cascade_on_user_delete(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test',
+            'created_by' => $this->user->id,
+            'current_version' => 0,
+        ]);
+
+        $otherUser = User::factory()->create([
+            'user_level_id' => $this->level->id,
+            'branch_id' => $this->user->branch_id,
+        ]);
+
+        WorkflowPermission::create([
+            'workflow_definition_id' => $workflow->id,
+            'user_id' => $otherUser->id,
+            'permission' => 'view',
+        ]);
+
+        $this->assertDatabaseHas('workflow_permissions', ['user_id' => $otherUser->id]);
+
+        $otherUser->forceDelete();
+
+        $this->assertDatabaseMissing('workflow_permissions', ['user_id' => $otherUser->id]);
+    }
+
+    public function test_permissions_cascade_on_workflow_delete(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test',
+            'created_by' => $this->user->id,
+            'current_version' => 0,
+        ]);
+
+        WorkflowPermission::create([
+            'workflow_definition_id' => $workflow->id,
+            'user_id' => $this->user->id,
+            'permission' => 'edit',
+        ]);
+
+        $this->assertDatabaseHas('workflow_permissions', ['workflow_definition_id' => $workflow->id]);
+
+        $workflow->forceDelete();
+
+        $this->assertDatabaseMissing('workflow_permissions', ['workflow_definition_id' => $workflow->id]);
     }
 }

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->enum('status', ['draft', 'published', 'archived'])->default('draft');
             $table->json('graph_data')->nullable();
             $table->text('change_summary')->nullable();
-            $table->foreignId('published_by')->nullable()->constrained('users');
+            $table->foreignId('published_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('published_at')->nullable();
             $table->timestamps();
 
