@@ -64,6 +64,14 @@ class PermissionSeeder extends Seeder
             // Notifications
             ['name' => 'notifications.manage', 'group' => 'Notifications', 'description' => 'Manage notification preferences'],
 
+            // Workflows / Automation Builder
+            ['name' => 'workflows.view', 'group' => 'Workflows', 'description' => 'View automation workflows'],
+            ['name' => 'workflows.create', 'group' => 'Workflows', 'description' => 'Create automation workflows'],
+            ['name' => 'workflows.edit', 'group' => 'Workflows', 'description' => 'Edit automation workflows'],
+            ['name' => 'workflows.publish', 'group' => 'Workflows', 'description' => 'Publish automation workflows'],
+            ['name' => 'workflows.run', 'group' => 'Workflows', 'description' => 'Run automation workflows'],
+            ['name' => 'workflows.delete', 'group' => 'Workflows', 'description' => 'Delete automation workflows'],
+
             // Users
             ['name' => 'users.view', 'group' => 'Users', 'description' => 'View users'],
             ['name' => 'users.manage', 'group' => 'Users', 'description' => 'Create/edit users'],
