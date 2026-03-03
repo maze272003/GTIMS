@@ -327,6 +327,49 @@ class WorkflowControllerTest extends TestCase
         $response = $this->actingAs($this->user)->getJson(route('admin.workflows.catalog'));
         $response->assertOk();
         $response->assertJsonStructure(['triggers', 'conditions', 'actions']);
+        $response->assertJsonStructure(['templates']);
+    }
+
+    public function test_templates_endpoint_returns_template_library(): void
+    {
+        $response = $this->actingAs($this->user)->getJson(route('admin.workflows.templates'));
+        $response->assertOk();
+        $response->assertJsonStructure(['templates']);
+        $this->assertGreaterThanOrEqual(5, count($response->json('templates')));
+    }
+
+    public function test_store_with_template_key_preloads_template_graph(): void
+    {
+        $response = $this->actingAs($this->user)->post(route('admin.workflows.store'), [
+            'name' => 'Onboarding Workflow',
+            'template_key' => 'employee_onboarding_automation',
+        ]);
+
+        $response->assertRedirect();
+
+        $workflow = WorkflowDefinition::query()->where('name', 'Onboarding Workflow')->firstOrFail();
+        $version = $workflow->versions()->latest('version_number')->firstOrFail();
+
+        $nodes = data_get($version->graph_data, 'nodes', []);
+        $edges = data_get($version->graph_data, 'edges', []);
+        $this->assertNotEmpty($nodes);
+        $this->assertNotEmpty($edges);
+        $this->assertEquals('employee_onboarding_automation', data_get($version->graph_data, '_template.key'));
+        $this->assertDatabaseHas('workflow_nodes', [
+            'workflow_version_id' => $version->id,
+            'action_type' => 'completion_gate',
+        ]);
+    }
+
+    public function test_store_rejects_unknown_template_key(): void
+    {
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.store'), [
+            'name' => 'Bad Template',
+            'template_key' => 'missing_template',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['template_key']);
     }
 
     public function test_runs_page_loads(): void

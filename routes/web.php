@@ -267,6 +267,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [WorkflowController::class, 'index'])->name('index');
             Route::post('/', [WorkflowController::class, 'store'])->name('store');
             Route::get('/catalog', [WorkflowController::class, 'catalog'])->name('catalog');
+            Route::get('/templates', [WorkflowController::class, 'templates'])->name('templates');
             Route::get('/{workflow}/editor', [WorkflowController::class, 'editor'])->name('editor');
             Route::get('/{workflow}/graph-state', [WorkflowController::class, 'graphState'])->name('graph-state');
             Route::post('/{workflow}/save-graph', [WorkflowController::class, 'saveGraph'])->name('save-graph');

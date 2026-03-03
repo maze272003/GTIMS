@@ -5,6 +5,8 @@ namespace Tests\Unit\Services;
 use App\Models\User;
 use App\Models\Branch;
 use App\Models\UserLevel;
+use App\Models\Permission;
+use App\Models\RolePermission;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowVersion;
 use App\Models\WorkflowNode;
@@ -321,5 +323,170 @@ class WorkflowEngineServiceTest extends TestCase
         $this->assertTrue(Storage::disk('local')->exists($reportPath));
 
         Storage::disk('local')->delete($reportPath);
+    }
+
+    public function test_condition_branch_execution_skips_inactive_branch_nodes(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock'],
+                ['node_id' => 'condition_1', 'type' => 'condition', 'action_type' => 'quantity_threshold', 'label' => 'Quantity < 10', 'config' => ['operator' => '<', 'value' => 10]],
+                ['node_id' => 'action_true', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify True', 'config' => ['message' => 'True path']],
+                ['node_id' => 'action_false', 'type' => 'action', 'action_type' => 'create_hold', 'label' => 'False Path Hold', 'config' => ['reason' => 'False path']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'condition_1'],
+                ['source_node_id' => 'condition_1', 'target_node_id' => 'action_true', 'condition_branch' => 'true'],
+                ['source_node_id' => 'condition_1', 'target_node_id' => 'action_false', 'condition_branch' => 'false'],
+            ]
+        );
+
+        $run = $this->engine->startRun($workflow, $this->user->id, ['quantity' => 5]);
+        $this->assertEquals('completed', $run->status);
+
+        $steps = $run->steps()->get()->keyBy('node_id');
+        $this->assertEquals('completed', $steps->get('action_true')?->status);
+        $this->assertEquals('skipped', $steps->get('action_false')?->status);
+    }
+
+    public function test_completion_gate_fails_when_required_notifications_are_missing(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'daily_schedule', 'label' => 'Daily', 'config' => ['cron' => '0 8 * * *']],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'completion_gate', 'label' => 'Gate', 'config' => ['require_notifications' => 1, 'require_error_resolution' => 1]],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $run = $this->engine->startRun($workflow, $this->user->id);
+        $this->assertEquals('failed', $run->status);
+        $this->assertStringContainsString('Completion gate failed', (string) $run->error_message);
+    }
+
+    public function test_workflow_template_library_contains_required_business_templates(): void
+    {
+        $templates = $this->engine->getWorkflowTemplates();
+        $keys = array_map(fn (array $template) => $template['key'] ?? null, $templates);
+
+        $this->assertContains('employee_onboarding_automation', $keys);
+        $this->assertContains('document_approval_hierarchy', $keys);
+        $this->assertContains('cross_platform_data_sync', $keys);
+        $this->assertContains('it_service_request_management', $keys);
+        $this->assertContains('compliance_monitoring_control_loop', $keys);
+    }
+
+    public function test_notify_action_supports_specific_user_recipient_strategy(): void
+    {
+        $targetA = User::factory()->create(['user_level_id' => $this->user->user_level_id]);
+        $targetB = User::factory()->create(['user_level_id' => $this->user->user_level_id]);
+
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'order_created', 'label' => 'Order Created'],
+                [
+                    'node_id' => 'action_1',
+                    'type' => 'action',
+                    'action_type' => 'notify',
+                    'label' => 'Notify Selected',
+                    'config' => [
+                        'message' => 'Targeted notification',
+                        'recipient_strategy' => 'specific_users',
+                        'recipient_user_ids' => [$targetA->id, $targetB->id],
+                    ],
+                ],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $run = $this->engine->startRun($workflow, $this->user->id);
+        $this->assertEquals('completed', $run->status);
+
+        $notifyStep = $run->steps()->where('node_id', 'action_1')->firstOrFail();
+        $this->assertEquals(2, (int) data_get($notifyStep->output_snapshot, 'recipients', 0));
+    }
+
+    public function test_notify_action_supports_criteria_based_recipient_filters(): void
+    {
+        $branchA = Branch::factory()->create(['is_archived' => false]);
+        $branchB = Branch::factory()->create(['is_archived' => false]);
+
+        $eligibleLevel = UserLevel::create(['name' => 'eligible-level']);
+        $ineligibleLevel = UserLevel::create(['name' => 'ineligible-level']);
+        $permission = Permission::create(['name' => 'workflows.run']);
+        RolePermission::create([
+            'user_level_id' => $eligibleLevel->id,
+            'permission_id' => $permission->id,
+        ]);
+
+        $eligibleUser = User::factory()->create([
+            'user_level_id' => $eligibleLevel->id,
+            'branch_id' => $branchA->id,
+        ]);
+        User::factory()->create([
+            'user_level_id' => $eligibleLevel->id,
+            'branch_id' => $branchB->id,
+        ]);
+        User::factory()->create([
+            'user_level_id' => $ineligibleLevel->id,
+            'branch_id' => $branchA->id,
+        ]);
+
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'data_sync_requested', 'label' => 'Sync Requested'],
+                [
+                    'node_id' => 'action_1',
+                    'type' => 'action',
+                    'action_type' => 'notify',
+                    'label' => 'Notify Filtered',
+                    'config' => [
+                        'message' => 'Criteria-based notification',
+                        'recipient_strategy' => 'criteria',
+                        'recipient_branch_ids' => [$branchA->id],
+                        'recipient_permissions' => ['workflows.run'],
+                    ],
+                ],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $run = $this->engine->startRun($workflow, $this->user->id, ['branch_id' => $branchA->id]);
+        $this->assertEquals('completed', $run->status);
+
+        $notifyStep = $run->steps()->where('node_id', 'action_1')->firstOrFail();
+        $this->assertEquals(1, (int) data_get($notifyStep->output_snapshot, 'recipients', 0));
+        $this->assertTrue((bool) data_get($run->context, 'confirmation_notifications_sent'));
+        $this->assertGreaterThanOrEqual(1, (int) data_get($run->context, 'confirmation_notification_count'));
+        $this->assertNotNull($eligibleUser->id);
+    }
+
+    public function test_create_google_doc_action_stores_output_data_in_context(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'employee_onboarding_started', 'label' => 'Onboarding'],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'create_google_doc', 'label' => 'Create Doc', 'config' => ['title' => 'Onboarding Packet']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $run = $this->engine->startRun($workflow, $this->user->id);
+        $this->assertEquals('completed', $run->status);
+        $this->assertTrue((bool) data_get($run->context, 'google_doc_created'));
+        $this->assertStringContainsString('docs.google.com/document/d/', (string) data_get($run->context, 'google_doc_url'));
+
+        $outputs = data_get($run->context, '_workflow_outputs', []);
+        $this->assertIsArray($outputs);
+        $this->assertNotEmpty($outputs);
+        $this->assertContains('create_google_doc', array_map(fn ($item) => $item['action_type'] ?? null, $outputs));
     }
 }

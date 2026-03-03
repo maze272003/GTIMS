@@ -128,6 +128,12 @@ class NotificationService
             unset($context['_condition_results']);
         }
 
+        $workflowOutputs = [];
+        if (isset($context['_workflow_outputs']) && is_array($context['_workflow_outputs'])) {
+            $workflowOutputs = $context['_workflow_outputs'];
+            unset($context['_workflow_outputs']);
+        }
+
         $lines = [
             'Workflow Automation Alert',
             "Message: {$message}",
@@ -163,6 +169,9 @@ class NotificationService
                 'report_generated' => 'Report Generated',
                 'report_type' => 'Report Type',
                 'report_file_name' => 'Report File',
+                'google_doc_created' => 'Google Doc Created',
+                'google_doc_title' => 'Google Doc Title',
+                'google_doc_url' => 'Google Doc URL',
                 'webhook_called' => 'Webhook Called',
             ];
 
@@ -190,6 +199,32 @@ class NotificationService
             $lines[] = 'Condition Results:';
             foreach ($conditionMeta as $nodeId => $result) {
                 $lines[] = "- {$nodeId}: " . ($result ? 'TRUE' : 'FALSE');
+            }
+        }
+
+        if (!empty($workflowOutputs)) {
+            $lines[] = '';
+            $lines[] = 'Workflow Outputs:';
+            foreach (array_slice($workflowOutputs, -15) as $output) {
+                if (!is_array($output)) {
+                    continue;
+                }
+
+                $actionType = (string) ($output['action_type'] ?? 'action');
+                $nodeId = (string) ($output['node_id'] ?? 'node');
+                $status = strtoupper((string) ($output['status'] ?? 'done'));
+                $messageText = trim((string) ($output['message'] ?? ''));
+                $lines[] = "- {$status} {$actionType} ({$nodeId})" . ($messageText !== '' ? ": {$messageText}" : '');
+
+                $googleDoc = $output['google_doc'] ?? null;
+                if (is_array($googleDoc) && isset($googleDoc['url'])) {
+                    $lines[] = "  Google Doc: " . (string) $googleDoc['url'];
+                }
+
+                $report = $output['report'] ?? null;
+                if (is_array($report) && isset($report['file_name'])) {
+                    $lines[] = "  Report File: " . (string) $report['file_name'];
+                }
             }
         }
 

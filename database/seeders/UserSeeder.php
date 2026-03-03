@@ -23,45 +23,45 @@ class UserSeeder extends Seeder
             'email_verified_at' => now(), // Set as verified na
             'user_level_id' => 1, // ID para sa 'superadmin'
         ]);
-        User::create([
-            'name' => 'AJ SANTOS',
-            'email' => 'ajsantos@gmail.com',
-            'branch_id' => 1,
-            'password' => Hash::make('password'), // Awtomatikong na-hash
-            'email_verified_at' => now(), // Set as verified na
-            'user_level_id' => 1, // ID para sa 'superadmin'
-        ]);
+        // User::create([
+        //     'name' => 'AJ SANTOS',
+        //     'email' => 'ajsantos@gmail.com',
+        //     'branch_id' => 1,
+        //     'password' => Hash::make('password'), // Awtomatikong na-hash
+        //     'email_verified_at' => now(), // Set as verified na
+        //     'user_level_id' => 1, // ID para sa 'superadmin'
+        // ]);
 
         // 1. Superadmin
-        User::create([
-            'name' => 'Super Admin',
-            'email' => 'pescojohnanthony@gmail.com',
-            'branch_id' => 1,
-            'password' => Hash::make('password'), // Awtomatikong na-hash
-            'email_verified_at' => now(), // Set as verified na
-            'user_level_id' => 1, // ID para sa 'superadmin'
-        ]);
-        
+        // User::create([
+        //     'name' => 'Super Admin',
+        //     'email' => 'pescojohnanthony@gmail.com',
+        //     'branch_id' => 1,
+        //     'password' => Hash::make('password'), // Awtomatikong na-hash
+        //     'email_verified_at' => now(), // Set as verified na
+        //     'user_level_id' => 1, // ID para sa 'superadmin'
+        // ]);
+
         // 2. Superadmin
-        User::create([
-            'name' => 'Sigrae Super Duper',
-            'email' => 'sde.gabriel.77@gmail.com',
-            'branch_id' => 1,
-            'branch_id' => 1,
-            'password' => Hash::make('12345678'), // Awtomatikong na-hash
-            'email_verified_at' => now(), // Set as verified na
-            'user_level_id' => 1, // ID para sa 'superadmin'
-        ]);
-        // 2. Superadmin
-        User::create([
-            'name' => 'Ace',
-            'email' => 'acepadillaace@gmail.com',
-            'branch_id' => 1,
-            'branch_id' => 1,
-            'password' => Hash::make('12345678'), // Awtomatikong na-hash
-            'email_verified_at' => now(), // Set as verified na
-            'user_level_id' => 1, // ID para sa 'superadmin'
-        ]);
+        // User::create([
+        //     'name' => 'Sigrae Super Duper',
+        //     'email' => 'sde.gabriel.77@gmail.com',
+        //     'branch_id' => 1,
+        //     'branch_id' => 1,
+        //     'password' => Hash::make('12345678'), // Awtomatikong na-hash
+        //     'email_verified_at' => now(), // Set as verified na
+        //     'user_level_id' => 1, // ID para sa 'superadmin'
+        // ]);
+        // // 2. Superadmin
+        // User::create([
+        //     'name' => 'Ace',
+        //     'email' => 'acepadillaace@gmail.com',
+        //     'branch_id' => 1,
+        //     'branch_id' => 1,
+        //     'password' => Hash::make('12345678'), // Awtomatikong na-hash
+        //     'email_verified_at' => now(), // Set as verified na
+        //     'user_level_id' => 1, // ID para sa 'superadmin'
+        // ]);
 
         // 2. Admin
         User::create([

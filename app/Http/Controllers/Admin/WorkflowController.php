@@ -33,6 +33,7 @@ class WorkflowController extends Controller
     {
         $query = WorkflowDefinition::with('creator', 'versions')
             ->withCount('runs');
+        $templates = $this->engine->getWorkflowTemplates();
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -49,10 +50,13 @@ class WorkflowController extends Controller
         $workflows = $query->latest()->paginate(15);
 
         if ($request->wantsJson()) {
-            return response()->json($workflows);
+            return response()->json([
+                'workflows' => $workflows,
+                'templates' => $templates,
+            ]);
         }
 
-        return view('admin.workflows.index', compact('workflows'));
+        return view('admin.workflows.index', compact('workflows', 'templates'));
     }
 
     /**
@@ -101,12 +105,23 @@ class WorkflowController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
             'branch_id' => 'nullable|integer|exists:branches,id',
+            'template_key' => 'nullable|string|max:120',
         ]);
 
-        $workflow = DB::transaction(function () use ($validated) {
+        $template = null;
+        if (isset($validated['template_key']) && trim((string) $validated['template_key']) !== '') {
+            $template = $this->engine->findWorkflowTemplate((string) $validated['template_key']);
+            if (!$template) {
+                throw ValidationException::withMessages([
+                    'template_key' => ['Selected workflow template does not exist.'],
+                ]);
+            }
+        }
+
+        $workflow = DB::transaction(function () use ($validated, $template) {
             $workflow = WorkflowDefinition::create([
                 'name' => $validated['name'],
-                'description' => $validated['description'] ?? null,
+                'description' => $validated['description'] ?? ($template['description'] ?? null),
                 'branch_id' => $validated['branch_id'] ?? null,
                 'created_by' => Auth::id(),
                 'status' => 'draft',
@@ -114,15 +129,49 @@ class WorkflowController extends Controller
             ]);
 
             // Create initial version
-            WorkflowVersion::create([
+            $version = WorkflowVersion::create([
                 'workflow_definition_id' => $workflow->id,
                 'version_number' => 1,
                 'status' => 'draft',
             ]);
 
+            if ($template) {
+                $templateGraph = is_array($template['graph'] ?? null) ? $template['graph'] : ['nodes' => [], 'edges' => []];
+                $graphValidation = $this->engine->validateGraphPayload($templateGraph);
+                if (!$graphValidation['valid']) {
+                    throw ValidationException::withMessages([
+                        'template_key' => $graphValidation['errors'],
+                    ]);
+                }
+
+                $graph = $graphValidation['graph'];
+                if (!empty($graph['nodes'])) {
+                    $version->nodes()->createMany($graph['nodes']);
+                }
+                if (!empty($graph['edges'])) {
+                    $version->edges()->createMany($graph['edges']);
+                }
+
+                $version->update([
+                    'graph_data' => array_merge($graph, [
+                        '_template' => [
+                            'key' => $template['key'] ?? null,
+                            'name' => $template['name'] ?? null,
+                            'completion_criteria' => $template['completion_criteria'] ?? [],
+                            'capabilities' => $template['capabilities'] ?? [],
+                        ],
+                    ]),
+                    'change_summary' => 'Initialized from template: ' . ($template['name'] ?? ($template['key'] ?? 'unknown')),
+                ]);
+            }
+
             $this->auditService->record(
                 'workflow_created', 'WorkflowDefinition', $workflow->id,
-                Auth::id(), null, $workflow->toArray(), 'Workflow created'
+                Auth::id(), null, $workflow->toArray(), 'Workflow created',
+                array_filter([
+                    'template_key' => $template['key'] ?? null,
+                    'template_name' => $template['name'] ?? null,
+                ])
             );
 
             return $workflow;
@@ -407,7 +456,20 @@ class WorkflowController extends Controller
      */
     public function catalog()
     {
-        return response()->json($this->engine->getNodeCatalog());
+        $catalog = $this->engine->getNodeCatalog();
+        $catalog['templates'] = $this->engine->getWorkflowTemplates();
+
+        return response()->json($catalog);
+    }
+
+    /**
+     * List workflow template library.
+     */
+    public function templates()
+    {
+        return response()->json([
+            'templates' => $this->engine->getWorkflowTemplates(),
+        ]);
     }
 
     /**

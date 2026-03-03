@@ -62,6 +62,63 @@
             </div>
             @endif
 
+            @php
+                $completion = data_get($run->context, '_completion', []);
+                $debugTrace = data_get($run->context, '_debug_trace', []);
+            @endphp
+
+            {{-- Completion Criteria --}}
+            @if(!empty($completion))
+                <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-base font-bold text-gray-800 dark:text-gray-100">Completion Criteria</h3>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium {{ data_get($completion, 'all_criteria_met') ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' }}">
+                            {{ data_get($completion, 'all_criteria_met') ? 'Passed' : 'Failed' }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-300 mt-2">{{ data_get($completion, 'summary') }}</p>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-xs">
+                        <div class="bg-gray-50 dark:bg-gray-700/30 rounded p-2">
+                            <p class="text-gray-500 dark:text-gray-400">Finalized Nodes</p>
+                            <p class="font-semibold text-gray-800 dark:text-gray-200">{{ data_get($completion, 'finalized_nodes', 0) }} / {{ data_get($completion, 'node_count', 0) }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/30 rounded p-2">
+                            <p class="text-gray-500 dark:text-gray-400">Parallel Stages</p>
+                            <p class="font-semibold text-gray-800 dark:text-gray-200">{{ data_get($completion, 'parallel_stages', 0) }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/30 rounded p-2">
+                            <p class="text-gray-500 dark:text-gray-400">Notifications</p>
+                            <p class="font-semibold text-gray-800 dark:text-gray-200">{{ data_get($completion, 'notifications_sent') ? 'Dispatched' : 'Not Sent' }}</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-gray-700/30 rounded p-2">
+                            <p class="text-gray-500 dark:text-gray-400">Error Resolution</p>
+                            <p class="font-semibold text-gray-800 dark:text-gray-200">{{ data_get($completion, 'error_states_resolved') ? 'Resolved' : 'Unresolved' }}</p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            {{-- Debug Trace --}}
+            @if(is_array($debugTrace) && count($debugTrace) > 0)
+                <div class="mb-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+                    <h3 class="text-base font-bold text-gray-800 dark:text-gray-100 mb-3">Debug Trace</h3>
+                    <div class="max-h-72 overflow-y-auto space-y-2">
+                        @foreach(array_slice($debugTrace, -80) as $entry)
+                            <div class="text-xs bg-gray-50 dark:bg-gray-700/30 rounded p-2 border border-gray-200 dark:border-gray-700">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="font-semibold text-gray-700 dark:text-gray-200">{{ strtoupper((string) data_get($entry, 'status', 'event')) }}</span>
+                                    <span class="text-gray-500 dark:text-gray-400">{{ data_get($entry, 'timestamp') }}</span>
+                                </div>
+                                <p class="text-gray-600 dark:text-gray-300 mt-1">{{ data_get($entry, 'message', '') }}</p>
+                                @if(data_get($entry, 'node_id'))
+                                    <p class="text-gray-500 dark:text-gray-400 mt-1">Node: {{ data_get($entry, 'node_id') }} ({{ data_get($entry, 'action_type') }})</p>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+
             {{-- Step Timeline --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
                 <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">

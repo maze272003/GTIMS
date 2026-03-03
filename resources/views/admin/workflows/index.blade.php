@@ -127,6 +127,19 @@
                         class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500">
                 </div>
                 <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template</label>
+                    <select name="template_key"
+                        class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                        <option value="">Blank Workflow</option>
+                        @foreach(($templates ?? []) as $template)
+                            <option value="{{ $template['key'] }}">
+                                {{ $template['name'] }} ({{ $template['category'] ?? 'General' }})
+                            </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Choose a template to preload advanced automation patterns with completion criteria.</p>
+                </div>
+                <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Description</label>
                     <textarea name="description" rows="3" maxlength="2000" placeholder="Describe what this workflow does..."
                         class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-red-500"></textarea>

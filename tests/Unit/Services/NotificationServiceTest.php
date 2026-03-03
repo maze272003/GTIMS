@@ -59,4 +59,46 @@ class NotificationServiceTest extends TestCase
         $this->assertStringEndsWith('sample.xlsx', $attachments[0]['name']);
         $this->assertStringContainsString('automation-reports', $attachments[0]['absolute_path']);
     }
+
+    public function test_workflow_notification_message_includes_google_doc_and_output_summary(): void
+    {
+        $service = app(NotificationService::class);
+
+        $method = new \ReflectionMethod(NotificationService::class, 'buildMessage');
+        $method->setAccessible(true);
+
+        $message = $method->invoke($service, 'workflow_notification', [
+            'message' => 'Automation outputs generated.',
+            'workflow_context' => [
+                'google_doc_created' => true,
+                'google_doc_title' => 'Onboarding Packet',
+                'google_doc_url' => 'https://docs.google.com/document/d/test-doc/edit',
+                '_workflow_outputs' => [
+                    [
+                        'node_id' => 'action_1',
+                        'action_type' => 'create_google_doc',
+                        'status' => 'google_doc_created',
+                        'message' => 'Google Doc created: Onboarding Packet',
+                        'google_doc' => [
+                            'url' => 'https://docs.google.com/document/d/test-doc/edit',
+                        ],
+                    ],
+                    [
+                        'node_id' => 'action_2',
+                        'action_type' => 'generate_report',
+                        'status' => 'report_generated',
+                        'message' => 'Report generated: sample.xlsx',
+                        'report' => [
+                            'file_name' => 'sample.xlsx',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertStringContainsString('Google Doc URL', $message);
+        $this->assertStringContainsString('Workflow Outputs:', $message);
+        $this->assertStringContainsString('create_google_doc', $message);
+        $this->assertStringContainsString('sample.xlsx', $message);
+    }
 }
