@@ -6,7 +6,7 @@ use App\Models\User;
 use App\Models\NotificationPreference;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 
 class NotificationService
 {
@@ -39,9 +39,24 @@ class NotificationService
     protected function sendEmail(User $user, string $type, array $data): void
     {
         try {
-            Mail::raw($this->buildMessage($type, $data), function ($message) use ($user, $type) {
+            $subject = $this->buildSubject($type, $data);
+            $attachments = $this->resolveAttachments($data);
+
+            Mail::raw($this->buildMessage($type, $data), function ($message) use ($user, $subject, $attachments) {
                 $message->to($user->email)
-                    ->subject("GTIMS Notification: {$type}");
+                    ->subject($subject);
+
+                foreach ($attachments as $attachment) {
+                    $options = [
+                        'as' => $attachment['name'] ?? basename($attachment['absolute_path']),
+                    ];
+
+                    if (isset($attachment['mime']) && $attachment['mime'] !== '') {
+                        $options['mime'] = $attachment['mime'];
+                    }
+
+                    $message->attach($attachment['absolute_path'], $options);
+                }
             });
         } catch (\Exception $e) {
             Log::error("Failed to send email notification", [
@@ -64,8 +79,167 @@ class NotificationService
             'approval_needed' => "A new request #{$safe['request_id']} requires your approval.",
             'hold_expiry' => "Hold #{$safe['hold_id']} is expiring soon.",
             'request_status' => "Request #{$safe['request_id']} status changed to {$safe['status']}.",
+            'workflow_notification' => $this->buildWorkflowMessage($safe),
             default => "GTIMS Notification: " . json_encode($safe),
         };
+    }
+
+    protected function buildSubject(string $type, array $data): string
+    {
+        if ($type === 'workflow_notification') {
+            $context = $data['workflow_context'] ?? [];
+            if (is_array($context) && isset($context['_workflow']) && is_array($context['_workflow'])) {
+                $workflowName = $context['_workflow']['workflow_name'] ?? null;
+                $runId = $context['_workflow']['run_id'] ?? null;
+                if ($workflowName && $runId) {
+                    return "GTIMS Workflow Alert: {$workflowName} (Run #{$runId})";
+                }
+                if ($workflowName) {
+                    return "GTIMS Workflow Alert: {$workflowName}";
+                }
+            }
+
+            return "GTIMS Workflow Alert";
+        }
+
+        return "GTIMS Notification: {$type}";
+    }
+
+    protected function buildWorkflowMessage(array $safe): string
+    {
+        $message = isset($safe['message']) && is_string($safe['message']) && trim($safe['message']) !== ''
+            ? $safe['message']
+            : 'Workflow alert generated.';
+
+        $context = $safe['workflow_context'] ?? [];
+        if (!is_array($context)) {
+            $context = [];
+        }
+
+        $workflowMeta = [];
+        if (isset($context['_workflow']) && is_array($context['_workflow'])) {
+            $workflowMeta = $context['_workflow'];
+            unset($context['_workflow']);
+        }
+
+        $conditionMeta = [];
+        if (isset($context['_condition_results']) && is_array($context['_condition_results'])) {
+            $conditionMeta = $context['_condition_results'];
+            unset($context['_condition_results']);
+        }
+
+        $lines = [
+            'Workflow Automation Alert',
+            "Message: {$message}",
+        ];
+
+        $workflowName = $workflowMeta['workflow_name'] ?? null;
+        $runId = $workflowMeta['run_id'] ?? null;
+        $versionId = $workflowMeta['workflow_version_id'] ?? null;
+        if ($workflowName || $runId || $versionId) {
+            $runText = $runId ? "#{$runId}" : 'n/a';
+            $versionText = $versionId ? "#{$versionId}" : 'n/a';
+            $nameText = $workflowName ?: 'Unknown Workflow';
+            $lines[] = "Workflow: {$nameText}";
+            $lines[] = "Run ID: {$runText}";
+            $lines[] = "Version ID: {$versionText}";
+        }
+
+        if (!empty($context)) {
+            $lines[] = '';
+            $lines[] = 'Automation Context:';
+            $labels = [
+                'product_id' => 'Product ID',
+                'branch_id' => 'Branch ID',
+                'order_id' => 'Order ID',
+                'quantity' => 'Quantity',
+                'available_qty' => 'Available Quantity',
+                'category' => 'Category',
+                'expiry_date' => 'Expiry Date',
+                'hold_requested' => 'Hold Requested',
+                'hold_reason' => 'Hold Reason',
+                'transfer_requested' => 'Transfer Requested',
+                'target_branch_id' => 'Target Branch ID',
+                'report_generated' => 'Report Generated',
+                'report_type' => 'Report Type',
+                'report_file_name' => 'Report File',
+                'webhook_called' => 'Webhook Called',
+            ];
+
+            foreach ($labels as $key => $label) {
+                if (!array_key_exists($key, $context)) {
+                    continue;
+                }
+
+                $value = $context[$key];
+                if (is_bool($value)) {
+                    $value = $value ? 'Yes' : 'No';
+                } elseif (is_array($value)) {
+                    $value = json_encode($value);
+                }
+
+                $lines[] = "- {$label}: {$value}";
+            }
+        } else {
+            $lines[] = '';
+            $lines[] = 'Automation Context: No runtime payload was provided.';
+        }
+
+        if (!empty($conditionMeta)) {
+            $lines[] = '';
+            $lines[] = 'Condition Results:';
+            foreach ($conditionMeta as $nodeId => $result) {
+                $lines[] = "- {$nodeId}: " . ($result ? 'TRUE' : 'FALSE');
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<int,array<string,string>>
+     */
+    protected function resolveAttachments(array $data): array
+    {
+        $attachments = $data['attachments'] ?? [];
+        if (!is_array($attachments)) {
+            return [];
+        }
+
+        $resolved = [];
+        foreach ($attachments as $attachment) {
+            if (!is_array($attachment)) {
+                continue;
+            }
+
+            $absolutePath = null;
+            $name = isset($attachment['name']) ? trim((string) $attachment['name']) : '';
+            $mime = isset($attachment['mime']) ? trim((string) $attachment['mime']) : '';
+
+            $disk = isset($attachment['disk']) ? trim((string) $attachment['disk']) : '';
+            $relativePath = isset($attachment['path']) ? trim((string) $attachment['path']) : '';
+            if ($disk !== '' && $relativePath !== '' && Storage::disk($disk)->exists($relativePath)) {
+                $absolutePath = Storage::disk($disk)->path($relativePath);
+            }
+
+            $absolutePathFromData = isset($attachment['absolute_path']) ? trim((string) $attachment['absolute_path']) : '';
+            if ($absolutePath === null && $absolutePathFromData !== '' && is_file($absolutePathFromData)) {
+                $absolutePath = $absolutePathFromData;
+            }
+
+            if ($absolutePath === null) {
+                continue;
+            }
+
+            $resolved[] = array_filter([
+                'absolute_path' => $absolutePath,
+                'name' => $name,
+                'mime' => $mime,
+            ], fn ($value) => $value !== '');
+        }
+
+        return $resolved;
     }
 
     /**

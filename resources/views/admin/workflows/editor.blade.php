@@ -232,7 +232,7 @@
                         <div class="p-4 space-y-4">
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Label</label>
-                                <input type="text" x-model="selectedNode.label"
+                                <input type="text" x-model="selectedNode.label" @input="markDirty()"
                                     class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-red-500">
                             </div>
                             <div>
@@ -240,84 +240,69 @@
                                 <p class="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize" x-text="selectedNode.type"></p>
                             </div>
                             <div>
-                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Action Type</label>
-                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300" x-text="selectedNode.action_type"></p>
+                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Template</label>
+                                <select x-model="selectedNode.action_type" @change="onTemplateChanged(selectedNode)"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <template x-for="template in getNodeTypeOptions(selectedNode.type)" :key="template.action_type">
+                                        <option :value="template.action_type" x-text="template.label"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Preset</label>
+                                <select x-model="selectedPresetKey" @change="applyPresetToSelected(selectedPresetKey)"
+                                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
+                                    <option value="">Custom</option>
+                                    <template x-for="preset in getNodePresets(selectedNode)" :key="preset.key">
+                                        <option :value="preset.key" x-text="preset.label"></option>
+                                    </template>
+                                </select>
+                                <p class="text-xs text-gray-400 mt-1">Pre-made values auto-fill node configuration.</p>
                             </div>
 
                             {{-- Dynamic Config Fields --}}
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Configuration</label>
 
-                                {{-- Message field for notify --}}
-                                <template x-if="selectedNode.action_type === 'notify'">
-                                    <div class="mb-3">
-                                        <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Message</label>
-                                        <textarea x-model="selectedNode.config.message" rows="3"
-                                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
-                                    </div>
+                                <template x-if="Object.keys(getConfigSchema(selectedNode)).length === 0">
+                                    <p class="text-xs text-gray-400">No additional configuration required for this node.</p>
                                 </template>
 
-                                {{-- Days field for expiry --}}
-                                <template x-if="selectedNode.action_type === 'expiry_in_x_days' || selectedNode.action_type === 'expiry_threshold'">
+                                <template x-for="field in Object.keys(getConfigSchema(selectedNode))" :key="field">
                                     <div class="mb-3">
-                                        <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Days Before Expiry</label>
-                                        <input type="number" x-model.number="selectedNode.config.days" min="1"
-                                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
-                                    </div>
-                                </template>
+                                        <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1" x-text="formatFieldLabel(field)"></label>
 
-                                {{-- Threshold field --}}
-                                <template x-if="selectedNode.action_type === 'quantity_threshold'">
-                                    <div class="space-y-2">
-                                        <div>
-                                            <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Operator</label>
-                                            <select x-model="selectedNode.config.operator"
+                                        <template x-if="fieldOptions(selectedNode, field).length > 0">
+                                            <select :value="stringValue(getConfigValue(selectedNode, field))"
+                                                @change="setConfigValue(selectedNode, field, $event.target.value)"
                                                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
-                                                <option value="<">Less than</option>
-                                                <option value="<=">Less than or equal</option>
-                                                <option value=">">Greater than</option>
-                                                <option value=">=">Greater than or equal</option>
-                                                <option value="==">Equals</option>
+                                                <template x-for="option in fieldOptions(selectedNode, field)" :key="option">
+                                                    <option :value="option" x-text="option"></option>
+                                                </template>
                                             </select>
-                                        </div>
-                                        <div>
-                                            <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Value</label>
-                                            <input type="number" x-model.number="selectedNode.config.value" min="0"
+                                        </template>
+
+                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && isArrayField(selectedNode, field)">
+                                            <input type="text"
+                                                :value="arrayConfigToInput(getConfigValue(selectedNode, field))"
+                                                @input="setArrayConfigValue(selectedNode, field, $event.target.value)"
+                                                :placeholder="arrayPlaceholder(selectedNode, field)"
                                                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
-                                        </div>
-                                    </div>
-                                </template>
+                                        </template>
 
-                                {{-- Report type --}}
-                                <template x-if="selectedNode.action_type === 'generate_report'">
-                                    <div class="mb-3">
-                                        <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Report Type</label>
-                                        <select x-model="selectedNode.config.report_type"
-                                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
-                                            <option value="stock_movement">Stock Movement</option>
-                                            <option value="expiry_report">Expiry Report</option>
-                                            <option value="low_stock">Low Stock Report</option>
-                                            <option value="inventory_summary">Inventory Summary</option>
-                                        </select>
-                                    </div>
-                                </template>
+                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && !isArrayField(selectedNode, field) && isLongTextField(selectedNode, field)">
+                                            <textarea rows="3"
+                                                :value="stringValue(getConfigValue(selectedNode, field))"
+                                                @input="setConfigValue(selectedNode, field, $event.target.value)"
+                                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
+                                        </template>
 
-                                {{-- Reason for holds --}}
-                                <template x-if="selectedNode.action_type === 'create_hold'">
-                                    <div class="mb-3">
-                                        <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Hold Reason</label>
-                                        <input type="text" x-model="selectedNode.config.reason"
-                                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
-                                    </div>
-                                </template>
-
-                                {{-- Cron for schedule --}}
-                                <template x-if="selectedNode.action_type === 'daily_schedule'">
-                                    <div class="mb-3">
-                                        <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">Cron Expression</label>
-                                        <input type="text" x-model="selectedNode.config.cron" placeholder="0 8 * * *"
-                                            class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
-                                        <p class="text-xs text-gray-400 mt-1">e.g., "0 8 * * *" for daily at 8am</p>
+                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && !isArrayField(selectedNode, field) && !isLongTextField(selectedNode, field)">
+                                            <input :type="isIntegerField(selectedNode, field) ? 'number' : 'text'"
+                                                :value="stringValue(getConfigValue(selectedNode, field))"
+                                                @input="setConfigValue(selectedNode, field, isIntegerField(selectedNode, field) ? Number($event.target.value || 0) : $event.target.value)"
+                                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
+                                        </template>
                                     </div>
                                 </template>
                             </div>
@@ -328,7 +313,7 @@
                                 <div class="space-y-1">
                                     <template x-for="edge in edges.filter(e => e.source_node_id === selectedNode.node_id || e.target_node_id === selectedNode.node_id)" :key="edge.source_node_id + edge.target_node_id">
                                         <div class="flex items-center justify-between text-xs bg-gray-50 dark:bg-gray-700 rounded p-2">
-                                            <span class="text-gray-600 dark:text-gray-400" x-text="edge.source_node_id + ' → ' + edge.target_node_id"></span>
+                                            <span class="text-gray-600 dark:text-gray-400" x-text="edge.source_node_id + ' -> ' + edge.target_node_id"></span>
                                             <button @click="removeEdge(edge)" class="text-red-500 hover:text-red-700">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
@@ -356,14 +341,22 @@
             edges: @json($latestVersion?->edges ?? []),
             catalog: @json($catalog),
             selectedNode: null,
+            selectedPresetKey: '',
             saving: false,
+            syncing: false,
+            dirty: false,
+            graphHash: @json($initialGraphHash),
+            syncToken: @json($initialSyncToken),
             statusMessage: '',
             statusType: 'info',
             validationErrors: [],
+            savePromise: null,
+            syncIntervalHandle: null,
 
             // Drag state
             draggingNode: null,
             dragOffset: { x: 0, y: 0 },
+            lastDragMoved: false,
 
             // Connection state
             connecting: false,
@@ -372,43 +365,77 @@
             connectEnd: { x: 0, y: 0 },
 
             nodeCounter: 0,
+            mouseMoveHandler: null,
+            mouseUpHandler: null,
 
             init() {
-                // Initialize nodes from server data
-                if (this.nodes.length > 0) {
-                    this.nodes = this.nodes.map(n => ({
-                        ...n,
-                        config: n.config || {},
-                        position: n.position || { x: 100, y: 100 }
-                    }));
-                    this.nodeCounter = this.nodes.length;
-                }
+                this.nodes = (this.nodes || []).map(n => this.normalizeNode(n));
+                this.edges = (this.edges || []).map(e => this.normalizeEdge(e));
+                this.nodeCounter = this.nodes.length;
 
                 this.renderEdges();
 
-                // Global mouse events for dragging
-                document.addEventListener('mousemove', (e) => {
-                    if (this.draggingNode) {
-                        const canvas = document.getElementById('workflow-canvas');
-                        const rect = canvas.getBoundingClientRect();
-                        this.draggingNode.position.x = Math.max(0, e.clientX - rect.left - this.dragOffset.x);
-                        this.draggingNode.position.y = Math.max(0, e.clientY - rect.top - this.dragOffset.y);
-                        this.renderEdges();
-                    }
-                    if (this.connecting) {
-                        const canvas = document.getElementById('workflow-canvas');
-                        const rect = canvas.getBoundingClientRect();
-                        this.connectEnd = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-                    }
-                });
+                if (!this.mouseMoveHandler) {
+                    this.mouseMoveHandler = (e) => {
+                        if (this.draggingNode) {
+                            const canvas = document.getElementById('workflow-canvas');
+                            const rect = canvas.getBoundingClientRect();
+                            this.draggingNode.position.x = Math.max(0, e.clientX - rect.left - this.dragOffset.x);
+                            this.draggingNode.position.y = Math.max(0, e.clientY - rect.top - this.dragOffset.y);
+                            this.lastDragMoved = true;
+                            this.renderEdges();
+                        }
+                        if (this.connecting) {
+                            const canvas = document.getElementById('workflow-canvas');
+                            const rect = canvas.getBoundingClientRect();
+                            this.connectEnd = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+                        }
+                    };
+                    document.addEventListener('mousemove', this.mouseMoveHandler);
+                }
 
-                document.addEventListener('mouseup', () => {
-                    this.draggingNode = null;
-                    if (this.connecting) {
-                        this.connecting = false;
-                        this.connectSourceNode = null;
-                    }
-                });
+                if (!this.mouseUpHandler) {
+                    this.mouseUpHandler = () => {
+                        if (this.lastDragMoved) {
+                            this.markDirty();
+                        }
+                        this.lastDragMoved = false;
+                        this.draggingNode = null;
+                        if (this.connecting) {
+                            this.connecting = false;
+                            this.connectSourceNode = null;
+                        }
+                    };
+                    document.addEventListener('mouseup', this.mouseUpHandler);
+                }
+
+                if (!this.syncIntervalHandle) {
+                    this.syncIntervalHandle = setInterval(() => this.syncFromServer(), 10000);
+                }
+            },
+
+            normalizeNode(node) {
+                return {
+                    node_id: node.node_id,
+                    type: node.type,
+                    action_type: node.action_type,
+                    label: node.label,
+                    config: node.config || {},
+                    position: node.position || { x: 100, y: 100 },
+                };
+            },
+
+            normalizeEdge(edge) {
+                return {
+                    source_node_id: edge.source_node_id,
+                    target_node_id: edge.target_node_id,
+                    label: edge.label ?? null,
+                    condition_branch: edge.condition_branch ?? null,
+                };
+            },
+
+            markDirty() {
+                this.dirty = true;
             },
 
             onDragStart(event, catalogNode) {
@@ -431,7 +458,7 @@
                     type: catalogNode.type,
                     action_type: catalogNode.action_type,
                     label: catalogNode.label,
-                    config: {},
+                    config: this.buildDefaultConfig(catalogNode),
                     position: {
                         x: Math.max(10, event.clientX - rect.left - 80),
                         y: Math.max(10, event.clientY - rect.top - 30)
@@ -440,6 +467,7 @@
 
                 this.nodes.push(newNode);
                 this.selectNode(newNode);
+                this.markDirty();
                 this.renderEdges();
             },
 
@@ -448,6 +476,178 @@
                 if (!this.selectedNode.config) {
                     this.selectedNode.config = {};
                 }
+                this.syncSelectedPresetKey();
+            },
+
+            syncSelectedPresetKey() {
+                if (!this.selectedNode) {
+                    this.selectedPresetKey = '';
+                    return;
+                }
+                const presets = this.getNodePresets(this.selectedNode);
+                const matched = presets.find(preset => this.isEqualConfig(preset.config || {}, this.selectedNode.config || {}));
+                this.selectedPresetKey = matched ? matched.key : '';
+            },
+
+            onTemplateChanged(node) {
+                if (!node) return;
+                const template = this.getCatalogNode(node.type, node.action_type);
+                if (!template) return;
+
+                node.label = template.label;
+                node.config = this.buildDefaultConfig(template);
+                this.selectedPresetKey = template.default_preset || '';
+                if (this.selectedPresetKey) {
+                    this.applyPresetToSelected(this.selectedPresetKey);
+                }
+                this.markDirty();
+            },
+
+            applyPresetToSelected(presetKey) {
+                if (!this.selectedNode) return;
+                const preset = this.getNodePresets(this.selectedNode).find(item => item.key === presetKey);
+                if (!preset) {
+                    this.markDirty();
+                    return;
+                }
+                this.selectedNode.config = {
+                    ...(this.selectedNode.config || {}),
+                    ...(preset.config || {}),
+                };
+                this.markDirty();
+            },
+
+            getNodeTypeOptions(type) {
+                return this.catalog[(type || '') + 's'] || [];
+            },
+
+            getCatalogNode(type, actionType) {
+                const group = this.getNodeTypeOptions(type);
+                return group.find(item => item.action_type === actionType) || null;
+            },
+
+            getNodePresets(node) {
+                const template = this.getCatalogNode(node.type, node.action_type);
+                return template?.presets || [];
+            },
+
+            getConfigSchema(node) {
+                const template = this.getCatalogNode(node.type, node.action_type);
+                return template?.config_schema || {};
+            },
+
+            fieldOptions(node, field) {
+                const template = this.getCatalogNode(node.type, node.action_type);
+                if (this.isArrayField(node, field)) {
+                    return [];
+                }
+                return template?.ui?.[field] || [];
+            },
+
+            ruleForField(node, field) {
+                return this.getConfigSchema(node)[field] || '';
+            },
+
+            isArrayField(node, field) {
+                return String(this.ruleForField(node, field)).split('|').includes('array');
+            },
+
+            isIntegerField(node, field) {
+                return String(this.ruleForField(node, field)).split('|').includes('integer');
+            },
+
+            isLongTextField(node, field) {
+                const name = String(field || '').toLowerCase();
+                return name.includes('message') || name.includes('reason') || name.includes('description');
+            },
+
+            getConfigValue(node, field) {
+                return (node.config || {})[field];
+            },
+
+            setConfigValue(node, field, value) {
+                if (!node.config) {
+                    node.config = {};
+                }
+                node.config[field] = value;
+                this.markDirty();
+                this.syncSelectedPresetKey();
+            },
+
+            setArrayConfigValue(node, field, inputValue) {
+                if (!node.config) {
+                    node.config = {};
+                }
+                const values = String(inputValue || '')
+                    .split(',')
+                    .map(item => item.trim())
+                    .filter(item => item.length > 0);
+                node.config[field] = values.every(item => /^-?\d+$/.test(item))
+                    ? values.map(item => Number(item))
+                    : values;
+                this.markDirty();
+                this.syncSelectedPresetKey();
+            },
+
+            arrayConfigToInput(value) {
+                if (!Array.isArray(value)) return '';
+                return value.join(',');
+            },
+
+            arrayPlaceholder(node, field) {
+                if (field === 'branch_ids') return '1,2,3';
+                if (field === 'categories') return 'vaccine,antibiotic';
+                return 'a,b,c';
+            },
+
+            formatFieldLabel(field) {
+                return String(field || '')
+                    .replace(/_/g, ' ')
+                    .replace(/\b\w/g, char => char.toUpperCase());
+            },
+
+            stringValue(value) {
+                if (value === null || typeof value === 'undefined') {
+                    return '';
+                }
+                return String(value);
+            },
+
+            buildDefaultConfig(catalogNode) {
+                const defaults = {};
+                const schema = catalogNode?.config_schema || {};
+                const ui = catalogNode?.ui || {};
+                const defaultPreset = (catalogNode?.presets || []).find(item => item.key === catalogNode.default_preset);
+                if (defaultPreset?.config) {
+                    Object.assign(defaults, defaultPreset.config);
+                }
+
+                Object.keys(schema).forEach((field) => {
+                    if (Object.prototype.hasOwnProperty.call(defaults, field)) return;
+                    const rule = String(schema[field] || '');
+                    if (rule.split('|').includes('array')) {
+                        defaults[field] = [];
+                    } else if (rule.split('|').includes('integer')) {
+                        defaults[field] = 0;
+                    } else if (Array.isArray(ui[field]) && ui[field].length > 0) {
+                        defaults[field] = ui[field][0];
+                    } else {
+                        defaults[field] = '';
+                    }
+                });
+
+                return defaults;
+            },
+
+            isEqualConfig(left, right) {
+                return JSON.stringify(left || {}) === JSON.stringify(right || {});
+            },
+
+            rebindSelectedNode() {
+                if (!this.selectedNode) return;
+                const selectedId = this.selectedNode.node_id;
+                this.selectedNode = this.nodes.find(node => node.node_id === selectedId) || null;
+                this.syncSelectedPresetKey();
             },
 
             startDragNode(event, node) {
@@ -458,6 +658,7 @@
                     x: event.clientX - rect.left - (node.position?.x || 0),
                     y: event.clientY - rect.top - (node.position?.y || 0)
                 };
+                this.lastDragMoved = false;
                 this.draggingNode = node;
             },
 
@@ -485,6 +686,7 @@
                             label: null,
                             condition_branch: null
                         });
+                        this.markDirty();
                         this.renderEdges();
                     }
                 }
@@ -506,7 +708,9 @@
                 this.edges = this.edges.filter(e => e.source_node_id !== nodeId && e.target_node_id !== nodeId);
                 if (this.selectedNode && this.selectedNode.node_id === nodeId) {
                     this.selectedNode = null;
+                    this.selectedPresetKey = '';
                 }
+                this.markDirty();
                 this.renderEdges();
             },
 
@@ -514,6 +718,7 @@
                 this.edges = this.edges.filter(e =>
                     !(e.source_node_id === edge.source_node_id && e.target_node_id === edge.target_node_id)
                 );
+                this.markDirty();
                 this.renderEdges();
             },
 
@@ -538,57 +743,115 @@
                 this.$refs.edgesLayer.innerHTML = lines;
             },
 
-            async saveGraph() {
-                this.saving = true;
-                this.statusMessage = '';
-                try {
-                    const response = await fetch('{{ route("admin.workflows.save-graph", $workflow) }}', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                            'Accept': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            nodes: this.nodes.map(n => ({
-                                node_id: n.node_id,
-                                type: n.type,
-                                action_type: n.action_type,
-                                label: n.label,
-                                config: n.config || {},
-                                position: n.position || { x: 100, y: 100 },
-                            })),
-                            edges: this.edges.map(e => ({
-                                source_node_id: e.source_node_id,
-                                target_node_id: e.target_node_id,
-                                label: e.label,
-                                condition_branch: e.condition_branch,
-                            }))
-                        })
-                    });
+            buildPayload() {
+                return {
+                    nodes: this.nodes.map(n => ({
+                        node_id: n.node_id,
+                        type: n.type,
+                        action_type: n.action_type,
+                        label: n.label,
+                        config: n.config || {},
+                        position: n.position || { x: 100, y: 100 },
+                    })),
+                    edges: this.edges.map(e => ({
+                        source_node_id: e.source_node_id,
+                        target_node_id: e.target_node_id,
+                        label: e.label,
+                        condition_branch: e.condition_branch,
+                    })),
+                };
+            },
 
-                    const data = await response.json();
-                    if (response.ok) {
-                        this.statusMessage = 'Workflow saved successfully!';
-                        this.statusType = 'success';
-                    } else {
-                        this.statusMessage = data.message || 'Failed to save workflow.';
-                        this.statusType = 'error';
+            buildTriggerPayload() {
+                const payload = {};
+                const triggerNodes = this.nodes.filter(node => node.type === 'trigger');
+
+                if (triggerNodes.length > 0) {
+                    const primaryTrigger = triggerNodes[0];
+                    payload.trigger_type = primaryTrigger.action_type;
+
+                    if (primaryTrigger.config && typeof primaryTrigger.config === 'object') {
+                        Object.assign(payload, primaryTrigger.config);
                     }
-                } catch (err) {
-                    this.statusMessage = 'Network error: ' + err.message;
-                    this.statusType = 'error';
                 }
-                this.saving = false;
+
+                return payload;
+            },
+
+            async requestJson(url, options = {}) {
+                const response = await fetch(url, options);
+                let data = {};
+                try {
+                    data = await response.json();
+                } catch (error) {
+                    data = {};
+                }
+
+                if (!response.ok) {
+                    const err = new Error(data.message || data.error || `Request failed (${response.status})`);
+                    err.payload = data;
+                    throw err;
+                }
+
+                return data;
+            },
+
+            async saveGraph({ silent = false } = {}) {
+                if (this.savePromise) {
+                    return this.savePromise;
+                }
+
+                this.saving = true;
+                if (!silent) {
+                    this.statusMessage = '';
+                    this.validationErrors = [];
+                }
+
+                const idempotencyKey = `save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                this.savePromise = this.requestJson('{{ route("admin.workflows.save-graph", $workflow) }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                        'X-Idempotency-Key': idempotencyKey,
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify(this.buildPayload()),
+                }).then((data) => {
+                    this.graphHash = data.graph_hash || this.graphHash;
+                    this.syncToken = data.sync_token || this.syncToken;
+                    if (data.version) {
+                        this.nodes = (data.version.nodes || []).map(n => this.normalizeNode(n));
+                        this.edges = (data.version.edges || []).map(e => this.normalizeEdge(e));
+                        this.rebindSelectedNode();
+                        this.renderEdges();
+                    }
+                    this.dirty = false;
+                    if (!silent) {
+                        this.statusMessage = 'Workflow saved successfully.';
+                        this.statusType = 'success';
+                    }
+                    return data;
+                }).catch((err) => {
+                    if (err.payload?.errors) {
+                        this.validationErrors = err.payload.errors;
+                    }
+                    this.statusMessage = err.message || 'Failed to save workflow.';
+                    this.statusType = 'error';
+                    throw err;
+                }).finally(() => {
+                    this.saving = false;
+                    this.savePromise = null;
+                });
+
+                return this.savePromise;
             },
 
             async validateWorkflow() {
                 this.validationErrors = [];
                 try {
-                    // Save first
-                    await this.saveGraph();
-
-                    const response = await fetch('{{ route("admin.workflows.validate", $workflow) }}', {
+                    await this.saveGraph({ silent: true });
+                    const data = await this.requestJson('{{ route("admin.workflows.validate", $workflow) }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -596,9 +859,8 @@
                             'Accept': 'application/json',
                         }
                     });
-                    const data = await response.json();
                     if (data.valid) {
-                        this.statusMessage = 'Workflow is valid!';
+                        this.statusMessage = 'Workflow is valid.';
                         this.statusType = 'success';
                     } else {
                         this.validationErrors = data.errors || [];
@@ -606,7 +868,10 @@
                         this.statusType = 'error';
                     }
                 } catch (err) {
-                    this.statusMessage = 'Validation error: ' + err.message;
+                    if (err.payload?.errors) {
+                        this.validationErrors = err.payload.errors;
+                    }
+                    this.statusMessage = err.message || 'Validation error.';
                     this.statusType = 'error';
                 }
             },
@@ -614,52 +879,80 @@
             async publishWorkflow() {
                 if (!confirm('Publish this workflow? It will become active.')) return;
                 try {
-                    await this.saveGraph();
-                    const response = await fetch('{{ route("admin.workflows.publish", $workflow) }}', {
+                    await this.saveGraph({ silent: true });
+                    await this.requestJson('{{ route("admin.workflows.publish", $workflow) }}', {
                         method: 'POST',
                         headers: {
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
                             'Accept': 'application/json',
                         }
                     });
-                    const data = await response.json();
-                    if (response.ok) {
-                        this.statusMessage = 'Workflow published successfully!';
-                        this.statusType = 'success';
-                        setTimeout(() => location.reload(), 1000);
-                    } else {
-                        this.validationErrors = data.errors || [];
-                        this.statusMessage = data.error || 'Publish failed.';
-                        this.statusType = 'error';
-                    }
+                    this.statusMessage = 'Workflow published successfully.';
+                    this.statusType = 'success';
+                    setTimeout(() => location.reload(), 1000);
                 } catch (err) {
-                    this.statusMessage = 'Error: ' + err.message;
+                    if (err.payload?.errors) {
+                        this.validationErrors = err.payload.errors;
+                    }
+                    this.statusMessage = err.message || 'Publish failed.';
                     this.statusType = 'error';
                 }
             },
 
             async runWorkflow(dryRun) {
                 try {
-                    const response = await fetch('{{ route("admin.workflows.run", $workflow) }}', {
+                    const idempotencyKey = `run-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                    const data = await this.requestJson('{{ route("admin.workflows.run", $workflow) }}', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                            'X-Idempotency-Key': idempotencyKey,
                             'Accept': 'application/json',
                         },
-                        body: JSON.stringify({ dry_run: dryRun, trigger_payload: {} })
+                        body: JSON.stringify({ dry_run: dryRun, trigger_payload: this.buildTriggerPayload() })
                     });
-                    const data = await response.json();
-                    if (response.ok) {
-                        this.statusMessage = (dryRun ? 'Dry run' : 'Run') + ' completed: ' + data.run.status;
-                        this.statusType = data.run.status === 'completed' ? 'success' : 'error';
-                    } else {
-                        this.statusMessage = data.error || 'Run failed.';
-                        this.statusType = 'error';
-                    }
+                    this.statusMessage = (dryRun ? 'Dry run' : 'Run') + ' completed: ' + data.run.status;
+                    this.statusType = data.run.status === 'completed' ? 'success' : 'error';
                 } catch (err) {
-                    this.statusMessage = 'Error: ' + err.message;
+                    this.statusMessage = err.message || 'Run failed.';
                     this.statusType = 'error';
+                }
+            },
+
+            async syncFromServer() {
+                if (this.saving || this.dirty || this.syncing) {
+                    return;
+                }
+
+                this.syncing = true;
+                try {
+                    const params = this.syncToken ? '?since=' + encodeURIComponent(this.syncToken) : '';
+                    const data = await this.requestJson(`{{ route('admin.workflows.graph-state', $workflow) }}${params}`, {
+                        method: 'GET',
+                        headers: {
+                            'Accept': 'application/json',
+                        },
+                    });
+
+                    if (!data.changed) {
+                        this.syncToken = data.sync_token || this.syncToken;
+                        return;
+                    }
+
+                    if (data.version) {
+                        this.nodes = (data.version.nodes || []).map(n => this.normalizeNode(n));
+                        this.edges = (data.version.edges || []).map(e => this.normalizeEdge(e));
+                        this.rebindSelectedNode();
+                        this.renderEdges();
+                    }
+
+                    this.graphHash = data.graph_hash || this.graphHash;
+                    this.syncToken = data.sync_token || this.syncToken;
+                } catch (err) {
+                    // Keep polling silent for transient network issues.
+                } finally {
+                    this.syncing = false;
                 }
             }
         };

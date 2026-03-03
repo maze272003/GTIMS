@@ -268,6 +268,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/', [WorkflowController::class, 'store'])->name('store');
             Route::get('/catalog', [WorkflowController::class, 'catalog'])->name('catalog');
             Route::get('/{workflow}/editor', [WorkflowController::class, 'editor'])->name('editor');
+            Route::get('/{workflow}/graph-state', [WorkflowController::class, 'graphState'])->name('graph-state');
             Route::post('/{workflow}/save-graph', [WorkflowController::class, 'saveGraph'])->name('save-graph');
             Route::post('/{workflow}/validate', [WorkflowController::class, 'validate'])->name('validate');
             Route::post('/{workflow}/publish', [WorkflowController::class, 'publish'])->name('publish');

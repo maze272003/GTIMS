@@ -14,6 +14,7 @@ use App\Services\WorkflowEngineService;
 use App\Services\AuditService;
 use App\Services\NotificationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class WorkflowEngineServiceTest extends TestCase
@@ -31,6 +32,7 @@ class WorkflowEngineServiceTest extends TestCase
 
         $level = UserLevel::create(['name' => 'superadmin', 'description' => 'Super Admin']);
         $this->user = User::factory()->create(['user_level_id' => $level->id]);
+        Branch::factory()->create(['is_main' => true, 'is_archived' => false]);
     }
 
     protected function createWorkflowWithNodes(array $nodes, array $edges, string $status = 'published'): array
@@ -292,5 +294,32 @@ class WorkflowEngineServiceTest extends TestCase
         $this->expectExceptionMessage('Max concurrency limit reached');
 
         $this->engine->startRun($workflow, $this->user->id);
+    }
+
+    public function test_generate_report_action_creates_excel_and_updates_context(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'daily_schedule', 'label' => 'Daily', 'config' => ['cron' => '0 8 * * *']],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'generate_report', 'label' => 'Generate', 'config' => ['report_type' => 'low_stock']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $run = $this->engine->startRun($workflow, $this->user->id);
+
+        $this->assertEquals('completed', $run->status);
+        $this->assertTrue((bool) data_get($run->context, 'report_generated'));
+        $this->assertEquals('low_stock', data_get($run->context, 'report_type'));
+        $this->assertNotEmpty(data_get($run->context, 'report_file_name'));
+        $this->assertNotEmpty(data_get($run->context, 'report_attachment.path'));
+        $this->assertEquals('local', data_get($run->context, 'report_attachment.disk'));
+
+        $reportPath = (string) data_get($run->context, 'report_attachment.path');
+        $this->assertTrue(Storage::disk('local')->exists($reportPath));
+
+        Storage::disk('local')->delete($reportPath);
     }
 }

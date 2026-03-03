@@ -3,16 +3,21 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\IdempotencyKey;
 use App\Models\WorkflowDefinition;
+use App\Models\WorkflowNode;
+use App\Models\WorkflowEdge;
 use App\Models\WorkflowVersion;
 use App\Models\WorkflowRun;
 use App\Models\WorkflowPermission;
 use App\Services\WorkflowEngineService;
 use App\Services\AuditService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class WorkflowController extends Controller
 {
@@ -55,12 +60,36 @@ class WorkflowController extends Controller
      */
     public function editor(WorkflowDefinition $workflow)
     {
-        $workflow->load('versions.nodes', 'versions.edges', 'creator');
+        $workflow->load('creator');
         $catalog = $this->engine->getNodeCatalog();
 
-        $latestVersion = $workflow->versions()->latest('version_number')->first();
+        $latestVersion = $workflow->versions()
+            ->with('nodes', 'edges')
+            ->latest('version_number')
+            ->first();
 
-        return view('admin.workflows.editor', compact('workflow', 'catalog', 'latestVersion'));
+        $graph = $latestVersion?->graph_data
+            ?: [
+                'nodes' => $latestVersion?->nodes?->map(fn (WorkflowNode $node) => [
+                    'node_id' => $node->node_id,
+                    'type' => $node->type,
+                    'action_type' => $node->action_type,
+                    'label' => $node->label,
+                    'config' => $node->config ?? [],
+                    'position' => $node->position ?? ['x' => 100, 'y' => 100],
+                ])->values()->all() ?? [],
+                'edges' => $latestVersion?->edges?->map(fn (WorkflowEdge $edge) => [
+                    'source_node_id' => $edge->source_node_id,
+                    'target_node_id' => $edge->target_node_id,
+                    'label' => $edge->label,
+                    'condition_branch' => $edge->condition_branch,
+                ])->values()->all() ?? [],
+            ];
+
+        $initialGraphHash = $latestVersion ? $this->engine->computeGraphHash($graph) : null;
+        $initialSyncToken = $latestVersion ? $this->buildSyncToken($latestVersion, $initialGraphHash) : null;
+
+        return view('admin.workflows.editor', compact('workflow', 'catalog', 'latestVersion', 'initialGraphHash', 'initialSyncToken'));
     }
 
     /**
@@ -112,6 +141,15 @@ class WorkflowController extends Controller
      */
     public function saveGraph(Request $request, WorkflowDefinition $workflow)
     {
+        $idempotencyKey = $this->sanitizeIdempotencyKey($request->header('X-Idempotency-Key'));
+        $idempotencyAction = "workflow.save-graph.{$workflow->id}";
+        if ($idempotencyKey) {
+            $existing = $this->findIdempotencyResponse($idempotencyKey, $idempotencyAction);
+            if ($existing) {
+                return response()->json($existing);
+            }
+        }
+
         $validated = $request->validate([
             'nodes' => 'required|array',
             'nodes.*.node_id' => 'required|string|max:100',
@@ -127,42 +165,84 @@ class WorkflowController extends Controller
             'edges.*.condition_branch' => 'nullable|string|max:50',
         ]);
 
-        $version = DB::transaction(function () use ($workflow, $validated) {
-            $version = $workflow->versions()->latest('version_number')->first();
+        $graphValidation = $this->engine->validateGraphPayload($validated);
+        if (!$graphValidation['valid']) {
+            return response()->json([
+                'success' => false,
+                'errors' => $graphValidation['errors'],
+            ], 422);
+        }
+
+        $graph = $graphValidation['graph'];
+
+        [$version, $graphHash] = DB::transaction(function () use ($workflow, $graph) {
+            $lockedWorkflow = WorkflowDefinition::query()
+                ->whereKey($workflow->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $version = WorkflowVersion::query()
+                ->where('workflow_definition_id', $lockedWorkflow->id)
+                ->orderByDesc('version_number')
+                ->lockForUpdate()
+                ->first();
 
             if (!$version || $version->status === 'published') {
                 // Create new draft version
                 $newVersionNumber = ($version ? $version->version_number : 0) + 1;
                 $version = WorkflowVersion::create([
-                    'workflow_definition_id' => $workflow->id,
+                    'workflow_definition_id' => $lockedWorkflow->id,
                     'version_number' => $newVersionNumber,
                     'status' => 'draft',
                 ]);
-                $workflow->update(['current_version' => $newVersionNumber, 'updated_by' => Auth::id()]);
+                $lockedWorkflow->update([
+                    'current_version' => $newVersionNumber,
+                    'updated_by' => Auth::id(),
+                ]);
+            } elseif ((int) $lockedWorkflow->current_version !== (int) $version->version_number) {
+                $lockedWorkflow->update([
+                    'current_version' => $version->version_number,
+                    'updated_by' => Auth::id(),
+                ]);
             }
 
-            // Replace all nodes and edges
-            $version->nodes()->delete();
-            $version->edges()->delete();
+            $graphHash = $this->engine->computeGraphHash($graph);
+            $existingGraph = is_array($version->graph_data) ? $version->graph_data : ['nodes' => [], 'edges' => []];
+            $existingGraphHash = $this->engine->computeGraphHash($existingGraph);
 
-            foreach ($validated['nodes'] as $nodeData) {
-                $version->nodes()->create($nodeData);
+            if ($graphHash !== $existingGraphHash) {
+                // Replace all nodes and edges atomically inside transaction.
+                $version->nodes()->delete();
+                $version->edges()->delete();
+
+                $version->nodes()->createMany($graph['nodes']);
+                if (!empty($graph['edges'])) {
+                    $version->edges()->createMany($graph['edges']);
+                }
+
+                // Store full graph data as JSON snapshot.
+                $version->update(['graph_data' => $graph]);
+            } else {
+                $version->touch();
             }
 
-            foreach ($validated['edges'] ?? [] as $edgeData) {
-                $version->edges()->create($edgeData);
-            }
+            $lockedWorkflow->update(['updated_by' => Auth::id()]);
 
-            // Store full graph data as JSON snapshot
-            $version->update(['graph_data' => $validated]);
+            return [$version->fresh(['nodes', 'edges']), $graphHash];
+        }, 5);
 
-            return $version;
-        });
-
-        return response()->json([
+        $response = [
             'success' => true,
-            'version' => $version->load('nodes', 'edges'),
-        ]);
+            'graph_hash' => $graphHash,
+            'sync_token' => $this->buildSyncToken($version, $graphHash),
+            'version' => $version->toArray(),
+        ];
+
+        if ($idempotencyKey) {
+            $this->storeIdempotencyResponse($idempotencyKey, $idempotencyAction, $response);
+        }
+
+        return response()->json($response);
     }
 
     /**
@@ -191,13 +271,15 @@ class WorkflowController extends Controller
      */
     public function publish(WorkflowDefinition $workflow)
     {
-        $version = $workflow->versions()->latest('version_number')->first();
+        $version = $workflow->versions()
+            ->with('nodes', 'edges')
+            ->latest('version_number')
+            ->first();
 
         if (!$version) {
             return response()->json(['error' => 'No version to publish.'], 422);
         }
 
-        $version->load('nodes', 'edges');
         $errors = $this->engine->validateGraph($version);
 
         if (!empty($errors)) {
@@ -205,27 +287,42 @@ class WorkflowController extends Controller
         }
 
         DB::transaction(function () use ($workflow, $version) {
+            $lockedWorkflow = WorkflowDefinition::query()
+                ->whereKey($workflow->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $lockedVersion = WorkflowVersion::query()
+                ->where('workflow_definition_id', $lockedWorkflow->id)
+                ->whereKey($version->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             // Archive any previously published version
-            $workflow->versions()
+            $lockedWorkflow->versions()
                 ->where('status', 'published')
-                ->where('id', '!=', $version->id)
+                ->where('id', '!=', $lockedVersion->id)
                 ->update(['status' => 'archived']);
 
-            $version->update([
+            $lockedVersion->update([
                 'status' => 'published',
                 'published_by' => Auth::id(),
                 'published_at' => now(),
             ]);
 
-            $workflow->update(['status' => 'active', 'updated_by' => Auth::id()]);
+            $lockedWorkflow->update([
+                'status' => 'active',
+                'current_version' => $lockedVersion->version_number,
+                'updated_by' => Auth::id(),
+            ]);
 
             $this->auditService->record(
-                'workflow_published', 'WorkflowDefinition', $workflow->id,
+                'workflow_published', 'WorkflowDefinition', $lockedWorkflow->id,
                 Auth::id(), null,
-                ['version' => $version->version_number],
+                ['version' => $lockedVersion->version_number],
                 'Workflow published'
             );
-        });
+        }, 5);
 
         return response()->json(['success' => true, 'message' => 'Workflow published.']);
     }
@@ -253,14 +350,20 @@ class WorkflowController extends Controller
         $validated = $request->validate([
             'trigger_payload' => 'nullable|array',
             'dry_run' => 'nullable|boolean',
+            'idempotency_key' => 'nullable|string|max:255',
         ]);
 
         try {
+            $idempotencyKey = $this->sanitizeIdempotencyKey(
+                $request->header('X-Idempotency-Key') ?? ($validated['idempotency_key'] ?? null)
+            );
+
             $run = $this->engine->startRun(
                 $workflow,
                 Auth::id(),
                 $validated['trigger_payload'] ?? [],
-                $validated['dry_run'] ?? false
+                $validated['dry_run'] ?? false,
+                $idempotencyKey
             );
 
             return response()->json([
@@ -305,6 +408,62 @@ class WorkflowController extends Controller
     public function catalog()
     {
         return response()->json($this->engine->getNodeCatalog());
+    }
+
+    /**
+     * Get latest graph state for polling-based real-time synchronization.
+     */
+    public function graphState(Request $request, WorkflowDefinition $workflow): JsonResponse
+    {
+        $version = $workflow->versions()
+            ->with('nodes', 'edges')
+            ->latest('version_number')
+            ->first();
+
+        if (!$version) {
+            return response()->json([
+                'changed' => false,
+                'version' => null,
+                'graph_hash' => null,
+                'sync_token' => null,
+            ]);
+        }
+
+        $graph = $version->graph_data ?: [
+            'nodes' => $version->nodes->map(fn (WorkflowNode $node) => [
+                'node_id' => $node->node_id,
+                'type' => $node->type,
+                'action_type' => $node->action_type,
+                'label' => $node->label,
+                'config' => $node->config ?? [],
+                'position' => $node->position ?? ['x' => 100, 'y' => 100],
+            ])->values()->all(),
+            'edges' => $version->edges->map(fn (WorkflowEdge $edge) => [
+                'source_node_id' => $edge->source_node_id,
+                'target_node_id' => $edge->target_node_id,
+                'label' => $edge->label,
+                'condition_branch' => $edge->condition_branch,
+            ])->values()->all(),
+        ];
+
+        $graphHash = $this->engine->computeGraphHash($graph);
+        $syncToken = $this->buildSyncToken($version, $graphHash);
+        $since = (string) $request->query('since', '');
+
+        if ($since !== '' && hash_equals($syncToken, $since)) {
+            return response()->json([
+                'changed' => false,
+                'graph_hash' => $graphHash,
+                'sync_token' => $syncToken,
+            ]);
+        }
+
+        return response()->json([
+            'changed' => true,
+            'graph_hash' => $graphHash,
+            'sync_token' => $syncToken,
+            'version' => $version,
+        ]);
     }
 
     /**
@@ -377,5 +536,65 @@ class WorkflowController extends Controller
         $permission->delete();
 
         return response()->json(['success' => true, 'message' => 'Permission removed.']);
+    }
+
+    protected function sanitizeIdempotencyKey(?string $key): ?string
+    {
+        if (!is_string($key)) {
+            return null;
+        }
+
+        $trimmed = trim($key);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        return mb_substr($trimmed, 0, 255);
+    }
+
+    protected function findIdempotencyResponse(string $key, string $action): ?array
+    {
+        $existing = IdempotencyKey::query()->where('key', $key)->first();
+        if (!$existing) {
+            return null;
+        }
+
+        if ((int) $existing->user_id !== (int) Auth::id() || $existing->action !== $action) {
+            throw ValidationException::withMessages([
+                'idempotency_key' => ['Idempotency key already used for a different request context.'],
+            ]);
+        }
+
+        return is_array($existing->response) ? $existing->response : null;
+    }
+
+    protected function storeIdempotencyResponse(string $key, string $action, array $response): void
+    {
+        IdempotencyKey::query()->updateOrCreate(
+            ['key' => $key],
+            [
+                'user_id' => Auth::id(),
+                'action' => $action,
+                'response' => $response,
+            ]
+        );
+    }
+
+    protected function buildSyncToken(WorkflowVersion $version, ?string $graphHash = null): string
+    {
+        $hash = $graphHash;
+        if (!$hash) {
+            $graph = is_array($version->graph_data) ? $version->graph_data : ['nodes' => [], 'edges' => []];
+            $hash = $this->engine->computeGraphHash($graph);
+        }
+
+        $seed = implode('|', [
+            $version->id,
+            $version->version_number,
+            optional($version->updated_at)->toIso8601String(),
+            $hash,
+        ]);
+
+        return hash('sha256', $seed);
     }
 }

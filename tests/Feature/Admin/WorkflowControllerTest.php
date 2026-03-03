@@ -116,6 +116,131 @@ class WorkflowControllerTest extends TestCase
         $this->assertDatabaseHas('workflow_edges', ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1']);
     }
 
+    public function test_save_graph_rejects_unknown_config_field(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test Workflow',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+        ]);
+        WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 1,
+            'status' => 'draft',
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.save-graph', $workflow), [
+            'nodes' => [
+                [
+                    'node_id' => 'trigger_1',
+                    'type' => 'trigger',
+                    'action_type' => 'low_stock_reached',
+                    'label' => 'Low Stock',
+                    'config' => ['unexpected' => 'value'],
+                    'position' => ['x' => 100, 'y' => 50],
+                ],
+                [
+                    'node_id' => 'action_1',
+                    'type' => 'action',
+                    'action_type' => 'notify',
+                    'label' => 'Notify',
+                    'config' => ['message' => 'Alert!'],
+                    'position' => ['x' => 100, 'y' => 200],
+                ],
+            ],
+            'edges' => [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ],
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonPath('success', false);
+        $response->assertJsonStructure(['errors']);
+    }
+
+    public function test_graph_state_endpoint_returns_sync_payload(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test Workflow',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+        ]);
+        $version = WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 1,
+            'status' => 'draft',
+        ]);
+
+        WorkflowNode::create([
+            'workflow_version_id' => $version->id,
+            'node_id' => 'trigger_1',
+            'type' => 'trigger',
+            'action_type' => 'low_stock_reached',
+            'label' => 'Low Stock',
+            'config' => ['threshold' => 10],
+            'position' => ['x' => 100, 'y' => 100],
+        ]);
+        WorkflowNode::create([
+            'workflow_version_id' => $version->id,
+            'node_id' => 'action_1',
+            'type' => 'action',
+            'action_type' => 'notify',
+            'label' => 'Notify',
+            'config' => ['message' => 'Alert!'],
+            'position' => ['x' => 100, 'y' => 220],
+        ]);
+        WorkflowEdge::create([
+            'workflow_version_id' => $version->id,
+            'source_node_id' => 'trigger_1',
+            'target_node_id' => 'action_1',
+        ]);
+
+        $response = $this->actingAs($this->user)->getJson(route('admin.workflows.graph-state', $workflow));
+        $response->assertOk();
+        $response->assertJsonPath('changed', true);
+        $response->assertJsonStructure([
+            'changed',
+            'graph_hash',
+            'sync_token',
+            'version' => ['id', 'nodes', 'edges'],
+        ]);
+    }
+
+    public function test_save_graph_is_idempotent_with_header_key(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test Workflow',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+        ]);
+        WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 1,
+            'status' => 'draft',
+        ]);
+
+        $payload = [
+            'nodes' => [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock', 'config' => [], 'position' => ['x' => 100, 'y' => 50]],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify', 'config' => ['message' => 'Alert!'], 'position' => ['x' => 100, 'y' => 200]],
+            ],
+            'edges' => [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ],
+        ];
+
+        $headers = ['X-Idempotency-Key' => 'workflow-save-key-1'];
+
+        $first = $this->actingAs($this->user)->postJson(route('admin.workflows.save-graph', $workflow), $payload, $headers);
+        $second = $this->actingAs($this->user)->postJson(route('admin.workflows.save-graph', $workflow), $payload, $headers);
+
+        $first->assertOk();
+        $second->assertOk();
+        $this->assertSame($first->json('sync_token'), $second->json('sync_token'));
+        $this->assertEquals(2, WorkflowNode::query()->count());
+        $this->assertEquals(1, WorkflowEdge::query()->count());
+    }
+
     public function test_validate_endpoint_detects_invalid_graph(): void
     {
         $workflow = WorkflowDefinition::create([
