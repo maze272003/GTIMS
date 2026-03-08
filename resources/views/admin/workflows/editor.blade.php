@@ -94,7 +94,7 @@
                     </template>
                     <div class="space-y-2">
                         <template x-for="v in versionHistory" :key="v.id">
-                            <div class="flex items-center justify-between p-3 rounded-lg border text-xs"
+                            <div class="flex flex-col gap-2 p-3 rounded-lg border text-xs sm:flex-row sm:items-center sm:justify-between"
                                  :class="v.status === 'published' ? 'bg-green-50 dark:bg-green-900/10 border-green-300 dark:border-green-700' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'">
                                 <div>
                                     <span class="font-bold text-gray-800 dark:text-gray-100" x-text="'v' + v.version_number"></span>
@@ -118,13 +118,53 @@
                 </div>
             </div>
 
+            <div class="mb-4 lg:hidden">
+                <div class="rounded-xl border border-gray-200 bg-white/90 p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800/90">
+                    <div class="grid grid-cols-3 gap-2">
+                        <button type="button" @click="showMobilePanel('palette')"
+                            class="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold transition"
+                            :class="mobilePanel === 'palette'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'">
+                            <i class="fa-solid fa-shapes mr-1.5"></i> Palette
+                        </button>
+                        <button type="button" @click="showMobilePanel('canvas')"
+                            class="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold transition"
+                            :class="mobilePanel === 'canvas'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'">
+                            <i class="fa-solid fa-diagram-project mr-1.5"></i> Canvas
+                        </button>
+                        <button type="button" @click="showMobilePanel('inspector')"
+                            class="inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold transition"
+                            :class="mobilePanel === 'inspector'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'">
+                            <i class="fa-solid fa-sliders mr-1.5"></i> Inspector
+                        </button>
+                    </div>
+                    <p class="mt-3 text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                        Swipe sideways to switch panels. Tap the <span class="font-semibold">+</span> buttons to add nodes, drag cards in the canvas to move them, and tap a connector then another node to link them.
+                    </p>
+                </div>
+            </div>
+
             {{-- Editor Layout: Palette + Canvas + Inspector --}}
-            <div class="flex gap-4" style="height: calc(100vh - 280px); min-height: 400px;">
+            <div x-ref="editorPanels" @scroll.passive="syncMobilePanelFromScroll()"
+                class="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory lg:overflow-visible lg:pb-0 lg:snap-none"
+                style="height: calc(100vh - 280px); min-height: 420px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch;">
 
                 {{-- Node Palette (Left Panel) --}}
-                <div class="w-72 flex-shrink-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-y-auto">
+                <div x-ref="palettePanel"
+                    class="w-full flex-none snap-start bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-y-auto lg:w-72">
                     <div class="p-3 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Node Palette</h3>
+                        <div class="flex items-center justify-between gap-3">
+                            <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Node Palette</h3>
+                            <button type="button" @click="showMobilePanel('canvas')"
+                                class="inline-flex items-center rounded-md px-2.5 py-1.5 text-[11px] font-semibold text-red-700 bg-red-50 hover:bg-red-100 transition dark:bg-red-900/30 dark:text-red-300 lg:hidden">
+                                <i class="fa-solid fa-arrow-right mr-1"></i> Canvas
+                            </button>
+                        </div>
                     </div>
 
                     {{-- Compatibility Guide --}}
@@ -197,10 +237,17 @@
                         <template x-for="node in catalog.triggers" :key="node.action_type">
                             <div class="flex items-center gap-2 p-2 mb-1.5 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg cursor-grab text-sm hover:shadow-sm transition"
                                  :class="triggerPaletteClass(node)"
-                                 draggable="true" @dragstart="onDragStart($event, node)"
-                                 :aria-label="'Drag to add ' + node.label + ' trigger'">
-                                <i class="fa-solid fa-bolt text-purple-600 dark:text-purple-400 w-4"></i>
-                                <span class="text-gray-700 dark:text-gray-300 font-medium" x-text="node.label"></span>
+                                  draggable="true" @dragstart="onDragStart($event, node)"
+                                  :aria-label="'Drag to add ' + node.label + ' trigger'">
+                                <div class="flex min-w-0 flex-1 items-center gap-2">
+                                    <i class="fa-solid fa-bolt text-purple-600 dark:text-purple-400 w-4"></i>
+                                    <span class="text-gray-700 dark:text-gray-300 font-medium" x-text="node.label"></span>
+                                </div>
+                                <button type="button" @click.stop="addNodeFromPalette(node)"
+                                    class="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-white/90 text-purple-700 shadow-sm ring-1 ring-purple-200 transition hover:bg-white dark:bg-gray-800 dark:text-purple-300 dark:ring-purple-700"
+                                    :aria-label="'Add ' + node.label + ' trigger'">
+                                    <i class="fa-solid fa-plus text-xs"></i>
+                                </button>
                             </div>
                         </template>
                     </div>
@@ -211,14 +258,21 @@
                         <template x-for="node in catalog.conditions" :key="node.action_type">
                             <div class="flex items-center gap-2 p-2 mb-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg cursor-grab text-sm hover:shadow-sm transition"
                                  :class="paletteCompatibilityClass(node)"
-                                 draggable="true" @dragstart="onDragStart($event, node)"
-                                 :aria-label="'Drag to add ' + node.label + ' condition'">
-                                <i class="fa-solid fa-diamond text-amber-600 dark:text-amber-400 w-4"></i>
-                                <span class="text-gray-700 dark:text-gray-300 font-medium" x-text="node.label"></span>
+                                  draggable="true" @dragstart="onDragStart($event, node)"
+                                  :aria-label="'Drag to add ' + node.label + ' condition'">
+                                <div class="flex min-w-0 flex-1 items-center gap-2">
+                                    <i class="fa-solid fa-diamond text-amber-600 dark:text-amber-400 w-4"></i>
+                                    <span class="text-gray-700 dark:text-gray-300 font-medium" x-text="node.label"></span>
+                                </div>
                                 <span x-show="isCompatiblePaletteNode(node.type, node.action_type)"
-                                    class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                    class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                     Suggested
                                 </span>
+                                <button type="button" @click.stop="addNodeFromPalette(node)"
+                                    class="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-white/90 text-amber-700 shadow-sm ring-1 ring-amber-200 transition hover:bg-white dark:bg-gray-800 dark:text-amber-300 dark:ring-amber-700"
+                                    :aria-label="'Add ' + node.label + ' condition'">
+                                    <i class="fa-solid fa-plus text-xs"></i>
+                                </button>
                             </div>
                         </template>
                     </div>
@@ -229,117 +283,156 @@
                         <template x-for="node in catalog.actions" :key="node.action_type">
                             <div class="flex items-center gap-2 p-2 mb-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg cursor-grab text-sm hover:shadow-sm transition"
                                  :class="paletteCompatibilityClass(node)"
-                                 draggable="true" @dragstart="onDragStart($event, node)"
-                                 :aria-label="'Drag to add ' + node.label + ' action'">
-                                <i class="fa-solid fa-gear text-blue-600 dark:text-blue-400 w-4"></i>
-                                <span class="text-gray-700 dark:text-gray-300 font-medium" x-text="node.label"></span>
+                                  draggable="true" @dragstart="onDragStart($event, node)"
+                                  :aria-label="'Drag to add ' + node.label + ' action'">
+                                <div class="flex min-w-0 flex-1 items-center gap-2">
+                                    <i class="fa-solid fa-gear text-blue-600 dark:text-blue-400 w-4"></i>
+                                    <span class="text-gray-700 dark:text-gray-300 font-medium" x-text="node.label"></span>
+                                </div>
                                 <span x-show="isCompatiblePaletteNode(node.type, node.action_type)"
-                                    class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                    class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                     Suggested
                                 </span>
+                                <button type="button" @click.stop="addNodeFromPalette(node)"
+                                    class="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-white/90 text-blue-700 shadow-sm ring-1 ring-blue-200 transition hover:bg-white dark:bg-gray-800 dark:text-blue-300 dark:ring-blue-700"
+                                    :aria-label="'Add ' + node.label + ' action'">
+                                    <i class="fa-solid fa-plus text-xs"></i>
+                                </button>
                             </div>
                         </template>
                     </div>
                 </div>
 
                 {{-- Canvas (Center) --}}
-                <div class="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 relative overflow-hidden"
-                     @dragover.prevent @drop="onDrop($event)"
-                     id="workflow-canvas" role="application" aria-label="Workflow canvas - drag nodes here">
-
-                    {{-- Canvas Background Grid --}}
-                    <div class="absolute inset-0" style="background-image: radial-gradient(circle, #e5e7eb 1px, transparent 1px); background-size: 20px 20px;" aria-hidden="true"></div>
-
-                    {{-- Edges SVG Layer --}}
-                    <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 1;">
-                        <g x-ref="edgesLayer"></g>
-                        <defs>
-                            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                                <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
-                            </marker>
-                        </defs>
-                        {{-- Connecting line preview --}}
-                        <line x-show="connecting"
-                              :x1="connectStart.x" :y1="connectStart.y"
-                              :x2="connectEnd.x" :y2="connectEnd.y"
-                              stroke="#ef4444" stroke-width="2" stroke-dasharray="5,5"/>
-                    </svg>
-
-                    {{-- Nodes --}}
-                    <template x-for="node in nodes" :key="node.node_id">
-                        <div class="absolute cursor-move select-none rounded-xl shadow-md border-2 transition-shadow"
-                             :class="{
-                                 'border-purple-400 bg-purple-50 dark:bg-purple-900/30': node.type === 'trigger',
-                                 'border-amber-400 bg-amber-50 dark:bg-amber-900/30': node.type === 'condition',
-                                 'border-blue-400 bg-blue-50 dark:bg-blue-900/30': node.type === 'action',
-                                 'ring-2 ring-red-500': selectedNode && selectedNode.node_id === node.node_id
-                             }"
-                             :style="'left:' + (node.position?.x || 100) + 'px; top:' + (node.position?.y || 100) + 'px; z-index: 10; min-width: 160px;'"
-                             @mousedown="startDragNode($event, node)"
-                             @click.stop="selectNode(node)"
-                             :aria-label="node.label" role="button" tabindex="0"
-                             @keydown.delete="removeNode(node.node_id)"
-                             @keydown.backspace="removeNode(node.node_id)">
-
-                            {{-- Node Header --}}
-                            <div class="flex items-center gap-2 px-3 py-2 border-b"
-                                 :class="{
-                                     'border-purple-200 dark:border-purple-700': node.type === 'trigger',
-                                     'border-amber-200 dark:border-amber-700': node.type === 'condition',
-                                     'border-blue-200 dark:border-blue-700': node.type === 'action',
-                                 }">
-                                <i :class="{
-                                    'fa-solid fa-bolt text-purple-600': node.type === 'trigger',
-                                    'fa-solid fa-diamond text-amber-600': node.type === 'condition',
-                                    'fa-solid fa-gear text-blue-600': node.type === 'action',
-                                }" class="text-xs"></i>
-                                <span class="text-xs font-bold uppercase tracking-wider"
-                                      :class="{
-                                          'text-purple-700 dark:text-purple-300': node.type === 'trigger',
-                                          'text-amber-700 dark:text-amber-300': node.type === 'condition',
-                                          'text-blue-700 dark:text-blue-300': node.type === 'action',
-                                      }" x-text="node.type"></span>
-                            </div>
-
-                            {{-- Node Body --}}
-                            <div class="px-3 py-2">
-                                <p class="text-sm font-semibold text-gray-800 dark:text-gray-200" x-text="node.label"></p>
-                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" x-text="node.action_type"></p>
-                            </div>
-
-                            {{-- Connection Handles --}}
-                            <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gray-400 dark:bg-gray-500 rounded-full border-2 border-white dark:border-gray-800 cursor-crosshair hover:bg-red-500 transition"
-                                 @mousedown.stop="startConnect($event, node)"
-                                 title="Drag to connect" aria-label="Connect from this node"></div>
-                            <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gray-400 dark:bg-gray-500 rounded-full border-2 border-white dark:border-gray-800 hover:bg-green-500 transition"
-                                 @mouseup.stop="endConnect(node)"
-                                 title="Drop connection here" aria-label="Connect to this node"></div>
-
-                            {{-- Delete button --}}
-                            <button class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition opacity-0 group-hover:opacity-100"
-                                    :class="selectedNode && selectedNode.node_id === node.node_id ? 'opacity-100' : 'opacity-0 hover:opacity-100'"
-                                    @click.stop="removeNode(node.node_id)" aria-label="Remove node">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
+                <div x-ref="canvasPanel"
+                    class="flex w-full flex-none snap-start flex-col bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden lg:w-auto lg:flex-1 lg:min-w-0">
+                    <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-700 lg:hidden">
+                        <div>
+                            <h3 class="text-sm font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">Canvas</h3>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Swipe the page for panels, or pan inside the canvas to review a larger graph.</p>
                         </div>
-                    </template>
+                        <button type="button" @click="showMobilePanel('palette')"
+                            class="inline-flex items-center rounded-md px-2.5 py-1.5 text-[11px] font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 transition dark:bg-purple-900/30 dark:text-purple-300">
+                            <i class="fa-solid fa-plus mr-1"></i> Nodes
+                        </button>
+                    </div>
 
-                    {{-- Empty State --}}
-                    <template x-if="nodes.length === 0">
-                        <div class="absolute inset-0 flex items-center justify-center" style="z-index: 5;">
-                            <div class="text-center">
-                                <i class="fa-regular fa-diagram-project text-5xl text-gray-300 dark:text-gray-600 mb-3"></i>
-                                <p class="text-gray-500 dark:text-gray-400 font-medium">Drag nodes from the palette to build your workflow</p>
-                                <p class="text-gray-400 dark:text-gray-500 text-sm mt-1">Connect nodes by dragging from bottom to top handles</p>
-                            </div>
+                    <div x-ref="canvasViewport" class="relative flex-1 overflow-auto"
+                         style="-webkit-overflow-scrolling: touch;"
+                         @dragover.prevent @drop="onDrop($event)"
+                         id="workflow-canvas" role="application" aria-label="Workflow canvas - drag nodes here">
+                        <div x-ref="canvasSurface" class="relative min-h-full min-w-full"
+                             @click.self="cancelConnect()"
+                             :style="workspaceStyle()">
+                            {{-- Canvas Background Grid --}}
+                            <div class="absolute inset-0 pointer-events-none" style="background-image: radial-gradient(circle, #e5e7eb 1px, transparent 1px); background-size: 20px 20px;" aria-hidden="true"></div>
+
+                            {{-- Edges SVG Layer --}}
+                            <svg class="absolute inset-0 pointer-events-none" :width="workspaceSize().width" :height="workspaceSize().height" style="z-index: 1;">
+                                <g x-ref="edgesLayer"></g>
+                                <defs>
+                                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
+                                    </marker>
+                                </defs>
+                                {{-- Connecting line preview --}}
+                                <line x-show="connecting"
+                                      :x1="connectStart.x" :y1="connectStart.y"
+                                      :x2="connectEnd.x" :y2="connectEnd.y"
+                                      stroke="#ef4444" stroke-width="2" stroke-dasharray="5,5"/>
+                            </svg>
+
+                            {{-- Nodes --}}
+                            <template x-for="node in nodes" :key="node.node_id">
+                                <div class="group absolute cursor-move select-none rounded-xl shadow-md border-2 transition-shadow"
+                                     :data-node-id="node.node_id"
+                                     :class="{
+                                         'border-purple-400 bg-purple-50 dark:bg-purple-900/30': node.type === 'trigger',
+                                         'border-amber-400 bg-amber-50 dark:bg-amber-900/30': node.type === 'condition',
+                                         'border-blue-400 bg-blue-50 dark:bg-blue-900/30': node.type === 'action',
+                                         'ring-2 ring-red-500': selectedNode && selectedNode.node_id === node.node_id
+                                     }"
+                                     :style="nodeStyle(node)"
+                                     @pointerdown="startDragNode($event, node)"
+                                     @click.stop="handleNodeTap(node)"
+                                     :aria-label="node.label" role="button" tabindex="0"
+                                     @keydown.enter.stop="selectNode(node)"
+                                     @keydown.space.prevent.stop="selectNode(node)"
+                                     @keydown.delete="removeNode(node.node_id)"
+                                     @keydown.backspace="removeNode(node.node_id)">
+
+                                    {{-- Node Header --}}
+                                    <div class="flex items-center gap-2 px-3 py-2 border-b"
+                                         :class="{
+                                             'border-purple-200 dark:border-purple-700': node.type === 'trigger',
+                                             'border-amber-200 dark:border-amber-700': node.type === 'condition',
+                                             'border-blue-200 dark:border-blue-700': node.type === 'action',
+                                         }">
+                                        <i :class="{
+                                            'fa-solid fa-bolt text-purple-600': node.type === 'trigger',
+                                            'fa-solid fa-diamond text-amber-600': node.type === 'condition',
+                                            'fa-solid fa-gear text-blue-600': node.type === 'action',
+                                        }" class="text-xs"></i>
+                                        <span class="text-xs font-bold uppercase tracking-wider"
+                                              :class="{
+                                                  'text-purple-700 dark:text-purple-300': node.type === 'trigger',
+                                                  'text-amber-700 dark:text-amber-300': node.type === 'condition',
+                                                  'text-blue-700 dark:text-blue-300': node.type === 'action',
+                                              }" x-text="node.type"></span>
+                                    </div>
+
+                                    {{-- Node Body --}}
+                                    <div class="px-3 py-2">
+                                        <p class="text-sm font-semibold text-gray-800 dark:text-gray-200" x-text="node.label"></p>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" x-text="node.action_type"></p>
+                                    </div>
+
+                                    {{-- Connection Handles --}}
+                                    <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-5 h-5 bg-gray-400 dark:bg-gray-500 rounded-full border-2 border-white dark:border-gray-800 cursor-crosshair hover:bg-red-500 transition"
+                                         style="touch-action: none;"
+                                         @pointerdown.stop="startConnect($event, node)"
+                                         title="Drag to connect" aria-label="Connect from this node"></div>
+                                    <div class="absolute -top-2 left-1/2 transform -translate-x-1/2 w-5 h-5 bg-gray-400 dark:bg-gray-500 rounded-full border-2 border-white dark:border-gray-800 hover:bg-green-500 transition"
+                                         style="touch-action: none;"
+                                         @pointerdown.stop
+                                         @pointerup.stop="endConnect(node)"
+                                         title="Drop connection here" aria-label="Connect to this node"></div>
+
+                                    {{-- Delete button --}}
+                                    <button class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition opacity-0 group-hover:opacity-100"
+                                            :class="selectedNode && selectedNode.node_id === node.node_id ? 'opacity-100' : 'opacity-0 hover:opacity-100'"
+                                            @click.stop="removeNode(node.node_id)" aria-label="Remove node">
+                                        <i class="fa-solid fa-xmark"></i>
+                                    </button>
+                                </div>
+                            </template>
+
+                            {{-- Empty State --}}
+                            <template x-if="nodes.length === 0">
+                                <div class="absolute inset-0 flex items-center justify-center px-6" style="z-index: 5;">
+                                    <div class="text-center max-w-xs">
+                                        <i class="fa-regular fa-diagram-project text-5xl text-gray-300 dark:text-gray-600 mb-3"></i>
+                                        <p class="text-gray-500 dark:text-gray-400 font-medium">Build your workflow from the palette.</p>
+                                        <p class="text-gray-400 dark:text-gray-500 text-sm mt-1 hidden sm:block">Drag nodes from the palette and connect them from the bottom handle to the top handle.</p>
+                                        <p class="text-gray-400 dark:text-gray-500 text-sm mt-1 sm:hidden">Tap the <span class="font-semibold">+</span> buttons in the palette, then drag cards or tap a connector and another node to link them.</p>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
-                    </template>
+                    </div>
                 </div>
 
                 {{-- Inspector Panel (Right) --}}
-                <div class="w-72 flex-shrink-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-y-auto">
+                <div x-ref="inspectorPanel"
+                    class="w-full flex-none snap-start bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-y-auto lg:w-72">
                     <div class="p-3 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Inspector</h3>
+                        <div class="flex items-center justify-between gap-3">
+                            <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Inspector</h3>
+                            <button type="button" @click="showMobilePanel('canvas')"
+                                class="inline-flex items-center rounded-md px-2.5 py-1.5 text-[11px] font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 transition dark:bg-blue-900/30 dark:text-blue-300 lg:hidden">
+                                <i class="fa-solid fa-arrow-left mr-1"></i> Canvas
+                            </button>
+                        </div>
                     </div>
 
                     <template x-if="!selectedNode">
@@ -433,8 +526,8 @@
                                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Connections</label>
                                 <div class="space-y-1">
                                     <template x-for="edge in edges.filter(e => e.source_node_id === selectedNode.node_id || e.target_node_id === selectedNode.node_id)" :key="edge.source_node_id + edge.target_node_id">
-                                        <div class="flex items-center justify-between text-xs bg-gray-50 dark:bg-gray-700 rounded p-2">
-                                            <span class="text-gray-600 dark:text-gray-400" x-text="edge.source_node_id + ' -> ' + edge.target_node_id"></span>
+                                        <div class="flex items-center justify-between gap-2 text-xs bg-gray-50 dark:bg-gray-700 rounded p-2">
+                                            <span class="break-all text-gray-600 dark:text-gray-400" x-text="edge.source_node_id + ' -> ' + edge.target_node_id"></span>
                                             <button @click="removeEdge(edge)" class="text-red-500 hover:text-red-700">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
@@ -477,6 +570,8 @@
             versionHistory: [],
             loadingVersions: false,
             activeGuideTriggerType: null,
+            mobilePanel: 'canvas',
+            canvasViewportSize: { width: 0, height: 0 },
             compatibilityMap: {
                 low_stock_reached: {
                     conditions: ['quantity_threshold', 'branch_matches', 'category_matches'],
@@ -536,53 +631,68 @@
             // Connection state
             connecting: false,
             connectSourceNode: null,
+            connectPointerType: null,
             connectStart: { x: 0, y: 0 },
             connectEnd: { x: 0, y: 0 },
 
             nodeCounter: 0,
-            mouseMoveHandler: null,
-            mouseUpHandler: null,
+            pointerMoveHandler: null,
+            pointerUpHandler: null,
+            resizeHandler: null,
 
             init() {
                 this.nodes = (this.nodes || []).map(n => this.normalizeNode(n));
                 this.edges = (this.edges || []).map(e => this.normalizeEdge(e));
                 this.nodeCounter = this.nodes.length;
 
-                this.renderEdges();
                 this.refreshCompatibilityGuide();
+                this.$nextTick(() => {
+                    this.updateViewportMetrics();
+                    this.showMobilePanel(this.mobilePanel, 'auto');
+                    this.renderEdges();
+                });
 
-                if (!this.mouseMoveHandler) {
-                    this.mouseMoveHandler = (e) => {
+                if (!this.pointerMoveHandler) {
+                    this.pointerMoveHandler = (e) => {
                         if (this.draggingNode) {
-                            const canvas = document.getElementById('workflow-canvas');
-                            const rect = canvas.getBoundingClientRect();
-                            this.draggingNode.position.x = Math.max(0, e.clientX - rect.left - this.dragOffset.x);
-                            this.draggingNode.position.y = Math.max(0, e.clientY - rect.top - this.dragOffset.y);
+                            const point = this.clientToCanvasPosition(e.clientX, e.clientY);
+                            const size = this.workspaceSize();
+                            this.draggingNode.position.x = Math.max(0, Math.min(point.x - this.dragOffset.x, size.width - this.nodeCardWidth()));
+                            this.draggingNode.position.y = Math.max(0, Math.min(point.y - this.dragOffset.y, size.height - this.nodeCardHeight()));
                             this.lastDragMoved = true;
                             this.renderEdges();
                         }
                         if (this.connecting) {
-                            const canvas = document.getElementById('workflow-canvas');
-                            const rect = canvas.getBoundingClientRect();
-                            this.connectEnd = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+                            this.connectEnd = this.clientToCanvasPosition(e.clientX, e.clientY);
                         }
                     };
-                    document.addEventListener('mousemove', this.mouseMoveHandler);
+                    document.addEventListener('pointermove', this.pointerMoveHandler);
                 }
 
-                if (!this.mouseUpHandler) {
-                    this.mouseUpHandler = () => {
+                if (!this.pointerUpHandler) {
+                    this.pointerUpHandler = () => {
                         if (this.lastDragMoved) {
                             this.markDirty();
                         }
                         this.lastDragMoved = false;
                         this.draggingNode = null;
-                        if (this.connecting) {
+                        if (this.connecting && this.connectPointerType !== 'touch') {
                             this.connecting = false;
                             this.connectSourceNode = null;
+                            this.connectPointerType = null;
                         }
                     };
-                    document.addEventListener('mouseup', this.mouseUpHandler);
+                    document.addEventListener('pointerup', this.pointerUpHandler);
+                    document.addEventListener('pointercancel', this.pointerUpHandler);
+                }
+
+                if (!this.resizeHandler) {
+                    this.resizeHandler = () => {
+                        this.updateViewportMetrics();
+                        this.showMobilePanel(this.mobilePanel, 'auto');
+                        this.renderEdges();
+                    };
+                    window.addEventListener('resize', this.resizeHandler);
                 }
 
                 if (!this.syncIntervalHandle) {
@@ -608,6 +718,129 @@
                     label: edge.label ?? null,
                     condition_branch: edge.condition_branch ?? null,
                 };
+            },
+
+            isDesktopLayout() {
+                return window.innerWidth >= 1024;
+            },
+
+            getCanvasViewport() {
+                return this.$refs?.canvasViewport || document.getElementById('workflow-canvas');
+            },
+
+            getCanvasSurface() {
+                return this.$refs?.canvasSurface || this.getCanvasViewport();
+            },
+
+            updateViewportMetrics() {
+                const viewport = this.getCanvasViewport();
+                this.canvasViewportSize = {
+                    width: viewport?.clientWidth || 0,
+                    height: viewport?.clientHeight || 0,
+                };
+            },
+
+            nodeCardWidth() {
+                return 176;
+            },
+
+            nodeCardHeight() {
+                return 88;
+            },
+
+            workspaceSize() {
+                const viewportWidth = this.canvasViewportSize.width || 0;
+                const viewportHeight = this.canvasViewportSize.height || 0;
+                const maxX = this.nodes.reduce((carry, node) => {
+                    return Math.max(carry, (node.position?.x || 0) + this.nodeCardWidth() + 48);
+                }, 0);
+                const maxY = this.nodes.reduce((carry, node) => {
+                    return Math.max(carry, (node.position?.y || 0) + this.nodeCardHeight() + 64);
+                }, 0);
+
+                return {
+                    width: Math.max(viewportWidth, maxX, this.isDesktopLayout() ? 820 : 560),
+                    height: Math.max(viewportHeight, maxY, 420),
+                };
+            },
+
+            workspaceStyle() {
+                const size = this.workspaceSize();
+                return `width:${size.width}px; height:${size.height}px;`;
+            },
+
+            nodeStyle(node) {
+                return `left:${node.position?.x || 100}px; top:${node.position?.y || 100}px; z-index:10; width:${this.nodeCardWidth()}px; touch-action:none;`;
+            },
+
+            clientToCanvasPosition(clientX, clientY) {
+                const surface = this.getCanvasSurface();
+                const rect = surface?.getBoundingClientRect();
+                if (!rect) {
+                    return { x: 0, y: 0 };
+                }
+
+                return {
+                    x: Math.max(0, clientX - rect.left),
+                    y: Math.max(0, clientY - rect.top),
+                };
+            },
+
+            showMobilePanel(panel, behavior = 'smooth') {
+                this.mobilePanel = panel;
+
+                if (this.isDesktopLayout()) {
+                    this.$nextTick(() => this.updateViewportMetrics());
+                    return;
+                }
+
+                const refs = {
+                    palette: this.$refs?.palettePanel,
+                    canvas: this.$refs?.canvasPanel,
+                    inspector: this.$refs?.inspectorPanel,
+                };
+
+                const target = refs[panel];
+                if (!target) {
+                    return;
+                }
+
+                target.scrollIntoView({
+                    behavior,
+                    block: 'nearest',
+                    inline: 'start',
+                });
+
+                if (panel === 'canvas') {
+                    this.$nextTick(() => {
+                        this.updateViewportMetrics();
+                        this.renderEdges();
+                    });
+                }
+            },
+
+            syncMobilePanelFromScroll() {
+                if (this.isDesktopLayout() || !this.$refs?.editorPanels) {
+                    return;
+                }
+
+                const scrollLeft = this.$refs.editorPanels.scrollLeft;
+                const panels = [
+                    ['palette', this.$refs?.palettePanel],
+                    ['canvas', this.$refs?.canvasPanel],
+                    ['inspector', this.$refs?.inspectorPanel],
+                ].filter(([, element]) => element);
+
+                const closestPanel = panels
+                    .map(([name, element]) => ({
+                        name,
+                        distance: Math.abs((element.offsetLeft || 0) - scrollLeft),
+                    }))
+                    .sort((left, right) => left.distance - right.distance)[0];
+
+                if (closestPanel) {
+                    this.mobilePanel = closestPanel.name;
+                }
             },
 
             availableGuideTriggers() {
@@ -728,11 +961,73 @@
                 const baseX = anchor?.position?.x ?? 120;
                 const baseY = anchor?.position?.y ?? 120;
                 const sameTypeCount = this.nodes.filter(node => node.type === nodeType).length;
+                if (!this.isDesktopLayout()) {
+                    return {
+                        x: 24,
+                        y: Math.max(24, baseY + ((sameTypeCount + 1) * 104)),
+                    };
+                }
                 const xOffset = nodeType === 'condition' ? 220 : 380;
                 return {
                     x: Math.max(10, baseX + xOffset),
                     y: Math.max(10, baseY + ((sameTypeCount % 6) * 78)),
                 };
+            },
+
+            nextPaletteInsertPosition(nodeType) {
+                const viewport = this.getCanvasViewport();
+                const baseX = (viewport?.scrollLeft || 0) + 24;
+                const baseY = (viewport?.scrollTop || 0) + 24;
+                const nodeCount = this.nodes.length;
+
+                if (!this.isDesktopLayout()) {
+                    return {
+                        x: baseX,
+                        y: baseY + (nodeCount * 104),
+                    };
+                }
+
+                const xOffsets = {
+                    trigger: 24,
+                    condition: 280,
+                    action: 536,
+                };
+
+                return {
+                    x: baseX + (xOffsets[nodeType] ?? 24),
+                    y: baseY + ((this.nodes.filter(node => node.type === nodeType).length % 5) * 92),
+                };
+            },
+
+            scrollNodeIntoView(node) {
+                const viewport = this.getCanvasViewport();
+                if (!viewport || !node?.position) {
+                    return;
+                }
+
+                const left = Math.max(0, node.position.x - 24);
+                const top = Math.max(0, node.position.y - 24);
+
+                viewport.scrollTo({
+                    left,
+                    top,
+                    behavior: 'smooth',
+                });
+            },
+
+            addNodeFromPalette(catalogNode) {
+                if (!catalogNode) return;
+
+                const newNode = this.createNodeFromCatalog(catalogNode, this.nextPaletteInsertPosition(catalogNode.type));
+                this.nodes.push(newNode);
+                this.selectNode(newNode);
+                this.markDirty();
+                this.showMobilePanel('canvas');
+                this.$nextTick(() => {
+                    this.updateViewportMetrics();
+                    this.renderEdges();
+                    this.scrollNodeIntoView(newNode);
+                });
             },
 
             addSuggestedNode(catalogNode) {
@@ -741,7 +1036,12 @@
                 this.nodes.push(newNode);
                 this.selectNode(newNode);
                 this.markDirty();
-                this.renderEdges();
+                this.showMobilePanel('canvas');
+                this.$nextTick(() => {
+                    this.updateViewportMetrics();
+                    this.renderEdges();
+                    this.scrollNodeIntoView(newNode);
+                });
             },
 
             markDirty() {
@@ -764,18 +1064,21 @@
                 if (!data) return;
 
                 const catalogNode = JSON.parse(data);
-                const canvas = document.getElementById('workflow-canvas');
-                const rect = canvas.getBoundingClientRect();
+                const point = this.clientToCanvasPosition(event.clientX, event.clientY);
 
                 const newNode = this.createNodeFromCatalog(catalogNode, {
-                    x: Math.max(10, event.clientX - rect.left - 80),
-                    y: Math.max(10, event.clientY - rect.top - 30)
+                    x: Math.max(10, point.x - (this.nodeCardWidth() / 2)),
+                    y: Math.max(10, point.y - 36)
                 });
 
                 this.nodes.push(newNode);
                 this.selectNode(newNode);
                 this.markDirty();
-                this.renderEdges();
+                this.$nextTick(() => {
+                    this.updateViewportMetrics();
+                    this.renderEdges();
+                    this.scrollNodeIntoView(newNode);
+                });
             },
 
             selectNode(node) {
@@ -789,6 +1092,21 @@
                 } else {
                     this.refreshCompatibilityGuide();
                 }
+            },
+
+            handleNodeTap(node) {
+                if (this.connecting && this.connectSourceNode) {
+                    if (this.connectSourceNode.node_id === node.node_id) {
+                        this.cancelConnect();
+                        return;
+                    }
+
+                    this.endConnect(node);
+                    this.selectNode(node);
+                    return;
+                }
+
+                this.selectNode(node);
             },
 
             syncSelectedPresetKey() {
@@ -967,28 +1285,36 @@
                 }
                 this.syncSelectedPresetKey();
                 this.refreshCompatibilityGuide();
+                this.$nextTick(() => {
+                    this.updateViewportMetrics();
+                    this.renderEdges();
+                });
             },
 
             startDragNode(event, node) {
-                if (event.target.closest('[title="Drag to connect"]') || event.target.closest('button')) return;
-                const canvas = document.getElementById('workflow-canvas');
-                const rect = canvas.getBoundingClientRect();
+                if (
+                    event.target.closest('[aria-label="Connect from this node"]') ||
+                    event.target.closest('[aria-label="Connect to this node"]') ||
+                    event.target.closest('button')
+                ) return;
+                event.preventDefault();
+                const point = this.clientToCanvasPosition(event.clientX, event.clientY);
                 this.dragOffset = {
-                    x: event.clientX - rect.left - (node.position?.x || 0),
-                    y: event.clientY - rect.top - (node.position?.y || 0)
+                    x: point.x - (node.position?.x || 0),
+                    y: point.y - (node.position?.y || 0)
                 };
                 this.lastDragMoved = false;
                 this.draggingNode = node;
             },
 
             startConnect(event, node) {
+                event.preventDefault();
                 this.connecting = true;
                 this.connectSourceNode = node;
-                const canvas = document.getElementById('workflow-canvas');
-                const rect = canvas.getBoundingClientRect();
+                this.connectPointerType = event.pointerType || 'mouse';
                 const center = this.getNodeCenter(node.node_id);
                 this.connectStart = center;
-                this.connectEnd = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+                this.connectEnd = this.clientToCanvasPosition(event.clientX, event.clientY);
             },
 
             endConnect(targetNode) {
@@ -1006,19 +1332,38 @@
                             condition_branch: null
                         });
                         this.markDirty();
-                        this.renderEdges();
+                        this.$nextTick(() => this.renderEdges());
                     }
                 }
+                this.connectPointerType = null;
                 this.connecting = false;
                 this.connectSourceNode = null;
+            },
+
+            cancelConnect() {
+                this.connecting = false;
+                this.connectSourceNode = null;
+                this.connectPointerType = null;
             },
 
             getNodeCenter(nodeId) {
                 const node = this.nodes.find(n => n.node_id === nodeId);
                 if (!node || !node.position) return { x: 0, y: 0 };
+
+                const surface = this.getCanvasSurface();
+                const element = surface?.querySelector(`[data-node-id="${nodeId}"]`);
+                if (surface && element) {
+                    const surfaceRect = surface.getBoundingClientRect();
+                    const rect = element.getBoundingClientRect();
+                    return {
+                        x: (rect.left - surfaceRect.left) + (rect.width / 2),
+                        y: (rect.top - surfaceRect.top) + (rect.height / 2),
+                    };
+                }
+
                 return {
-                    x: (node.position.x || 0) + 80,
-                    y: (node.position.y || 0) + 30
+                    x: (node.position.x || 0) + (this.nodeCardWidth() / 2),
+                    y: (node.position.y || 0) + (this.nodeCardHeight() / 2),
                 };
             },
 
@@ -1031,7 +1376,10 @@
                 }
                 this.refreshCompatibilityGuide();
                 this.markDirty();
-                this.renderEdges();
+                this.$nextTick(() => {
+                    this.updateViewportMetrics();
+                    this.renderEdges();
+                });
             },
 
             removeEdge(edge) {
@@ -1039,7 +1387,7 @@
                     !(e.source_node_id === edge.source_node_id && e.target_node_id === edge.target_node_id)
                 );
                 this.markDirty();
-                this.renderEdges();
+                this.$nextTick(() => this.renderEdges());
             },
 
             renderEdges() {
@@ -1144,7 +1492,6 @@
                         this.nodes = (data.version.nodes || []).map(n => this.normalizeNode(n));
                         this.edges = (data.version.edges || []).map(e => this.normalizeEdge(e));
                         this.rebindSelectedNode();
-                        this.renderEdges();
                     }
                     this.dirty = false;
                     if (!silent) {
@@ -1264,7 +1611,6 @@
                         this.nodes = (data.version.nodes || []).map(n => this.normalizeNode(n));
                         this.edges = (data.version.edges || []).map(e => this.normalizeEdge(e));
                         this.rebindSelectedNode();
-                        this.renderEdges();
                     }
 
                     this.graphHash = data.graph_hash || this.graphHash;
