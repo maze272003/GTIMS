@@ -12,6 +12,10 @@ use App\Models\WorkflowVersion;
 use App\Models\WorkflowNode;
 use App\Models\WorkflowEdge;
 use App\Models\WorkflowRun;
+use App\Models\Product;
+use App\Models\Inventory;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Services\WorkflowEngineService;
 use App\Services\AuditService;
 use App\Services\NotificationService;
@@ -325,6 +329,87 @@ class WorkflowEngineServiceTest extends TestCase
         Storage::disk('local')->delete($reportPath);
     }
 
+    public function test_auto_allocate_order_uses_quantity_requested_from_source_branch(): void
+    {
+        $sourceBranch = Branch::factory()->create(['is_archived' => false]);
+        $requestingBranch = Branch::factory()->create(['is_archived' => false]);
+        $product = Product::factory()->create();
+
+        $sourceBatch1 = Inventory::create([
+            'product_id' => $product->id,
+            'branch_id' => $sourceBranch->id,
+            'batch_number' => 'SRC-B1',
+            'quantity' => 6,
+            'onhand_qty' => 6,
+            'hold_qty' => 0,
+            'expiry_date' => now()->addDays(10)->toDateString(),
+            'is_archived' => false,
+        ]);
+        $sourceBatch2 = Inventory::create([
+            'product_id' => $product->id,
+            'branch_id' => $sourceBranch->id,
+            'batch_number' => 'SRC-B2',
+            'quantity' => 6,
+            'onhand_qty' => 6,
+            'hold_qty' => 0,
+            'expiry_date' => now()->addDays(20)->toDateString(),
+            'is_archived' => false,
+        ]);
+
+        // This batch should not be used because allocation must follow source_branch_id.
+        Inventory::create([
+            'product_id' => $product->id,
+            'branch_id' => $requestingBranch->id,
+            'batch_number' => 'REQ-B1',
+            'quantity' => 50,
+            'onhand_qty' => 50,
+            'hold_qty' => 0,
+            'expiry_date' => now()->addDays(5)->toDateString(),
+            'is_archived' => false,
+        ]);
+
+        $order = Order::create([
+            'branch_id' => $requestingBranch->id,
+            'user_id' => $this->user->id,
+            'status' => 'approved',
+        ]);
+
+        OrderItem::create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'quantity_requested' => 10,
+            'source_branch_id' => $sourceBranch->id,
+            'source_inventory_id' => $sourceBatch1->id,
+            'source_batch_number' => $sourceBatch1->batch_number,
+        ]);
+
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'order_approved', 'label' => 'Order Approved'],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'auto_allocate_order', 'label' => 'Allocate'],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $run = $this->engine->startRun($workflow, $this->user->id, ['order_id' => $order->id]);
+        $this->assertEquals('completed', $run->status);
+
+        $allocation = data_get($run->context, 'allocations.0');
+        $this->assertSame(10, data_get($allocation, 'requested'));
+        $this->assertSame(10, data_get($allocation, 'allocated'));
+        $this->assertSame(0, data_get($allocation, 'shortfall'));
+        $this->assertSame($sourceBranch->id, data_get($allocation, 'source_branch_id'));
+
+        $batchInventoryIds = array_map(
+            fn (array $batch) => (int) ($batch['inventory_id'] ?? 0),
+            data_get($allocation, 'batches', [])
+        );
+        $this->assertContains($sourceBatch1->id, $batchInventoryIds);
+        $this->assertContains($sourceBatch2->id, $batchInventoryIds);
+    }
+
     public function test_condition_branch_execution_skips_inactive_branch_nodes(): void
     {
         [$workflow, $version] = $this->createWorkflowWithNodes(
@@ -376,6 +461,27 @@ class WorkflowEngineServiceTest extends TestCase
         $this->assertContains('cross_platform_data_sync', $keys);
         $this->assertContains('it_service_request_management', $keys);
         $this->assertContains('compliance_monitoring_control_loop', $keys);
+        $this->assertContains('low_stock_alert_reorder', $keys);
+        $this->assertContains('expiry_hold_and_report', $keys);
+        $this->assertContains('order_approved_fefo_allocation', $keys);
+        $this->assertContains('daily_stock_movement_report', $keys);
+    }
+
+    public function test_all_workflow_templates_pass_graph_validation(): void
+    {
+        $templates = $this->engine->getWorkflowTemplates();
+
+        foreach ($templates as $template) {
+            $validation = $this->engine->validateGraphPayload($template['graph']);
+            $this->assertEmpty(
+                $validation['errors'],
+                "Template '{$template['key']}' failed validation: " . implode('; ', $validation['errors'])
+            );
+            $this->assertTrue(
+                (bool) ($validation['valid'] ?? false),
+                "Template '{$template['key']}' should be marked as valid."
+            );
+        }
     }
 
     public function test_notify_action_supports_specific_user_recipient_strategy(): void
@@ -488,5 +594,248 @@ class WorkflowEngineServiceTest extends TestCase
         $this->assertIsArray($outputs);
         $this->assertNotEmpty($outputs);
         $this->assertContains('create_google_doc', array_map(fn ($item) => $item['action_type'] ?? null, $outputs));
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  RETRY / DEAD-LETTER TESTS
+    // ─────────────────────────────────────────────────────────
+
+    public function test_handle_failed_run_schedules_retry(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock'],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify', 'config' => ['message' => 'Test']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $run = WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'retry_attempt' => 0,
+            'max_retries' => 3,
+            'idempotency_key' => 'retry-test-1',
+        ]);
+
+        $this->engine->handleFailedRun($run, new \RuntimeException('Test failure'));
+
+        $run->refresh();
+        $this->assertNotNull($run->next_retry_at);
+        $this->assertFalse((bool) $run->is_dead_letter);
+    }
+
+    public function test_handle_failed_run_dead_letters_after_max_retries(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock'],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify', 'config' => ['message' => 'Test']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $run = WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'retry_attempt' => 3,
+            'max_retries' => 3,
+            'idempotency_key' => 'dead-letter-test-1',
+        ]);
+
+        $this->engine->handleFailedRun($run, new \RuntimeException('Final failure'));
+
+        $run->refresh();
+        $this->assertTrue((bool) $run->is_dead_letter);
+        $this->assertNull($run->next_retry_at);
+        $this->assertStringContainsString('Final failure', $run->error_message);
+    }
+
+    public function test_handle_failed_run_skips_dry_runs(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock'],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify', 'config' => ['message' => 'Test']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $run = WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'is_dry_run' => true,
+            'retry_attempt' => 0,
+            'max_retries' => 3,
+            'idempotency_key' => 'dry-run-fail-test',
+        ]);
+
+        $this->engine->handleFailedRun($run, new \RuntimeException('Dry run fail'));
+
+        $run->refresh();
+        $this->assertFalse((bool) $run->is_dead_letter);
+        $this->assertNull($run->next_retry_at);
+    }
+
+    public function test_rerun_from_dead_letter_creates_new_run(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock'],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify', 'config' => ['message' => 'Rerun test']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $failedRun = WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'trigger_type' => 'event',
+            'trigger_payload' => ['quantity' => 5],
+            'is_dead_letter' => true,
+            'retry_attempt' => 3,
+            'max_retries' => 3,
+            'idempotency_key' => 'dead-letter-rerun-test-1',
+            'error_message' => 'Previous failure',
+        ]);
+
+        $newRun = $this->engine->rerunFromDeadLetter($failedRun, $this->user->id);
+
+        $this->assertNotEquals($failedRun->id, $newRun->id);
+        $this->assertEquals($failedRun->id, $newRun->parent_run_id);
+        $this->assertEquals(0, $newRun->retry_attempt);
+        $this->assertEquals($failedRun->workflow_definition_id, $newRun->workflow_definition_id);
+        $this->assertEquals($failedRun->workflow_version_id, $newRun->workflow_version_id);
+        $this->assertNotEquals($failedRun->idempotency_key, $newRun->idempotency_key);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  WORKFLOW RUN SCOPES
+    // ─────────────────────────────────────────────────────────
+
+    public function test_dead_letter_scope(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock'],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify', 'config' => ['message' => 'Test']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'is_dead_letter' => true,
+            'idempotency_key' => 'dl-scope-1',
+        ]);
+
+        WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'completed',
+            'triggered_by' => $this->user->id,
+            'idempotency_key' => 'dl-scope-2',
+        ]);
+
+        $deadLettered = WorkflowRun::deadLetter()->get();
+        $this->assertCount(1, $deadLettered);
+        $this->assertTrue((bool) $deadLettered->first()->is_dead_letter);
+    }
+
+    public function test_retryable_scope(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock'],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify', 'config' => ['message' => 'Test']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        // Retryable: failed, not dead-lettered, next_retry_at in the past
+        WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'is_dead_letter' => false,
+            'next_retry_at' => now()->subMinute(),
+            'idempotency_key' => 'retry-scope-1',
+        ]);
+
+        // Not retryable: dead-lettered
+        WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'is_dead_letter' => true,
+            'idempotency_key' => 'retry-scope-2',
+        ]);
+
+        $retryable = WorkflowRun::retryable()->get();
+        $this->assertCount(1, $retryable);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  PARENT/CHILD RUN RELATIONSHIPS
+    // ─────────────────────────────────────────────────────────
+
+    public function test_parent_child_run_relationship(): void
+    {
+        [$workflow, $version] = $this->createWorkflowWithNodes(
+            [
+                ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock'],
+                ['node_id' => 'action_1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify', 'config' => ['message' => 'Test']],
+            ],
+            [
+                ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+            ]
+        );
+
+        $parent = WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'is_dead_letter' => true,
+            'idempotency_key' => 'parent-run-1',
+        ]);
+
+        $child = WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'completed',
+            'triggered_by' => $this->user->id,
+            'parent_run_id' => $parent->id,
+            'idempotency_key' => 'child-run-1',
+        ]);
+
+        $this->assertEquals($parent->id, $child->parentRun->id);
+        $this->assertCount(1, $parent->childRuns);
+        $this->assertEquals($child->id, $parent->childRuns->first()->id);
     }
 }

@@ -87,15 +87,25 @@
                                     <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $wf->runs_count }}</td>
                                     <td class="px-6 py-4 text-gray-600 dark:text-gray-400">{{ $wf->creator->name ?? 'System' }}</td>
                                     <td class="px-6 py-4 text-gray-500 dark:text-gray-400 text-xs">{{ $wf->updated_at->diffForHumans() }}</td>
-                                    <td class="px-6 py-4 text-right space-x-2">
-                                        <a href="{{ route('admin.workflows.editor', $wf) }}"
-                                           class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition">
-                                            <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
-                                        </a>
-                                        <a href="{{ route('admin.workflows.runs', $wf) }}"
-                                           class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition">
-                                            <i class="fa-solid fa-play mr-1"></i> Runs
-                                        </a>
+                                    <td class="px-6 py-4 text-right">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <a href="{{ route('admin.workflows.editor', $wf) }}"
+                                               class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition"
+                                               title="Edit">
+                                                <i class="fa-solid fa-pen-to-square mr-1"></i> Edit
+                                            </a>
+                                            <a href="{{ route('admin.workflows.runs', $wf) }}"
+                                               class="inline-flex items-center px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition"
+                                               title="Run History">
+                                                <i class="fa-solid fa-play mr-1"></i> Runs
+                                            </a>
+                                            <a href="{{ route('admin.workflows.versions', $wf) }}"
+                                               class="inline-flex items-center px-2.5 py-1.5 text-xs font-medium text-purple-700 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/40 transition"
+                                               title="Version History"
+                                               onclick="event.preventDefault(); showVersionHistory({{ $wf->id }}, '{{ route('admin.workflows.versions', $wf) }}')">
+                                                <i class="fa-solid fa-clock-rotate-left"></i>
+                                            </a>
+                                        </div>
                                     </td>
                                 </tr>
                                 @endforeach
@@ -157,4 +167,112 @@
             </form>
         </div>
     </div>
+
+    {{-- Version History Modal --}}
+    <div id="version-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50" onclick="if(event.target===this) this.classList.add('hidden')">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-800 dark:text-gray-100"><i class="fa-solid fa-clock-rotate-left mr-2 text-purple-600"></i> Version History</h3>
+                <button onclick="document.getElementById('version-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div id="version-list" class="flex-1 overflow-y-auto space-y-3">
+                <div class="text-center py-8 text-gray-500"><i class="fa-solid fa-spinner fa-spin text-2xl"></i></div>
+            </div>
+        </div>
+    </div>
+
+    @push('scripts')
+    <script>
+    function showVersionHistory(workflowId, url) {
+        const modal = document.getElementById('version-modal');
+        const list = document.getElementById('version-list');
+        modal.classList.remove('hidden');
+        list.innerHTML = '<div class="text-center py-8 text-gray-500"><i class="fa-solid fa-spinner fa-spin text-2xl"></i></div>';
+
+        fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(r => r.json())
+            .then(data => {
+                const versions = data.versions || [];
+                if (!versions.length) {
+                    list.innerHTML = '<p class="text-center text-gray-500 py-8">No versions found.</p>';
+                    return;
+                }
+                list.innerHTML = versions.map(v => `
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 ${v.status === 'published' ? 'bg-green-50 dark:bg-green-900/10 border-green-300 dark:border-green-700' : ''}">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <span class="text-lg font-bold text-gray-800 dark:text-gray-100">v${v.version_number}</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium
+                                    ${v.status === 'published' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : ''}
+                                    ${v.status === 'archived' ? 'bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300' : ''}
+                                    ${v.status === 'draft' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' : ''}">
+                                    ${v.status}
+                                </span>
+                            </div>
+                            <div class="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                ${v.nodes_count || 0} nodes, ${v.edges_count || 0} edges
+                                ${v.status !== 'published' ? `
+                                    <button onclick="rollbackVersion(${workflowId}, ${v.id}, ${v.version_number})"
+                                        class="inline-flex items-center px-2 py-1 text-xs font-medium text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 rounded hover:bg-orange-100 transition">
+                                        <i class="fa-solid fa-rotate-left mr-1"></i> Rollback
+                                    </button>` : ''}
+                            </div>
+                        </div>
+                        ${v.change_summary ? `<p class="text-xs text-gray-600 dark:text-gray-400 mt-1">${v.change_summary}</p>` : ''}
+                        ${v.published_at ? `<p class="text-[10px] text-gray-400 mt-1">Published: ${new Date(v.published_at).toLocaleString()} ${v.publisher?.name ? 'by ' + v.publisher.name : ''}</p>` : ''}
+                    </div>
+                `).join('');
+            })
+            .catch(e => {
+                list.innerHTML = '<p class="text-center text-red-500 py-8">Failed to load versions.</p>';
+                console.error(e);
+            });
+    }
+
+    function rollbackVersion(workflowId, versionId, versionNumber) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Rollback to v' + versionNumber + '?',
+                text: 'A new version will be created based on this version. The current published version will be archived.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Rollback',
+                confirmButtonColor: '#ea580c'
+            }).then(result => {
+                if (result.isConfirmed) performRollback(workflowId, versionId);
+            });
+        } else {
+            if (confirm('Rollback to version ' + versionNumber + '?')) performRollback(workflowId, versionId);
+        }
+    }
+
+    function performRollback(workflowId, versionId) {
+        fetch(`/admin/workflows/${workflowId}/versions/${versionId}/rollback`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'success', title: 'Rolled Back', text: data.message, timer: 2500 });
+                }
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon: 'error', title: 'Rollback Failed', text: data.error || 'Unknown error' });
+                }
+            }
+        })
+        .catch(e => console.error('Rollback failed', e));
+    }
+    </script>
+    @endpush
 </x-app-layout>

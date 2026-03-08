@@ -190,6 +190,81 @@ Based on UserLevel model:
 2. Releases hold quantities back to available
 3. Updates hold status to expired
 
+### Automation Builder (Workflow Engine)
+
+The Automation Builder is a visual DAG-based workflow automation system that allows administrators to create, publish, and execute automated workflows triggered by inventory/order events.
+
+**Architecture:**
+- **WorkflowDefinition** — top-level entity with versioning, status (draft/active/disabled), concurrency limits
+- **WorkflowVersion** — immutable version snapshots with graph data, nodes, edges
+- **WorkflowNode** — individual steps: triggers, conditions, actions
+- **WorkflowEdge** — directed connections between nodes (supports condition branches)
+- **WorkflowRun** — execution record with status, retry tracking, dead-letter support
+- **WorkflowRunStep** — per-node execution log with timing and output snapshots
+- **WorkflowPermission** — per-workflow ACL (view, edit, run, publish, delete)
+
+**Trigger Types:**
+- `low_stock_reached` — fires when inventory drops below threshold
+- `stock_received` — fires when inventory is created
+- `order_approved` / `order_created` / `order_canceled` — fires on order state changes
+- `expiry_in_x_days` — for scheduled expiry checks
+- `daily_schedule` — CRON-based scheduled execution
+
+**Condition Types:**
+- `quantity_threshold` — numeric comparison (operators: <, >, <=, >=, ==)
+- `product_category` — matches product category
+- `branch_match` — matches branch
+- `approval_required` — checks approval status
+
+**Action Types:**
+- `notify` — sends in-app notifications (supports specific_users, criteria-based, all_admins strategies)
+- `create_hold` / `release_hold` — inventory hold management
+- `create_reorder_suggestion` — calculates reorder quantity from 3-month usage average
+- `auto_allocate_order` — FEFO batch allocation for orders
+- `create_transfer_request` — logs transfer request audit events
+- `generate_report` — generates Excel reports via Maatwebsite
+- `webhook_call` — external HTTP calls with HMAC signing, SSRF protection, URL allowlist
+- `log_audit_event` — writes to audit trail
+- `create_google_doc` — Google Docs integration (simulated)
+- `completion_gate` — checks run completion criteria
+
+**Retry & Dead-Letter:**
+- Failed runs are retried with exponential backoff (default 3 retries)
+- After max retries, runs are moved to the dead-letter queue
+- Dead-lettered runs can be manually re-run from the UI
+- Dry runs skip retry logic
+
+**Event-Driven Execution:**
+- `InventoryWorkflowObserver` — fires triggers on inventory create/update
+- `OrderWorkflowObserver` — fires triggers on order create/status change
+- `WorkflowTriggerService` — matches events to active workflows and dispatches runs
+
+**Scheduled Execution:**
+- `workflows:run-scheduled` — runs every minute, checks daily_schedule triggers
+- `workflows:retry-failed` — runs every 5 minutes, retries failed runs
+
+**Queue Processing:**
+- `ExecuteWorkflowRunJob` — async workflow execution on `workflows` queue
+- Run: `php artisan queue:work --queue=workflows`
+
+**Security:**
+- `WorkflowDefinitionPolicy` — deny-by-default with superadmin bypass
+- Route-level permission middleware (`workflows.view`, `.create`, `.edit`, `.publish`, `.run`, `.delete`)
+- Per-workflow ACL via `workflow_permissions` table
+- Webhook SSRF protection (blocks internal IPs/hostnames)
+- Webhook HMAC-SHA256 signing with per-workflow secrets
+- Input validation on all config fields (unknown fields rejected)
+- Idempotent save operations
+
+**Frontend:**
+- Visual drag-and-drop editor (`workflowEditor()` Alpine.js component)
+- Node palette with categorized triggers/conditions/actions
+- SVG canvas with draggable nodes and connection handles
+- Inspector panel for node configuration
+- Version history panel with rollback support
+- Dead-letter queue drawer with rerun capability
+- 10-second auto-sync polling
+
 ## Security Features
 
 - Password hashing (bcrypt)

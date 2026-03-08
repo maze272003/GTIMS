@@ -21,7 +21,13 @@
                                 {{ ucfirst($workflow->status) }}
                             </span>
                         </h2>
-                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Version {{ $workflow->current_version }}</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Version {{ $workflow->current_version }}
+                            <button @click="showVersionPanel = !showVersionPanel"
+                                class="ml-2 text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 text-xs font-medium">
+                                <i class="fa-solid fa-clock-rotate-left mr-0.5"></i> History
+                            </button>
+                        </p>
                     </div>
                     <div class="flex items-center gap-2 flex-wrap">
                         <button @click="saveGraph()" :disabled="saving"
@@ -72,13 +78,117 @@
                 </div>
             </template>
 
+            {{-- Version History Panel (collapsible) --}}
+            <div x-show="showVersionPanel" x-cloak x-transition
+                 class="mb-4 bg-purple-50 dark:bg-purple-900/10 rounded-xl border border-purple-200 dark:border-purple-800 overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-3 border-b border-purple-200 dark:border-purple-800">
+                    <h3 class="text-sm font-bold text-purple-800 dark:text-purple-300"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Version History</h3>
+                    <button @click="showVersionPanel = false" class="text-gray-400 hover:text-gray-600"><i class="fa-solid fa-times text-xs"></i></button>
+                </div>
+                <div class="p-4 max-h-64 overflow-y-auto" x-init="$watch('showVersionPanel', v => { if(v) loadVersionHistory(); })">
+                    <template x-if="loadingVersions">
+                        <div class="text-center py-4 text-gray-500"><i class="fa-solid fa-spinner fa-spin"></i></div>
+                    </template>
+                    <template x-if="!loadingVersions && versionHistory.length === 0">
+                        <p class="text-center text-sm text-gray-500 py-4">No versions found.</p>
+                    </template>
+                    <div class="space-y-2">
+                        <template x-for="v in versionHistory" :key="v.id">
+                            <div class="flex items-center justify-between p-3 rounded-lg border text-xs"
+                                 :class="v.status === 'published' ? 'bg-green-50 dark:bg-green-900/10 border-green-300 dark:border-green-700' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'">
+                                <div>
+                                    <span class="font-bold text-gray-800 dark:text-gray-100" x-text="'v' + v.version_number"></span>
+                                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                          :class="v.status === 'published' ? 'bg-green-100 text-green-700' : v.status === 'archived' ? 'bg-gray-100 text-gray-600' : 'bg-yellow-100 text-yellow-700'"
+                                          x-text="v.status"></span>
+                                    <span class="ml-2 text-gray-400" x-text="(v.nodes_count || 0) + ' nodes'"></span>
+                                    <template x-if="v.change_summary">
+                                        <p class="text-gray-500 mt-0.5" x-text="v.change_summary"></p>
+                                    </template>
+                                </div>
+                                <template x-if="v.status !== 'published'">
+                                    <button @click="rollbackToVersion(v.id, v.version_number)"
+                                        class="inline-flex items-center px-2 py-1 text-[10px] font-medium text-orange-700 bg-orange-50 rounded hover:bg-orange-100 transition">
+                                        <i class="fa-solid fa-rotate-left mr-0.5"></i> Rollback
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+
             {{-- Editor Layout: Palette + Canvas + Inspector --}}
             <div class="flex gap-4" style="height: calc(100vh - 280px); min-height: 400px;">
 
                 {{-- Node Palette (Left Panel) --}}
-                <div class="w-64 flex-shrink-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-y-auto">
+                <div class="w-72 flex-shrink-0 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-y-auto">
                     <div class="p-3 border-b border-gray-200 dark:border-gray-700">
                         <h3 class="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Node Palette</h3>
+                    </div>
+
+                    {{-- Compatibility Guide --}}
+                    <div class="p-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+                        <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Compatibility Guide</h4>
+
+                        <template x-if="!activeGuideTriggerType">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                                Drop or select a trigger to highlight compatible conditions and actions.
+                            </p>
+                        </template>
+
+                        <template x-if="activeGuideTriggerType">
+                            <div class="space-y-3">
+                                <div class="text-xs text-gray-700 dark:text-gray-300">
+                                    <span class="font-semibold">Active Trigger:</span>
+                                    <span x-text="activeGuideTriggerLabel()"></span>
+                                </div>
+
+                                <template x-if="availableGuideTriggers().length > 1">
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Trigger Context</label>
+                                        <select x-model="activeGuideTriggerType" @change="refreshCompatibilityGuide(activeGuideTriggerType)"
+                                            class="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 text-gray-900 dark:text-white">
+                                            <template x-for="item in availableGuideTriggers()" :key="'guide-' + item.action_type">
+                                                <option :value="item.action_type" x-text="item.label"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                </template>
+
+                                <div>
+                                    <p class="text-[10px] font-semibold text-amber-700 dark:text-amber-300 uppercase mb-1">Suggested Conditions</p>
+                                    <template x-if="compatibleNodes('conditions').length === 0">
+                                        <p class="text-[11px] text-gray-500 dark:text-gray-400">No mapped condition suggestions.</p>
+                                    </template>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="item in compatibleNodes('conditions')" :key="'cond-suggest-' + item.action_type">
+                                            <button type="button" @click="addSuggestedNode(item)"
+                                                class="inline-flex items-center px-2 py-1 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-[11px] font-medium hover:bg-amber-200 dark:hover:bg-amber-900/60 transition">
+                                                <i class="fa-solid fa-plus mr-1 text-[10px]"></i>
+                                                <span x-text="item.label"></span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <p class="text-[10px] font-semibold text-blue-700 dark:text-blue-300 uppercase mb-1">Suggested Actions</p>
+                                    <template x-if="compatibleNodes('actions').length === 0">
+                                        <p class="text-[11px] text-gray-500 dark:text-gray-400">No mapped action suggestions.</p>
+                                    </template>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="item in compatibleNodes('actions')" :key="'action-suggest-' + item.action_type">
+                                            <button type="button" @click="addSuggestedNode(item)"
+                                                class="inline-flex items-center px-2 py-1 rounded-md bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-[11px] font-medium hover:bg-blue-200 dark:hover:bg-blue-900/60 transition">
+                                                <i class="fa-solid fa-plus mr-1 text-[10px]"></i>
+                                                <span x-text="item.label"></span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
                     </div>
 
                     {{-- Triggers --}}
@@ -86,6 +196,7 @@
                         <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Triggers</h4>
                         <template x-for="node in catalog.triggers" :key="node.action_type">
                             <div class="flex items-center gap-2 p-2 mb-1.5 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg cursor-grab text-sm hover:shadow-sm transition"
+                                 :class="triggerPaletteClass(node)"
                                  draggable="true" @dragstart="onDragStart($event, node)"
                                  :aria-label="'Drag to add ' + node.label + ' trigger'">
                                 <i class="fa-solid fa-bolt text-purple-600 dark:text-purple-400 w-4"></i>
@@ -99,10 +210,15 @@
                         <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Conditions</h4>
                         <template x-for="node in catalog.conditions" :key="node.action_type">
                             <div class="flex items-center gap-2 p-2 mb-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg cursor-grab text-sm hover:shadow-sm transition"
+                                 :class="paletteCompatibilityClass(node)"
                                  draggable="true" @dragstart="onDragStart($event, node)"
                                  :aria-label="'Drag to add ' + node.label + ' condition'">
                                 <i class="fa-solid fa-diamond text-amber-600 dark:text-amber-400 w-4"></i>
                                 <span class="text-gray-700 dark:text-gray-300 font-medium" x-text="node.label"></span>
+                                <span x-show="isCompatiblePaletteNode(node.type, node.action_type)"
+                                    class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                    Suggested
+                                </span>
                             </div>
                         </template>
                     </div>
@@ -112,10 +228,15 @@
                         <h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Actions</h4>
                         <template x-for="node in catalog.actions" :key="node.action_type">
                             <div class="flex items-center gap-2 p-2 mb-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg cursor-grab text-sm hover:shadow-sm transition"
+                                 :class="paletteCompatibilityClass(node)"
                                  draggable="true" @dragstart="onDragStart($event, node)"
                                  :aria-label="'Drag to add ' + node.label + ' action'">
                                 <i class="fa-solid fa-gear text-blue-600 dark:text-blue-400 w-4"></i>
                                 <span class="text-gray-700 dark:text-gray-300 font-medium" x-text="node.label"></span>
+                                <span x-show="isCompatiblePaletteNode(node.type, node.action_type)"
+                                    class="ml-auto text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                    Suggested
+                                </span>
                             </div>
                         </template>
                     </div>
@@ -352,6 +473,60 @@
             validationErrors: [],
             savePromise: null,
             syncIntervalHandle: null,
+            showVersionPanel: false,
+            versionHistory: [],
+            loadingVersions: false,
+            activeGuideTriggerType: null,
+            compatibilityMap: {
+                low_stock_reached: {
+                    conditions: ['quantity_threshold', 'branch_matches', 'category_matches'],
+                    actions: ['notify', 'create_reorder_suggestion', 'create_transfer_request', 'log_audit_event', 'create_hold'],
+                },
+                stock_received: {
+                    conditions: ['branch_matches', 'category_matches', 'expiry_threshold'],
+                    actions: ['notify', 'create_transfer_request', 'webhook_call', 'generate_report', 'log_audit_event'],
+                },
+                expiry_in_x_days: {
+                    conditions: ['expiry_threshold', 'branch_matches'],
+                    actions: ['create_hold', 'notify', 'generate_report', 'log_audit_event'],
+                },
+                order_created: {
+                    conditions: ['category_matches', 'branch_matches', 'data_field_matches', 'user_has_permission'],
+                    actions: ['notify', 'create_hold', 'create_transfer_request', 'sync_crm_erp', 'webhook_call', 'log_audit_event'],
+                },
+                order_approved: {
+                    conditions: ['category_matches', 'branch_matches', 'quantity_threshold'],
+                    actions: ['auto_allocate_order', 'notify', 'create_transfer_request', 'generate_report', 'log_audit_event'],
+                },
+                order_canceled: {
+                    conditions: ['branch_matches', 'data_field_matches'],
+                    actions: ['release_hold', 'notify', 'log_audit_event'],
+                },
+                daily_schedule: {
+                    conditions: ['branch_matches', 'data_field_matches', 'sla_overdue'],
+                    actions: ['generate_report', 'notify', 'sync_crm_erp', 'webhook_call', 'log_audit_event'],
+                },
+                employee_onboarding_started: {
+                    conditions: ['data_field_matches', 'user_has_permission'],
+                    actions: ['map_form_fields', 'sync_crm_erp', 'create_google_doc', 'notify', 'completion_gate'],
+                },
+                document_approval_requested: {
+                    conditions: ['data_field_matches', 'sla_overdue', 'user_has_permission'],
+                    actions: ['notify', 'escalate_overdue_task', 'log_audit_event', 'completion_gate'],
+                },
+                data_sync_requested: {
+                    conditions: ['sync_status_matches', 'data_field_matches'],
+                    actions: ['map_form_fields', 'sync_crm_erp', 'notify', 'escalate_overdue_task', 'completion_gate'],
+                },
+                it_service_ticket_created: {
+                    conditions: ['sla_overdue', 'data_field_matches'],
+                    actions: ['notify', 'escalate_overdue_task', 'create_google_doc', 'completion_gate'],
+                },
+                compliance_window_started: {
+                    conditions: ['user_has_permission', 'data_field_matches'],
+                    actions: ['generate_report', 'notify', 'sync_crm_erp', 'log_audit_event', 'completion_gate'],
+                },
+            },
 
             // Drag state
             draggingNode: null,
@@ -374,6 +549,7 @@
                 this.nodeCounter = this.nodes.length;
 
                 this.renderEdges();
+                this.refreshCompatibilityGuide();
 
                 if (!this.mouseMoveHandler) {
                     this.mouseMoveHandler = (e) => {
@@ -434,8 +610,147 @@
                 };
             },
 
+            availableGuideTriggers() {
+                const types = Array.from(new Set(
+                    this.nodes
+                        .filter(node => node.type === 'trigger')
+                        .map(node => node.action_type)
+                        .filter(Boolean)
+                ));
+
+                return types.map(actionType => {
+                    const catalogNode = this.getCatalogNode('trigger', actionType);
+                    return {
+                        action_type: actionType,
+                        label: catalogNode?.label || actionType,
+                    };
+                });
+            },
+
+            activeGuideTriggerLabel() {
+                if (!this.activeGuideTriggerType) return 'None';
+                const item = this.availableGuideTriggers().find(trigger => trigger.action_type === this.activeGuideTriggerType);
+                if (item) return item.label;
+                const catalogNode = this.getCatalogNode('trigger', this.activeGuideTriggerType);
+                return catalogNode?.label || this.activeGuideTriggerType;
+            },
+
+            refreshCompatibilityGuide(preferredTriggerType = null) {
+                const availableTypes = this.availableGuideTriggers().map(item => item.action_type);
+                if (availableTypes.length === 0) {
+                    this.activeGuideTriggerType = null;
+                    return;
+                }
+
+                if (preferredTriggerType && availableTypes.includes(preferredTriggerType)) {
+                    this.activeGuideTriggerType = preferredTriggerType;
+                    return;
+                }
+
+                if (this.selectedNode?.type === 'trigger' && availableTypes.includes(this.selectedNode.action_type)) {
+                    this.activeGuideTriggerType = this.selectedNode.action_type;
+                    return;
+                }
+
+                if (this.activeGuideTriggerType && availableTypes.includes(this.activeGuideTriggerType)) {
+                    return;
+                }
+
+                this.activeGuideTriggerType = availableTypes[0];
+            },
+
+            compatibleNodes(groupKey) {
+                if (!this.activeGuideTriggerType) return [];
+
+                const mapEntry = this.compatibilityMap[this.activeGuideTriggerType];
+                if (!mapEntry) return [];
+
+                const group = this.catalog[groupKey] || [];
+                const compatibleTypes = mapEntry[groupKey] || [];
+
+                return compatibleTypes
+                    .map(actionType => group.find(node => node.action_type === actionType))
+                    .filter(Boolean);
+            },
+
+            isCompatiblePaletteNode(nodeType, actionType) {
+                if (!this.activeGuideTriggerType) return false;
+                const mapEntry = this.compatibilityMap[this.activeGuideTriggerType];
+                if (!mapEntry) return false;
+
+                if (nodeType === 'condition') {
+                    return (mapEntry.conditions || []).includes(actionType);
+                }
+                if (nodeType === 'action') {
+                    return (mapEntry.actions || []).includes(actionType);
+                }
+
+                return false;
+            },
+
+            paletteCompatibilityClass(node) {
+                if (!this.activeGuideTriggerType) return '';
+                if (!['condition', 'action'].includes(node.type)) return '';
+                return this.isCompatiblePaletteNode(node.type, node.action_type)
+                    ? 'ring-2 ring-emerald-300 dark:ring-emerald-700'
+                    : 'opacity-45 saturate-75';
+            },
+
+            triggerPaletteClass(node) {
+                if (!this.activeGuideTriggerType) return '';
+                return node.action_type === this.activeGuideTriggerType
+                    ? 'ring-2 ring-red-300 dark:ring-red-700'
+                    : 'opacity-70';
+            },
+
+            createNodeFromCatalog(catalogNode, position = null) {
+                this.nodeCounter++;
+                return {
+                    node_id: 'node_' + this.nodeCounter + '_' + Date.now(),
+                    type: catalogNode.type,
+                    action_type: catalogNode.action_type,
+                    label: catalogNode.label,
+                    config: this.buildDefaultConfig(catalogNode),
+                    position: position || { x: 100, y: 100 },
+                };
+            },
+
+            guideAnchorTriggerNode() {
+                if (!this.activeGuideTriggerType) return null;
+                const matches = this.nodes.filter(node =>
+                    node.type === 'trigger' && node.action_type === this.activeGuideTriggerType
+                );
+                return matches.length > 0 ? matches[matches.length - 1] : null;
+            },
+
+            suggestedNodePosition(nodeType) {
+                const anchor = this.guideAnchorTriggerNode();
+                const baseX = anchor?.position?.x ?? 120;
+                const baseY = anchor?.position?.y ?? 120;
+                const sameTypeCount = this.nodes.filter(node => node.type === nodeType).length;
+                const xOffset = nodeType === 'condition' ? 220 : 380;
+                return {
+                    x: Math.max(10, baseX + xOffset),
+                    y: Math.max(10, baseY + ((sameTypeCount % 6) * 78)),
+                };
+            },
+
+            addSuggestedNode(catalogNode) {
+                if (!catalogNode) return;
+                const newNode = this.createNodeFromCatalog(catalogNode, this.suggestedNodePosition(catalogNode.type));
+                this.nodes.push(newNode);
+                this.selectNode(newNode);
+                this.markDirty();
+                this.renderEdges();
+            },
+
             markDirty() {
                 this.dirty = true;
+            },
+
+            setStatus(message, type = 'info') {
+                this.statusMessage = message || '';
+                this.statusType = type || 'info';
             },
 
             onDragStart(event, catalogNode) {
@@ -452,18 +767,10 @@
                 const canvas = document.getElementById('workflow-canvas');
                 const rect = canvas.getBoundingClientRect();
 
-                this.nodeCounter++;
-                const newNode = {
-                    node_id: 'node_' + this.nodeCounter + '_' + Date.now(),
-                    type: catalogNode.type,
-                    action_type: catalogNode.action_type,
-                    label: catalogNode.label,
-                    config: this.buildDefaultConfig(catalogNode),
-                    position: {
-                        x: Math.max(10, event.clientX - rect.left - 80),
-                        y: Math.max(10, event.clientY - rect.top - 30)
-                    }
-                };
+                const newNode = this.createNodeFromCatalog(catalogNode, {
+                    x: Math.max(10, event.clientX - rect.left - 80),
+                    y: Math.max(10, event.clientY - rect.top - 30)
+                });
 
                 this.nodes.push(newNode);
                 this.selectNode(newNode);
@@ -477,6 +784,11 @@
                     this.selectedNode.config = {};
                 }
                 this.syncSelectedPresetKey();
+                if (this.selectedNode.type === 'trigger') {
+                    this.refreshCompatibilityGuide(this.selectedNode.action_type);
+                } else {
+                    this.refreshCompatibilityGuide();
+                }
             },
 
             syncSelectedPresetKey() {
@@ -499,6 +811,11 @@
                 this.selectedPresetKey = template.default_preset || '';
                 if (this.selectedPresetKey) {
                     this.applyPresetToSelected(this.selectedPresetKey);
+                }
+                if (node.type === 'trigger') {
+                    this.refreshCompatibilityGuide(node.action_type);
+                } else {
+                    this.refreshCompatibilityGuide();
                 }
                 this.markDirty();
             },
@@ -644,10 +961,12 @@
             },
 
             rebindSelectedNode() {
-                if (!this.selectedNode) return;
-                const selectedId = this.selectedNode.node_id;
-                this.selectedNode = this.nodes.find(node => node.node_id === selectedId) || null;
+                if (this.selectedNode) {
+                    const selectedId = this.selectedNode.node_id;
+                    this.selectedNode = this.nodes.find(node => node.node_id === selectedId) || null;
+                }
                 this.syncSelectedPresetKey();
+                this.refreshCompatibilityGuide();
             },
 
             startDragNode(event, node) {
@@ -710,6 +1029,7 @@
                     this.selectedNode = null;
                     this.selectedPresetKey = '';
                 }
+                this.refreshCompatibilityGuide();
                 this.markDirty();
                 this.renderEdges();
             },
@@ -953,6 +1273,56 @@
                     // Keep polling silent for transient network issues.
                 } finally {
                     this.syncing = false;
+                }
+            },
+
+            async loadVersionHistory() {
+                this.loadingVersions = true;
+                try {
+                    const data = await this.requestJson('{{ route("admin.workflows.versions", $workflow) }}', {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' },
+                    });
+                    this.versionHistory = data.versions || [];
+                } catch (e) {
+                    console.error('Failed to load version history', e);
+                } finally {
+                    this.loadingVersions = false;
+                }
+            },
+
+            async rollbackToVersion(versionId, versionNumber) {
+                const confirmed = typeof Swal !== 'undefined'
+                    ? (await Swal.fire({
+                        title: 'Rollback to v' + versionNumber + '?',
+                        text: 'A new version will be created. Current published version will be archived.',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Rollback',
+                        confirmButtonColor: '#ea580c'
+                    })).isConfirmed
+                    : confirm('Rollback to v' + versionNumber + '?');
+
+                if (!confirmed) return;
+
+                try {
+                    const data = await this.requestJson(`/admin/workflows/{{ $workflow->id }}/versions/${versionId}/rollback`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                        },
+                    });
+
+                    if (data.success) {
+                        this.setStatus('Rolled back successfully. Reloading...', 'success');
+                        setTimeout(() => window.location.reload(), 1200);
+                    } else {
+                        this.setStatus(data.error || 'Rollback failed.', 'error');
+                    }
+                } catch (e) {
+                    this.setStatus('Rollback failed: ' + e.message, 'error');
                 }
             }
         };

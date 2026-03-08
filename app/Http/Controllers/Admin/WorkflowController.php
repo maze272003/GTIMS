@@ -31,6 +31,8 @@ class WorkflowController extends Controller
      */
     public function index(Request $request)
     {
+        $this->authorizeAction('viewAny', WorkflowDefinition::class);
+
         $query = WorkflowDefinition::with('creator', 'versions')
             ->withCount('runs');
         $templates = $this->engine->getWorkflowTemplates();
@@ -64,6 +66,8 @@ class WorkflowController extends Controller
      */
     public function editor(WorkflowDefinition $workflow)
     {
+        $this->authorizeAction('view', $workflow);
+
         $workflow->load('creator');
         $catalog = $this->engine->getNodeCatalog();
 
@@ -101,6 +105,8 @@ class WorkflowController extends Controller
      */
     public function store(Request $request)
     {
+        $this->authorizeAction('create', WorkflowDefinition::class);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:2000',
@@ -190,6 +196,8 @@ class WorkflowController extends Controller
      */
     public function saveGraph(Request $request, WorkflowDefinition $workflow)
     {
+        $this->authorizeAction('edit', $workflow);
+
         $idempotencyKey = $this->sanitizeIdempotencyKey($request->header('X-Idempotency-Key'));
         $idempotencyAction = "workflow.save-graph.{$workflow->id}";
         if ($idempotencyKey) {
@@ -320,6 +328,8 @@ class WorkflowController extends Controller
      */
     public function publish(WorkflowDefinition $workflow)
     {
+        $this->authorizeAction('publish', $workflow);
+
         $version = $workflow->versions()
             ->with('nodes', 'edges')
             ->latest('version_number')
@@ -381,6 +391,8 @@ class WorkflowController extends Controller
      */
     public function disable(WorkflowDefinition $workflow)
     {
+        $this->authorizeAction('edit', $workflow);
+
         $workflow->update(['status' => 'disabled', 'updated_by' => Auth::id()]);
 
         $this->auditService->record(
@@ -396,6 +408,8 @@ class WorkflowController extends Controller
      */
     public function run(Request $request, WorkflowDefinition $workflow)
     {
+        $this->authorizeAction('run', $workflow);
+
         $validated = $request->validate([
             'trigger_payload' => 'nullable|array',
             'dry_run' => 'nullable|boolean',
@@ -533,6 +547,8 @@ class WorkflowController extends Controller
      */
     public function destroy(WorkflowDefinition $workflow)
     {
+        $this->authorizeAction('delete', $workflow);
+
         $workflow->update(['status' => 'disabled', 'updated_by' => Auth::id()]);
         $workflow->delete();
 
@@ -549,6 +565,8 @@ class WorkflowController extends Controller
      */
     public function permissions(WorkflowDefinition $workflow)
     {
+        $this->authorizeAction('managePermissions', $workflow);
+
         $permissions = $workflow->permissions()->with('user:id,name,email')->get();
 
         return response()->json(['permissions' => $permissions]);
@@ -559,6 +577,8 @@ class WorkflowController extends Controller
      */
     public function addPermission(Request $request, WorkflowDefinition $workflow)
     {
+        $this->authorizeAction('managePermissions', $workflow);
+
         $validated = $request->validate([
             'user_id' => 'required|integer|exists:users,id',
             'permission' => ['required', Rule::in(['view', 'edit', 'publish', 'run'])],
@@ -658,5 +678,175 @@ class WorkflowController extends Controller
         ]);
 
         return hash('sha256', $seed);
+    }
+
+    /**
+     * Authorize an action using the WorkflowDefinitionPolicy.
+     * Wraps Gate::authorize to provide consistent deny-by-default.
+     */
+    protected function authorizeAction(string $ability, $modelOrClass): void
+    {
+        if ($modelOrClass instanceof WorkflowDefinition) {
+            \Illuminate\Support\Facades\Gate::authorize($ability, $modelOrClass);
+        } else {
+            \Illuminate\Support\Facades\Gate::authorize($ability, $modelOrClass);
+        }
+    }
+
+    /**
+     * List dead-lettered runs (failed runs that exhausted retries).
+     */
+    public function deadLetterRuns(Request $request, WorkflowDefinition $workflow)
+    {
+        $this->authorizeAction('run', $workflow);
+
+        $runs = $workflow->runs()
+            ->deadLetter()
+            ->with('triggeredBy', 'steps')
+            ->latest()
+            ->paginate(20);
+
+        return response()->json(['runs' => $runs]);
+    }
+
+    /**
+     * Re-run a dead-lettered or failed run.
+     */
+    public function rerunFailedRun(Request $request, WorkflowDefinition $workflow, WorkflowRun $run)
+    {
+        $this->authorizeAction('run', $workflow);
+
+        if ((int) $run->workflow_definition_id !== (int) $workflow->id) {
+            return response()->json(['error' => 'Run does not belong to this workflow.'], 403);
+        }
+
+        if (!in_array($run->status, ['failed', 'cancelled'])) {
+            return response()->json(['error' => 'Only failed or cancelled runs can be re-run.'], 422);
+        }
+
+        try {
+            $newRun = $this->engine->rerunFromDeadLetter($run, Auth::id());
+
+            $this->auditService->record(
+                'workflow_run_rerun',
+                'WorkflowRun',
+                $newRun->id,
+                Auth::id(),
+                ['original_run_id' => $run->id],
+                ['new_run_id' => $newRun->id, 'status' => $newRun->status],
+                'Workflow run re-executed from dead-letter'
+            );
+
+            return response()->json([
+                'success' => true,
+                'run' => $newRun->load('steps'),
+            ]);
+        } catch (\RuntimeException $e) {
+            return response()->json(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    /**
+     * Get version history for a workflow.
+     */
+    public function versionHistory(WorkflowDefinition $workflow)
+    {
+        $this->authorizeAction('view', $workflow);
+
+        $versions = $workflow->versions()
+            ->with('publisher:id,name,email')
+            ->withCount('nodes', 'edges')
+            ->orderByDesc('version_number')
+            ->get();
+
+        return response()->json(['versions' => $versions]);
+    }
+
+    /**
+     * Rollback to a previous version.
+     */
+    public function rollbackVersion(Request $request, WorkflowDefinition $workflow, WorkflowVersion $version)
+    {
+        $this->authorizeAction('publish', $workflow);
+
+        if ((int) $version->workflow_definition_id !== (int) $workflow->id) {
+            return response()->json(['error' => 'Version does not belong to this workflow.'], 403);
+        }
+
+        $result = DB::transaction(function () use ($workflow, $version) {
+            $lockedWorkflow = WorkflowDefinition::query()
+                ->whereKey($workflow->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Get the version to rollback to with its graph data
+            $sourceVersion = WorkflowVersion::query()
+                ->whereKey($version->id)
+                ->with('nodes', 'edges')
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            // Archive current published versions
+            $lockedWorkflow->versions()
+                ->where('status', 'published')
+                ->update(['status' => 'archived']);
+
+            // Create a new version based on the old one
+            $newVersionNumber = $lockedWorkflow->versions()->max('version_number') + 1;
+            $newVersion = WorkflowVersion::create([
+                'workflow_definition_id' => $lockedWorkflow->id,
+                'version_number' => $newVersionNumber,
+                'status' => 'published',
+                'graph_data' => $sourceVersion->graph_data,
+                'change_summary' => "Rollback to v{$sourceVersion->version_number}",
+                'published_by' => Auth::id(),
+                'published_at' => now(),
+            ]);
+
+            // Copy nodes and edges
+            foreach ($sourceVersion->nodes as $node) {
+                $newVersion->nodes()->create([
+                    'node_id' => $node->node_id,
+                    'type' => $node->type,
+                    'action_type' => $node->action_type,
+                    'label' => $node->label,
+                    'config' => $node->config,
+                    'position' => $node->position,
+                ]);
+            }
+
+            foreach ($sourceVersion->edges as $edge) {
+                $newVersion->edges()->create([
+                    'source_node_id' => $edge->source_node_id,
+                    'target_node_id' => $edge->target_node_id,
+                    'label' => $edge->label,
+                    'condition_branch' => $edge->condition_branch,
+                ]);
+            }
+
+            $lockedWorkflow->update([
+                'current_version' => $newVersionNumber,
+                'status' => 'active',
+                'updated_by' => Auth::id(),
+            ]);
+
+            $this->auditService->record(
+                'workflow_rollback',
+                'WorkflowDefinition',
+                $lockedWorkflow->id,
+                Auth::id(),
+                ['from_version' => $lockedWorkflow->current_version],
+                ['to_version' => $newVersionNumber, 'source_version' => $sourceVersion->version_number],
+                "Workflow rolled back to version {$sourceVersion->version_number}"
+            );
+
+            return $newVersion;
+        }, 5);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Rolled back to version {$version->version_number} (new version: {$result->version_number}).",
+            'version' => $result,
+        ]);
     }
 }

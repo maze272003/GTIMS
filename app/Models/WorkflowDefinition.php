@@ -21,6 +21,8 @@ class WorkflowDefinition extends Model
         'branch_id',
         'current_version',
         'max_concurrency',
+        'webhook_allowlist',
+        'webhook_secret',
     ];
 
     protected $attributes = [
@@ -32,6 +34,11 @@ class WorkflowDefinition extends Model
     protected $casts = [
         'current_version' => 'integer',
         'max_concurrency' => 'integer',
+        'webhook_allowlist' => 'array',
+    ];
+
+    protected $hidden = [
+        'webhook_secret',
     ];
 
     public function creator(): BelongsTo

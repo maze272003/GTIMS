@@ -19,4 +19,8 @@ Artisan::command('holds:expire', function () {
     $this->info("Expired {$count} holds.");
 })->purpose('Expire holds that have passed their expiry date');
 
+// Workflow automation scheduler
+Schedule::command('workflows:run-scheduled')->everyMinute()->withoutOverlapping();
+Schedule::command('workflows:retry-failed --limit=10')->everyFiveMinutes()->withoutOverlapping();
+
 Schedule::command('holds:expire')->hourly();

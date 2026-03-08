@@ -11,6 +11,7 @@ use App\Models\WorkflowDefinition;
 use App\Models\WorkflowVersion;
 use App\Models\WorkflowNode;
 use App\Models\WorkflowEdge;
+use App\Models\WorkflowRun;
 use App\Models\WorkflowPermission;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -335,7 +336,7 @@ class WorkflowControllerTest extends TestCase
         $response = $this->actingAs($this->user)->getJson(route('admin.workflows.templates'));
         $response->assertOk();
         $response->assertJsonStructure(['templates']);
-        $this->assertGreaterThanOrEqual(5, count($response->json('templates')));
+        $this->assertGreaterThanOrEqual(9, count($response->json('templates')));
     }
 
     public function test_store_with_template_key_preloads_template_graph(): void
@@ -535,5 +536,354 @@ class WorkflowControllerTest extends TestCase
         $workflow->forceDelete();
 
         $this->assertDatabaseMissing('workflow_permissions', ['workflow_definition_id' => $workflow->id]);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  VERSION HISTORY & ROLLBACK TESTS
+    // ─────────────────────────────────────────────────────────
+
+    public function test_version_history_returns_all_versions(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test',
+            'created_by' => $this->user->id,
+            'current_version' => 2,
+        ]);
+
+        WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 1,
+            'status' => 'archived',
+            'change_summary' => 'First version',
+            'published_by' => $this->user->id,
+            'published_at' => now()->subDay(),
+        ]);
+
+        $v2 = WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 2,
+            'status' => 'published',
+            'change_summary' => 'Second version',
+            'published_by' => $this->user->id,
+            'published_at' => now(),
+        ]);
+
+        WorkflowNode::create(['workflow_version_id' => $v2->id, 'node_id' => 't1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock']);
+
+        $response = $this->actingAs($this->user)->getJson(route('admin.workflows.versions', $workflow));
+        $response->assertOk();
+        $response->assertJsonCount(2, 'versions');
+        $response->assertJsonPath('versions.0.version_number', 2); // ordered desc
+        $response->assertJsonPath('versions.1.version_number', 1);
+    }
+
+    public function test_rollback_version_creates_new_version(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test Rollback',
+            'created_by' => $this->user->id,
+            'current_version' => 2,
+            'status' => 'active',
+        ]);
+
+        $v1 = WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 1,
+            'status' => 'archived',
+            'published_by' => $this->user->id,
+            'published_at' => now()->subWeek(),
+        ]);
+
+        WorkflowNode::create(['workflow_version_id' => $v1->id, 'node_id' => 't1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'V1 Trigger']);
+        WorkflowNode::create(['workflow_version_id' => $v1->id, 'node_id' => 'a1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'V1 Notify']);
+        WorkflowEdge::create(['workflow_version_id' => $v1->id, 'source_node_id' => 't1', 'target_node_id' => 'a1']);
+
+        $v2 = WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 2,
+            'status' => 'published',
+            'published_by' => $this->user->id,
+            'published_at' => now(),
+        ]);
+
+        WorkflowNode::create(['workflow_version_id' => $v2->id, 'node_id' => 't1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'V2 Trigger']);
+
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.versions.rollback', [$workflow, $v1]));
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+
+        $workflow->refresh();
+        $this->assertEquals(3, $workflow->current_version);
+        $this->assertEquals('active', $workflow->status);
+
+        // The new version should have the same nodes as v1
+        $newVersion = $workflow->versions()->where('version_number', 3)->firstOrFail();
+        $this->assertEquals('published', $newVersion->status);
+        $this->assertEquals(2, $newVersion->nodes()->count());
+        $this->assertEquals(1, $newVersion->edges()->count());
+
+        // Old v2 should be archived
+        $v2->refresh();
+        $this->assertEquals('archived', $v2->status);
+    }
+
+    public function test_rollback_rejects_wrong_workflow_version(): void
+    {
+        $workflow1 = WorkflowDefinition::create([
+            'name' => 'WF1',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+        ]);
+
+        $workflow2 = WorkflowDefinition::create([
+            'name' => 'WF2',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+        ]);
+
+        $v2 = WorkflowVersion::create([
+            'workflow_definition_id' => $workflow2->id,
+            'version_number' => 1,
+            'status' => 'published',
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.versions.rollback', [$workflow1, $v2]));
+        $response->assertStatus(403);
+        $response->assertJsonPath('error', 'Version does not belong to this workflow.');
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  DEAD-LETTER & RERUN TESTS
+    // ─────────────────────────────────────────────────────────
+
+    public function test_dead_letter_runs_endpoint(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test DL',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+            'status' => 'active',
+        ]);
+
+        $version = WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 1,
+            'status' => 'published',
+            'published_by' => $this->user->id,
+            'published_at' => now(),
+        ]);
+
+        // Dead-lettered run
+        WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'is_dead_letter' => true,
+            'idempotency_key' => 'dl-ep-1',
+        ]);
+
+        // Normal run (should not appear)
+        WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'completed',
+            'triggered_by' => $this->user->id,
+            'idempotency_key' => 'dl-ep-2',
+        ]);
+
+        $response = $this->actingAs($this->user)->getJson(route('admin.workflows.dead-letter', $workflow));
+        $response->assertOk();
+        $response->assertJsonCount(1, 'runs.data');
+    }
+
+    public function test_rerun_failed_run(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test Rerun',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+            'status' => 'active',
+        ]);
+
+        $version = WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 1,
+            'status' => 'published',
+            'published_by' => $this->user->id,
+            'published_at' => now(),
+        ]);
+
+        WorkflowNode::create(['workflow_version_id' => $version->id, 'node_id' => 't1', 'type' => 'trigger', 'action_type' => 'low_stock_reached', 'label' => 'Low Stock']);
+        WorkflowNode::create(['workflow_version_id' => $version->id, 'node_id' => 'a1', 'type' => 'action', 'action_type' => 'notify', 'label' => 'Notify', 'config' => ['message' => 'Rerun']]);
+        WorkflowEdge::create(['workflow_version_id' => $version->id, 'source_node_id' => 't1', 'target_node_id' => 'a1']);
+
+        $failedRun = WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'trigger_type' => 'manual',
+            'trigger_payload' => ['quantity' => 5],
+            'is_dead_letter' => true,
+            'error_message' => 'Previous failure',
+            'idempotency_key' => 'rerun-test-1',
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.runs.rerun', [$workflow, $failedRun]));
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+
+        $newRunId = $response->json('run.id');
+        $this->assertNotEquals($failedRun->id, $newRunId);
+
+        $newRun = WorkflowRun::find($newRunId);
+        $this->assertEquals($failedRun->id, $newRun->parent_run_id);
+    }
+
+    public function test_rerun_rejects_non_failed_run(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'Test',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+            'status' => 'active',
+        ]);
+
+        $version = WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 1,
+            'status' => 'published',
+            'published_by' => $this->user->id,
+            'published_at' => now(),
+        ]);
+
+        $completedRun = WorkflowRun::create([
+            'workflow_definition_id' => $workflow->id,
+            'workflow_version_id' => $version->id,
+            'status' => 'completed',
+            'triggered_by' => $this->user->id,
+            'idempotency_key' => 'rerun-reject-1',
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.runs.rerun', [$workflow, $completedRun]));
+        $response->assertStatus(422);
+        $response->assertJsonPath('error', 'Only failed or cancelled runs can be re-run.');
+    }
+
+    public function test_rerun_rejects_run_from_different_workflow(): void
+    {
+        $workflow1 = WorkflowDefinition::create([
+            'name' => 'WF1',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+            'status' => 'active',
+        ]);
+
+        $workflow2 = WorkflowDefinition::create([
+            'name' => 'WF2',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+            'status' => 'active',
+        ]);
+
+        $version2 = WorkflowVersion::create([
+            'workflow_definition_id' => $workflow2->id,
+            'version_number' => 1,
+            'status' => 'published',
+            'published_by' => $this->user->id,
+            'published_at' => now(),
+        ]);
+
+        $run = WorkflowRun::create([
+            'workflow_definition_id' => $workflow2->id,
+            'workflow_version_id' => $version2->id,
+            'status' => 'failed',
+            'triggered_by' => $this->user->id,
+            'idempotency_key' => 'rerun-wrong-wf-1',
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.runs.rerun', [$workflow1, $run]));
+        $response->assertStatus(403);
+    }
+
+    // ─────────────────────────────────────────────────────────
+    //  POLICY ENFORCEMENT TESTS
+    // ─────────────────────────────────────────────────────────
+
+    public function test_unauthorized_user_cannot_access_workflows(): void
+    {
+        $restrictedLevel = UserLevel::create(['name' => 'restricted']);
+        $restrictedUser = User::factory()->create([
+            'email_verified_at' => now(),
+            'user_level_id' => $restrictedLevel->id,
+            'branch_id' => $this->user->branch_id,
+        ]);
+
+        // No workflow permissions granted
+
+        $response = $this->actingAs($restrictedUser)->get(route('admin.workflows.index'));
+        $response->assertStatus(403);
+    }
+
+    public function test_user_without_create_permission_cannot_store(): void
+    {
+        // Create user with view-only permission
+        $viewLevel = UserLevel::create(['name' => 'viewer']);
+        $viewPerm = Permission::firstOrCreate(['name' => 'workflows.view']);
+        RolePermission::firstOrCreate([
+            'user_level_id' => $viewLevel->id,
+            'permission_id' => $viewPerm->id,
+        ]);
+
+        $viewUser = User::factory()->create([
+            'email_verified_at' => now(),
+            'user_level_id' => $viewLevel->id,
+            'branch_id' => $this->user->branch_id,
+        ]);
+
+        $response = $this->actingAs($viewUser)->post(route('admin.workflows.store'), [
+            'name' => 'Should Fail',
+        ]);
+        $response->assertStatus(403);
+    }
+
+    public function test_destroy_workflow(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'To Delete',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+            'status' => 'draft',
+        ]);
+
+        WorkflowVersion::create([
+            'workflow_definition_id' => $workflow->id,
+            'version_number' => 1,
+            'status' => 'draft',
+        ]);
+
+        $response = $this->actingAs($this->user)->deleteJson(route('admin.workflows.destroy', $workflow));
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+
+        $this->assertSoftDeleted('workflow_definitions', ['id' => $workflow->id]);
+    }
+
+    public function test_disable_workflow(): void
+    {
+        $workflow = WorkflowDefinition::create([
+            'name' => 'To Disable',
+            'created_by' => $this->user->id,
+            'current_version' => 1,
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($this->user)->postJson(route('admin.workflows.disable', $workflow));
+        $response->assertOk();
+        $response->assertJsonPath('success', true);
+
+        $workflow->refresh();
+        $this->assertEquals('disabled', $workflow->status);
     }
 }

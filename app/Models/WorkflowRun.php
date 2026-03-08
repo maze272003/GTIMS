@@ -20,6 +20,11 @@ class WorkflowRun extends Model
         'context',
         'triggered_by',
         'is_dry_run',
+        'retry_attempt',
+        'max_retries',
+        'next_retry_at',
+        'is_dead_letter',
+        'parent_run_id',
         'idempotency_key',
         'error_message',
         'started_at',
@@ -30,8 +35,10 @@ class WorkflowRun extends Model
         'trigger_payload' => 'array',
         'context' => 'array',
         'is_dry_run' => 'boolean',
+        'is_dead_letter' => 'boolean',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'next_retry_at' => 'datetime',
     ];
 
     public function definition(): BelongsTo
@@ -52,5 +59,31 @@ class WorkflowRun extends Model
     public function steps(): HasMany
     {
         return $this->hasMany(WorkflowRunStep::class);
+    }
+
+    public function parentRun(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_run_id');
+    }
+
+    public function childRuns(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_run_id');
+    }
+
+    public function scopeDeadLetter($query)
+    {
+        return $query->where('is_dead_letter', true);
+    }
+
+    public function scopeRetryable($query)
+    {
+        return $query->where('status', 'failed')
+            ->where('is_dead_letter', false)
+            ->whereColumn('retry_attempt', '<', 'max_retries')
+            ->where(function ($q) {
+                $q->whereNull('next_retry_at')
+                  ->orWhere('next_retry_at', '<=', now());
+            });
     }
 }

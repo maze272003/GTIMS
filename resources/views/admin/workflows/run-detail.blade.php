@@ -25,6 +25,25 @@
                             Dry Run
                         </span>
                     @endif
+                    @if($run->is_dead_letter)
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-200 text-red-800 dark:bg-red-900/40 dark:text-red-300">
+                            <i class="fa-solid fa-skull-crossbones mr-1 text-[10px]"></i> Dead-Letter
+                        </span>
+                    @endif
+                    @if($run->parent_run_id)
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                            <i class="fa-solid fa-rotate-right mr-1 text-[10px]"></i> Rerun of #{{ $run->parent_run_id }}
+                        </span>
+                    @endif
+                    @if(in_array($run->status, ['failed', 'cancelled']))
+                        <form method="POST" action="{{ route('admin.workflows.runs.rerun', [$workflow, $run]) }}" class="inline" id="rerun-form">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 border border-green-200 dark:border-green-800 transition"
+                                    onclick="event.preventDefault(); if(typeof Swal !== 'undefined') { Swal.fire({ title: 'Rerun this workflow?', text: 'A new run will be created from this run\'s payload.', icon: 'question', showCancelButton: true, confirmButtonText: 'Rerun' }).then(r => { if(r.isConfirmed) document.getElementById('rerun-form').submit(); }); } else { this.closest('form').submit(); }">
+                                <i class="fa-solid fa-rotate-right"></i> Rerun
+                            </button>
+                        </form>
+                    @endif
                 </div>
             </div>
 

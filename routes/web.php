@@ -263,24 +263,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         // == D. AUTOMATION BUILDER ROUTES ==
-        Route::prefix('workflows')->name('workflows.')->group(function () {
+        Route::prefix('workflows')->name('workflows.')->middleware('permission:workflows.view')->group(function () {
             Route::get('/', [WorkflowController::class, 'index'])->name('index');
-            Route::post('/', [WorkflowController::class, 'store'])->name('store');
+            Route::post('/', [WorkflowController::class, 'store'])->name('store')->middleware('permission:workflows.create');
             Route::get('/catalog', [WorkflowController::class, 'catalog'])->name('catalog');
             Route::get('/templates', [WorkflowController::class, 'templates'])->name('templates');
             Route::get('/{workflow}/editor', [WorkflowController::class, 'editor'])->name('editor');
             Route::get('/{workflow}/graph-state', [WorkflowController::class, 'graphState'])->name('graph-state');
-            Route::post('/{workflow}/save-graph', [WorkflowController::class, 'saveGraph'])->name('save-graph');
+            Route::post('/{workflow}/save-graph', [WorkflowController::class, 'saveGraph'])->name('save-graph')->middleware('permission:workflows.edit');
             Route::post('/{workflow}/validate', [WorkflowController::class, 'validate'])->name('validate');
-            Route::post('/{workflow}/publish', [WorkflowController::class, 'publish'])->name('publish');
-            Route::post('/{workflow}/disable', [WorkflowController::class, 'disable'])->name('disable');
-            Route::post('/{workflow}/run', [WorkflowController::class, 'run'])->name('run');
+            Route::post('/{workflow}/publish', [WorkflowController::class, 'publish'])->name('publish')->middleware('permission:workflows.publish');
+            Route::post('/{workflow}/disable', [WorkflowController::class, 'disable'])->name('disable')->middleware('permission:workflows.edit');
+            Route::post('/{workflow}/run', [WorkflowController::class, 'run'])->name('run')->middleware('permission:workflows.run');
             Route::get('/{workflow}/runs', [WorkflowController::class, 'runs'])->name('runs');
             Route::get('/{workflow}/runs/{run}', [WorkflowController::class, 'showRun'])->name('runs.show');
-            Route::delete('/{workflow}', [WorkflowController::class, 'destroy'])->name('destroy');
+            Route::delete('/{workflow}', [WorkflowController::class, 'destroy'])->name('destroy')->middleware('permission:workflows.delete');
             Route::get('/{workflow}/permissions', [WorkflowController::class, 'permissions'])->name('permissions');
-            Route::post('/{workflow}/permissions', [WorkflowController::class, 'addPermission'])->name('permissions.add');
-            Route::delete('/{workflow}/permissions/{permission}', [WorkflowController::class, 'removePermission'])->name('permissions.remove');
+            Route::post('/{workflow}/permissions', [WorkflowController::class, 'addPermission'])->name('permissions.add')->middleware('permission:workflows.edit');
+            Route::delete('/{workflow}/permissions/{permission}', [WorkflowController::class, 'removePermission'])->name('permissions.remove')->middleware('permission:workflows.edit');
+            // Version history & rollback
+            Route::get('/{workflow}/versions', [WorkflowController::class, 'versionHistory'])->name('versions');
+            Route::post('/{workflow}/versions/{version}/rollback', [WorkflowController::class, 'rollbackVersion'])->name('versions.rollback')->middleware('permission:workflows.publish');
+            // Dead-letter & rerun
+            Route::get('/{workflow}/dead-letter', [WorkflowController::class, 'deadLetterRuns'])->name('dead-letter');
+            Route::post('/{workflow}/runs/{run}/rerun', [WorkflowController::class, 'rerunFailedRun'])->name('runs.rerun')->middleware('permission:workflows.run');
         });
 
     }); // <-- End ng buong /admin group

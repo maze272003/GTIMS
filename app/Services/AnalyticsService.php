@@ -140,12 +140,13 @@ class AnalyticsService
         foreach ($batches as $batch) {
             $held = (int) ($batch->held_quantity ?? 0);
             $available = max(0, (int) $batch->quantity - $held);
-            $threshold = $this->resolveThreshold(
+            $thresholdData = $this->resolveThresholdWithSource(
                 (int) $batch->product_id,
                 (int) $batch->branch_id,
                 $ruleMap,
                 $globalThreshold
             );
+            $threshold = (int) $thresholdData['threshold'];
 
             if ($available <= $threshold) {
                 $alerts[] = [
@@ -159,6 +160,7 @@ class AnalyticsService
                     'branch_name'   => $batch->branch?->name ?? 'Unknown Branch',
                     'current_stock' => (int) $available,
                     'threshold'     => (int) $threshold,
+                    'threshold_source' => (string) $thresholdData['source'],
                     'on_hand'       => (int) $batch->quantity,
                     'held'          => (int) $held,
                 ];
@@ -216,14 +218,43 @@ class AnalyticsService
 
     private function resolveThreshold(int $productId, int $branchId, array $map, int $globalThreshold): int
     {
+        return (int) $this->resolveThresholdWithSource($productId, $branchId, $map, $globalThreshold)['threshold'];
+    }
+
+    private function resolveThresholdWithSource(int $productId, int $branchId, array $map, int $globalThreshold): array
+    {
         // Priority:
         // 1) product+branch
         // 2) product (all branches)
         // 3) branch default (all products)
         // 4) global
-        return $map["p{$productId}-b{$branchId}"]
-            ?? $map["p{$productId}-b0"]
-            ?? $map["p0-b{$branchId}"]
-            ?? $globalThreshold;
+        $productBranchKey = "p{$productId}-b{$branchId}";
+        if (array_key_exists($productBranchKey, $map)) {
+            return [
+                'threshold' => (int) $map[$productBranchKey],
+                'source' => 'branch_override',
+            ];
+        }
+
+        $productGlobalKey = "p{$productId}-b0";
+        if (array_key_exists($productGlobalKey, $map)) {
+            return [
+                'threshold' => (int) $map[$productGlobalKey],
+                'source' => 'global_override',
+            ];
+        }
+
+        $branchDefaultKey = "p0-b{$branchId}";
+        if (array_key_exists($branchDefaultKey, $map)) {
+            return [
+                'threshold' => (int) $map[$branchDefaultKey],
+                'source' => 'branch_default',
+            ];
+        }
+
+        return [
+            'threshold' => (int) $globalThreshold,
+            'source' => 'global_default',
+        ];
     }
 }

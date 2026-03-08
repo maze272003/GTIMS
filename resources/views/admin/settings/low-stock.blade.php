@@ -189,6 +189,8 @@
                                     $current = (int)($item['current_stock'] ?? 0);
                                     $thr = (int)($item['threshold'] ?? $globalThreshold ?? 100);
                                     $def = max(0, $thr - $current);
+                                    $thresholdSource = (string)($item['threshold_source'] ?? 'global_default');
+                                    $thresholdSourceLabel = ucwords(str_replace('_', ' ', $thresholdSource));
                                 @endphp
 
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-750 transition">
@@ -211,7 +213,10 @@
                                         {{ $current }}
                                     </td>
                                     <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
-                                        {{ $thr }}
+                                        <div>{{ $thr }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                            {{ $thresholdSourceLabel }}
+                                        </div>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-center">
                                         <span class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 text-xs font-medium px-2.5 py-0.5 rounded-full">

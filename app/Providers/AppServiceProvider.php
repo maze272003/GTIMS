@@ -5,11 +5,18 @@ namespace App\Providers;
 use App\Listeners\LogUserLogin;
 use App\Listeners\LogUserLoginFailed;
 use App\Listeners\LogUserLogout;
+use App\Models\Inventory;
+use App\Models\Order;
+use App\Models\WorkflowDefinition;
+use App\Observers\InventoryWorkflowObserver;
+use App\Observers\OrderWorkflowObserver;
+use App\Policies\WorkflowDefinitionPolicy;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
 
@@ -75,6 +82,13 @@ class AppServiceProvider extends ServiceProvider
         Blade::if('haspermission', function (string $permission) {
             return auth()->check() && auth()->user()->hasPermission($permission);
         });
+
+        // Register the Workflow policy
+        Gate::policy(WorkflowDefinition::class, WorkflowDefinitionPolicy::class);
+
+        // Register model observers for workflow event-driven triggers
+        Inventory::observe(InventoryWorkflowObserver::class);
+        Order::observe(OrderWorkflowObserver::class);
 
         // Explicit event wiring for auth activity listeners.
         Event::listen(Login::class, LogUserLogin::class);

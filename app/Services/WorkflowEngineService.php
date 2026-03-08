@@ -8,8 +8,14 @@ use App\Models\WorkflowNode;
 use App\Models\WorkflowEdge;
 use App\Models\WorkflowRun;
 use App\Models\WorkflowRunStep;
+use App\Models\Hold;
+use App\Models\HoldItem;
+use App\Models\Inventory;
+use App\Models\Order;
+use App\Models\OrderItem;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -130,7 +136,7 @@ class WorkflowEngineService
                         ['key' => 'essential_meds', 'label' => 'Essential Meds', 'config' => ['categories' => ['antibiotic', 'analgesic']]],
                     ],
                     'ui' => [
-                        'categories' => ['vaccine', 'antibiotic', 'analgesic', 'consumable'],
+                        'categories' => ['vaccine', 'antibiotic', 'analgesic', 'consumable', 'pharmaceuticals', 'office_supplies'],
                     ],
                 ],
                 [
@@ -277,6 +283,20 @@ class WorkflowEngineService
                     ],
                     'ui' => [
                         'method' => ['POST', 'PUT', 'PATCH'],
+                    ],
+                ],
+                [
+                    'type' => 'action',
+                    'action_type' => 'log_audit_event',
+                    'label' => 'Log Audit Event',
+                    'config_schema' => [
+                        'message' => 'optional|string|max:500',
+                        'event_type' => 'optional|string|max:120',
+                    ],
+                    'default_preset' => 'workflow_audit',
+                    'presets' => [
+                        ['key' => 'workflow_audit', 'label' => 'Workflow Audit', 'config' => ['message' => 'Workflow action executed.', 'event_type' => 'workflow_automation']],
+                        ['key' => 'compliance_log', 'label' => 'Compliance Log', 'config' => ['message' => 'Compliance check completed.', 'event_type' => 'compliance']],
                     ],
                 ],
             ],
@@ -475,6 +495,132 @@ class WorkflowEngineService
                         ['source_node_id' => 'action_2', 'target_node_id' => 'action_4'],
                         ['source_node_id' => 'action_3', 'target_node_id' => 'action_4'],
                         ['source_node_id' => 'action_4', 'target_node_id' => 'action_5'],
+                    ],
+                ],
+            ],
+
+            // ────────────────────────────────────────────────────
+            //  Inventory-specific templates (GTIMS domain)
+            // ────────────────────────────────────────────────────
+            [
+                'key' => 'low_stock_alert_reorder',
+                'name' => 'Low Stock Alert & Reorder',
+                'description' => 'Monitors inventory for low stock. If quantity falls below critical threshold, sends notifications, creates a reorder suggestion, and logs an audit trail.',
+                'category' => 'Inventory',
+                'capabilities' => [
+                    'conditional_branching',
+                    'notifications',
+                    'reorder_automation',
+                    'audit_logging',
+                ],
+                'completion_criteria' => [
+                    'require_notifications' => true,
+                    'all_tasks_finalized' => true,
+                ],
+                'graph' => [
+                    'nodes' => [
+                        ['node_id' => 'trigger_1', 'type' => 'trigger',   'action_type' => 'low_stock_reached',        'label' => 'Low Stock Reached', 'config' => ['threshold' => 10]],
+                        ['node_id' => 'cond_1',    'type' => 'condition',  'action_type' => 'quantity_threshold',       'label' => 'Qty ≤ 5?',         'config' => ['operator' => '<=', 'value' => 5]],
+                        ['node_id' => 'action_1',  'type' => 'action',     'action_type' => 'notify',                   'label' => 'Critical Alert',    'config' => ['message' => 'CRITICAL: Stock quantity at or below 5 units — immediate reorder required.']],
+                        ['node_id' => 'action_2',  'type' => 'action',     'action_type' => 'create_reorder_suggestion','label' => 'Reorder 100',       'config' => ['quantity' => 100]],
+                        ['node_id' => 'action_3',  'type' => 'action',     'action_type' => 'log_audit_event',          'label' => 'Audit Log',         'config' => ['message' => 'Low-stock workflow executed. Reorder suggestion created.']],
+                        ['node_id' => 'action_4',  'type' => 'action',     'action_type' => 'notify',                   'label' => 'Info Alert',        'config' => ['message' => 'Stock is low but above critical threshold — monitoring.']],
+                    ],
+                    'edges' => [
+                        ['source_node_id' => 'trigger_1', 'target_node_id' => 'cond_1'],
+                        ['source_node_id' => 'cond_1',    'target_node_id' => 'action_1', 'condition_branch' => 'true'],
+                        ['source_node_id' => 'cond_1',    'target_node_id' => 'action_2', 'condition_branch' => 'true'],
+                        ['source_node_id' => 'action_2',  'target_node_id' => 'action_3'],
+                        ['source_node_id' => 'cond_1',    'target_node_id' => 'action_4', 'condition_branch' => 'false'],
+                    ],
+                ],
+            ],
+            [
+                'key' => 'expiry_hold_and_report',
+                'name' => 'Expiry Alert — Hold & Report',
+                'description' => 'When batches are within 30 days of expiry, quarantine them, notify pharmacy staff, generate an expiry report, and log an audit trail.',
+                'category' => 'Inventory',
+                'capabilities' => [
+                    'hold_management',
+                    'reporting',
+                    'notifications',
+                    'audit_logging',
+                ],
+                'completion_criteria' => [
+                    'require_notifications' => true,
+                    'all_tasks_finalized' => true,
+                ],
+                'graph' => [
+                    'nodes' => [
+                        ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'expiry_in_x_days', 'label' => 'Expiry ≤ 30 Days',   'config' => ['days' => 30]],
+                        ['node_id' => 'action_1',  'type' => 'action',  'action_type' => 'create_hold',      'label' => 'Quarantine Batch',    'config' => ['reason' => 'Near expiry — quarantine per SOP']],
+                        ['node_id' => 'action_2',  'type' => 'action',  'action_type' => 'notify',           'label' => 'Notify Pharmacy',     'config' => ['message' => 'Batches within 30 days of expiry have been quarantined.']],
+                        ['node_id' => 'action_3',  'type' => 'action',  'action_type' => 'generate_report',  'label' => 'Expiry Report',       'config' => ['report_type' => 'expiry_report']],
+                        ['node_id' => 'action_4',  'type' => 'action',  'action_type' => 'log_audit_event',  'label' => 'Audit Trail',         'config' => ['message' => 'Expiry workflow completed — batches quarantined.']],
+                    ],
+                    'edges' => [
+                        ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+                        ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_2'],
+                        ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_3'],
+                        ['source_node_id' => 'action_1',  'target_node_id' => 'action_4'],
+                    ],
+                ],
+            ],
+            [
+                'key' => 'order_approved_fefo_allocation',
+                'name' => 'Order Approved → FEFO Allocation',
+                'description' => 'When an order is approved, evaluate product category. Pharmaceuticals are auto-allocated via FEFO strategy; others are logged and skipped.',
+                'category' => 'Orders',
+                'capabilities' => [
+                    'conditional_branching',
+                    'fefo_allocation',
+                    'notifications',
+                    'audit_logging',
+                ],
+                'completion_criteria' => [
+                    'all_tasks_finalized' => true,
+                ],
+                'graph' => [
+                    'nodes' => [
+                        ['node_id' => 'trigger_1', 'type' => 'trigger',   'action_type' => 'order_approved',       'label' => 'Order Approved',    'config' => []],
+                        ['node_id' => 'cond_1',    'type' => 'condition',  'action_type' => 'category_matches',     'label' => 'Is Pharma?',        'config' => ['categories' => ['pharmaceuticals']]],
+                        ['node_id' => 'action_1',  'type' => 'action',     'action_type' => 'auto_allocate_order',  'label' => 'FEFO Allocate',     'config' => []],
+                        ['node_id' => 'action_2',  'type' => 'action',     'action_type' => 'notify',               'label' => 'Confirm Allocated', 'config' => ['message' => 'Order allocated via FEFO strategy.']],
+                        ['node_id' => 'action_3',  'type' => 'action',     'action_type' => 'log_audit_event',      'label' => 'Log Skip',          'config' => ['message' => 'Order skipped — non-pharmaceutical product.']],
+                    ],
+                    'edges' => [
+                        ['source_node_id' => 'trigger_1', 'target_node_id' => 'cond_1'],
+                        ['source_node_id' => 'cond_1',    'target_node_id' => 'action_1', 'condition_branch' => 'true'],
+                        ['source_node_id' => 'action_1',  'target_node_id' => 'action_2'],
+                        ['source_node_id' => 'cond_1',    'target_node_id' => 'action_3', 'condition_branch' => 'false'],
+                    ],
+                ],
+            ],
+            [
+                'key' => 'daily_stock_movement_report',
+                'name' => 'Daily Stock Movement Report',
+                'description' => 'Generates a stock movement report every day at 08:00, notifies staff, and logs execution to the audit trail.',
+                'category' => 'Reports',
+                'capabilities' => [
+                    'scheduled_execution',
+                    'reporting',
+                    'notifications',
+                    'audit_logging',
+                ],
+                'completion_criteria' => [
+                    'all_tasks_finalized' => true,
+                ],
+                'graph' => [
+                    'nodes' => [
+                        ['node_id' => 'trigger_1', 'type' => 'trigger', 'action_type' => 'daily_schedule',  'label' => 'Daily 08:00',          'config' => ['cron' => '0 8 * * *']],
+                        ['node_id' => 'action_1',  'type' => 'action',  'action_type' => 'generate_report', 'label' => 'Stock Movement Rpt',   'config' => ['report_type' => 'stock_movement']],
+                        ['node_id' => 'action_2',  'type' => 'action',  'action_type' => 'notify',          'label' => 'Email Report Ready',   'config' => ['message' => 'Daily stock movement report is ready for review.']],
+                        ['node_id' => 'action_3',  'type' => 'action',  'action_type' => 'log_audit_event', 'label' => 'Log Execution',        'config' => ['message' => 'Daily stock movement report generated and distributed.']],
+                    ],
+                    'edges' => [
+                        ['source_node_id' => 'trigger_1', 'target_node_id' => 'action_1'],
+                        ['source_node_id' => 'action_1',  'target_node_id' => 'action_2'],
+                        ['source_node_id' => 'action_1',  'target_node_id' => 'action_3'],
                     ],
                 ],
             ],
@@ -1822,39 +1968,19 @@ class WorkflowEngineService
                 ];
 
             case 'create_hold':
-                return [
-                    'status' => 'action_logged',
-                    'message' => 'Hold creation requested',
-                    'context_updates' => ['hold_requested' => true, 'hold_reason' => $config['reason'] ?? 'Workflow automation'],
-                ];
+                return $this->executeCreateHold($config, $context);
 
             case 'release_hold':
-                return [
-                    'status' => 'action_logged',
-                    'message' => 'Hold release requested',
-                    'context_updates' => ['hold_released' => true],
-                ];
+                return $this->executeReleaseHold($config, $context);
 
             case 'create_reorder_suggestion':
-                return [
-                    'status' => 'action_logged',
-                    'message' => 'Reorder suggestion created',
-                    'context_updates' => ['reorder_suggested' => true, 'suggested_qty' => $config['quantity'] ?? null],
-                ];
+                return $this->executeReorderSuggestion($config, $context);
 
             case 'auto_allocate_order':
-                return [
-                    'status' => 'action_logged',
-                    'message' => 'FEFO auto-allocation requested',
-                    'context_updates' => ['auto_allocated' => true],
-                ];
+                return $this->executeAutoAllocateOrder($config, $context);
 
             case 'create_transfer_request':
-                return [
-                    'status' => 'action_logged',
-                    'message' => 'Transfer request created',
-                    'context_updates' => ['transfer_requested' => true, 'target_branch_id' => $config['target_branch_id'] ?? null],
-                ];
+                return $this->executeTransferRequest($config, $context);
 
             case 'map_form_fields':
                 $mappings = $this->parseFieldMappings($config['field_mappings'] ?? []);
@@ -2116,12 +2242,10 @@ class WorkflowEngineService
                 ];
 
             case 'webhook_call':
-                // Security: only allow pre-configured URLs; actual HTTP call omitted for safety
-                return [
-                    'status' => 'action_logged',
-                    'message' => 'Webhook call logged (execution deferred to queue)',
-                    'context_updates' => ['webhook_called' => true],
-                ];
+                return $this->executeWebhookCall($config, $context);
+
+            case 'log_audit_event':
+                return $this->executeLogAuditEvent($config, $context);
 
             default:
                 return ['status' => 'unknown_action', 'message' => "Unknown action: {$node->action_type}", 'context_updates' => []];
@@ -2639,5 +2763,571 @@ class WorkflowEngineService
     {
         $sqlState = $exception->errorInfo[0] ?? null;
         return in_array($sqlState, ['23000', '23505'], true);
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  REAL ACTION IMPLEMENTATIONS
+    // ──────────────────────────────────────────────────────────
+
+    /**
+     * Create a Hold record with associated HoldItems for matching inventory.
+     */
+    protected function executeCreateHold(array $config, array $context): array
+    {
+        $reason = $config['reason'] ?? 'Workflow automation';
+        $branchId = $context['branch_id'] ?? null;
+        $productId = $context['product_id'] ?? null;
+        $triggeredBy = data_get($context, '_workflow.triggered_by');
+
+        // Find inventory batches to hold
+        $query = Inventory::query()->where('is_archived', false);
+        if ($branchId) {
+            $query->where('branch_id', $branchId);
+        }
+        if ($productId) {
+            $query->where('product_id', $productId);
+        }
+        // Only hold batches with available stock
+        $query->whereRaw('onhand_qty - hold_qty > 0');
+
+        // If triggered by expiry, target near-expiry batches
+        $expiryDays = $config['expiry_days'] ?? data_get($context, '_workflow_trigger_config.days');
+        if ($expiryDays) {
+            $query->where('expiry_date', '<=', now()->addDays((int) $expiryDays));
+        }
+
+        $batches = $query->limit(50)->get();
+
+        if ($batches->isEmpty()) {
+            return [
+                'status' => 'no_action',
+                'message' => 'No eligible inventory batches found for hold.',
+                'context_updates' => ['hold_requested' => true, 'hold_created' => false],
+            ];
+        }
+
+        $hold = Hold::create([
+            'branch_id' => $branchId ?: $batches->first()->branch_id,
+            'type' => 'quarantine',
+            'reason_code' => 'workflow_automation',
+            'remarks' => $reason,
+            'created_by' => $triggeredBy,
+            'status' => 'approved', // Auto-approved by workflow
+            'approved_by' => $triggeredBy,
+        ]);
+
+        $holdItemCount = 0;
+        foreach ($batches as $batch) {
+            $availableQty = $batch->onhand_qty - $batch->hold_qty;
+            if ($availableQty <= 0) continue;
+
+            HoldItem::create([
+                'hold_id' => $hold->id,
+                'inventory_id' => $batch->id,
+                'quantity' => $availableQty,
+            ]);
+
+            $batch->update(['hold_qty' => $batch->hold_qty + $availableQty]);
+            $holdItemCount++;
+        }
+
+        return [
+            'status' => 'hold_created',
+            'message' => "Hold #{$hold->id} created with {$holdItemCount} item(s). Reason: {$reason}",
+            'context_updates' => [
+                'hold_requested' => true,
+                'hold_created' => true,
+                'hold_id' => $hold->id,
+                'hold_item_count' => $holdItemCount,
+                'hold_reason' => $reason,
+            ],
+        ];
+    }
+
+    /**
+     * Release holds matching context criteria.
+     */
+    protected function executeReleaseHold(array $config, array $context): array
+    {
+        $holdId = $context['hold_id'] ?? null;
+        $branchId = $context['branch_id'] ?? null;
+        $triggeredBy = data_get($context, '_workflow.triggered_by');
+
+        $query = Hold::where('status', 'approved');
+        if ($holdId) {
+            $query->where('id', $holdId);
+        } elseif ($branchId) {
+            $query->where('branch_id', $branchId)
+                  ->where('reason_code', 'workflow_automation');
+        } else {
+            return [
+                'status' => 'no_action',
+                'message' => 'No hold ID or branch ID in context to release.',
+                'context_updates' => ['hold_released' => false],
+            ];
+        }
+
+        $holds = $query->limit(10)->get();
+        $releasedCount = 0;
+
+        foreach ($holds as $hold) {
+            foreach ($hold->items as $item) {
+                $inventory = Inventory::find($item->inventory_id);
+                if ($inventory) {
+                    $newHoldQty = max(0, $inventory->hold_qty - $item->quantity);
+                    $inventory->update(['hold_qty' => $newHoldQty]);
+                }
+            }
+
+            $hold->update(['status' => 'released']);
+            $releasedCount++;
+        }
+
+        return [
+            'status' => $releasedCount > 0 ? 'holds_released' : 'no_action',
+            'message' => $releasedCount > 0
+                ? "{$releasedCount} hold(s) released successfully."
+                : 'No matching holds found to release.',
+            'context_updates' => [
+                'hold_released' => $releasedCount > 0,
+                'holds_released_count' => $releasedCount,
+            ],
+        ];
+    }
+
+    /**
+     * Create a reorder suggestion by logging it and notifying admins.
+     */
+    protected function executeReorderSuggestion(array $config, array $context): array
+    {
+        $productId = $context['product_id'] ?? null;
+        $branchId = $context['branch_id'] ?? null;
+        $suggestedQty = $config['quantity'] ?? 50;
+        $currentQty = $context['quantity'] ?? $context['available_qty'] ?? 0;
+
+        // Auto-calculate if not specified
+        if (!isset($config['quantity']) && $productId) {
+            $avgMonthlyUsage = DB::table('product_movements')
+                ->where('product_id', $productId)
+                ->where('created_at', '>=', now()->subMonths(3))
+                ->where('type', 'out')
+                ->avg('quantity');
+            if ($avgMonthlyUsage && $avgMonthlyUsage > 0) {
+                $suggestedQty = (int) ceil($avgMonthlyUsage * 2); // 2 months buffer
+            }
+        }
+
+        // Log the suggestion as an audit event
+        $this->auditService->record(
+            'reorder_suggestion',
+            'Product',
+            $productId ?? 0,
+            data_get($context, '_workflow.triggered_by', 0),
+            null,
+            [
+                'product_id' => $productId,
+                'branch_id' => $branchId,
+                'current_qty' => $currentQty,
+                'suggested_qty' => $suggestedQty,
+                'source' => 'workflow_automation',
+            ],
+            'Automated reorder suggestion generated',
+        );
+
+        return [
+            'status' => 'reorder_suggested',
+            'message' => "Reorder suggestion created: {$suggestedQty} units for product #{$productId}",
+            'context_updates' => [
+                'reorder_suggested' => true,
+                'suggested_qty' => $suggestedQty,
+                'current_qty' => $currentQty,
+            ],
+        ];
+    }
+
+    /**
+     * Auto-allocate order items using FEFO (First Expiry First Out) strategy.
+     */
+    protected function executeAutoAllocateOrder(array $config, array $context): array
+    {
+        $orderId = $context['order_id'] ?? null;
+        if (!$orderId) {
+            return [
+                'status' => 'no_action',
+                'message' => 'No order_id in context for auto-allocation.',
+                'context_updates' => ['auto_allocated' => false],
+            ];
+        }
+
+        $order = Order::with('items')->find($orderId);
+        if (!$order) {
+            return [
+                'status' => 'no_action',
+                'message' => "Order #{$orderId} not found.",
+                'context_updates' => ['auto_allocated' => false],
+            ];
+        }
+
+        $allocations = [];
+        $fullyAllocated = true;
+
+        foreach ($order->items as $orderItem) {
+            $requestedQuantity = (int) ($orderItem->quantity_requested ?? $orderItem->quantity ?? 0);
+            $remaining = $requestedQuantity;
+            $productId = $orderItem->product_id ?? null;
+            if (!$productId || $remaining <= 0) continue;
+
+            $sourceBranchId = $orderItem->source_branch_id ?? $order->branch_id ?? $context['branch_id'] ?? null;
+
+            // FEFO: order by expiry_date ascending
+            $batches = Inventory::where('product_id', $productId)
+                ->where('branch_id', $sourceBranchId)
+                ->where('is_archived', false)
+                ->whereRaw('onhand_qty - hold_qty > 0')
+                ->orderBy('expiry_date', 'asc')
+                ->get();
+
+            $itemAllocations = [];
+            foreach ($batches as $batch) {
+                if ($remaining <= 0) break;
+                $available = $batch->onhand_qty - $batch->hold_qty;
+                $allocate = min($remaining, $available);
+
+                if ($allocate > 0) {
+                    $itemAllocations[] = [
+                        'inventory_id' => $batch->id,
+                        'batch_number' => $batch->batch_number,
+                        'quantity' => $allocate,
+                        'expiry_date' => $batch->expiry_date?->toDateString(),
+                    ];
+                    $remaining -= $allocate;
+                }
+            }
+
+            if ($remaining > 0) {
+                $fullyAllocated = false;
+            }
+
+            $allocations[] = [
+                'product_id' => $productId,
+                'requested' => $requestedQuantity,
+                'allocated' => $requestedQuantity - $remaining,
+                'shortfall' => $remaining,
+                'source_branch_id' => $sourceBranchId,
+                'batches' => $itemAllocations,
+            ];
+        }
+
+        return [
+            'status' => $fullyAllocated ? 'fully_allocated' : 'partially_allocated',
+            'message' => $fullyAllocated
+                ? "Order #{$orderId} fully allocated using FEFO."
+                : "Order #{$orderId} partially allocated (some items short).",
+            'context_updates' => [
+                'auto_allocated' => true,
+                'allocation_complete' => $fullyAllocated,
+                'allocations' => $allocations,
+            ],
+        ];
+    }
+
+    /**
+     * Create a transfer request between branches.
+     */
+    protected function executeTransferRequest(array $config, array $context): array
+    {
+        $targetBranchId = $config['target_branch_id'] ?? null;
+        $sourceBranchId = $context['branch_id'] ?? null;
+        $productId = $context['product_id'] ?? null;
+        $quantity = $config['quantity'] ?? $context['suggested_qty'] ?? 50;
+        $triggeredBy = data_get($context, '_workflow.triggered_by', 0);
+
+        if (!$targetBranchId) {
+            return [
+                'status' => 'no_action',
+                'message' => 'No target_branch_id specified for transfer.',
+                'context_updates' => ['transfer_requested' => false],
+            ];
+        }
+
+        // Log the transfer request as an audit event
+        $this->auditService->record(
+            'transfer_request_created',
+            'Branch',
+            $targetBranchId,
+            $triggeredBy,
+            null,
+            [
+                'source_branch_id' => $sourceBranchId,
+                'target_branch_id' => $targetBranchId,
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'source' => 'workflow_automation',
+            ],
+            'Automated transfer request created',
+        );
+
+        return [
+            'status' => 'transfer_requested',
+            'message' => "Transfer request created: {$quantity} units from branch #{$sourceBranchId} to branch #{$targetBranchId}",
+            'context_updates' => [
+                'transfer_requested' => true,
+                'target_branch_id' => $targetBranchId,
+                'transfer_quantity' => $quantity,
+            ],
+        ];
+    }
+
+    /**
+     * Execute a signed webhook call with domain allowlist enforcement.
+     */
+    protected function executeWebhookCall(array $config, array $context): array
+    {
+        $url = $config['url'] ?? null;
+        $method = strtoupper($config['method'] ?? 'POST');
+
+        if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+            return [
+                'status' => 'failed',
+                'message' => 'Invalid or missing webhook URL.',
+                'context_updates' => ['webhook_called' => false],
+            ];
+        }
+
+        // SSRF protection: allowlist check
+        $parsedUrl = parse_url($url);
+        $host = $parsedUrl['host'] ?? '';
+
+        // Block internal addresses
+        $blockedPatterns = [
+            '/^localhost$/i',
+            '/^127\./',
+            '/^10\./',
+            '/^172\.(1[6-9]|2[0-9]|3[01])\./',
+            '/^192\.168\./',
+            '/^0\./',
+            '/^169\.254\./',
+            '/^\[::1\]$/',
+            '/^metadata\./',
+            '/\.internal$/',
+        ];
+
+        foreach ($blockedPatterns as $pattern) {
+            if (preg_match($pattern, $host)) {
+                return [
+                    'status' => 'blocked',
+                    'message' => 'Webhook URL targets a restricted address.',
+                    'context_updates' => ['webhook_called' => false],
+                ];
+            }
+        }
+
+        // Check workflow-level allowlist
+        $workflowId = data_get($context, '_workflow.workflow_id');
+        if ($workflowId) {
+            $definition = WorkflowDefinition::find($workflowId);
+            $allowlist = $definition->webhook_allowlist ?? [];
+            if (!empty($allowlist)) {
+                $allowed = false;
+                foreach ($allowlist as $pattern) {
+                    if (fnmatch($pattern, $host) || fnmatch($pattern, $url)) {
+                        $allowed = true;
+                        break;
+                    }
+                }
+                if (!$allowed) {
+                    return [
+                        'status' => 'blocked',
+                        'message' => "Webhook host '{$host}' not in workflow allowlist.",
+                        'context_updates' => ['webhook_called' => false],
+                    ];
+                }
+            }
+        }
+
+        // Build signed payload
+        $payload = array_filter([
+            'workflow_id' => $workflowId,
+            'run_id' => data_get($context, '_workflow.run_id'),
+            'trigger_type' => data_get($context, '_workflow.trigger_type'),
+            'timestamp' => now()->toIso8601String(),
+            'context' => array_diff_key($context, array_flip([
+                '_debug_trace', '_workflow_outputs', '_workflow_attachments',
+                '_parallel_stages', '_completion', '_completion_requirements',
+            ])),
+        ]);
+
+        $payloadJson = json_encode($payload, JSON_UNESCAPED_SLASHES);
+
+        // Sign with workflow secret or app key
+        $secret = null;
+        if ($workflowId) {
+            $definition = $definition ?? WorkflowDefinition::find($workflowId);
+            $secret = $definition->webhook_secret ?? null;
+        }
+        $signingKey = $secret ?: config('app.key');
+        $signature = hash_hmac('sha256', $payloadJson, $signingKey);
+
+        try {
+            $response = Http::timeout(15)
+                ->withHeaders([
+                    'Content-Type' => 'application/json',
+                    'X-Workflow-Signature' => $signature,
+                    'X-Workflow-Timestamp' => $payload['timestamp'],
+                    'User-Agent' => 'GTIMS-Workflow/1.0',
+                ])
+                ->send($method, $url, ['body' => $payloadJson]);
+
+            $statusCode = $response->status();
+            $success = $response->successful();
+
+            return [
+                'status' => $success ? 'webhook_sent' : 'webhook_failed',
+                'message' => $success
+                    ? "Webhook {$method} to {$url} succeeded (HTTP {$statusCode})."
+                    : "Webhook {$method} to {$url} failed (HTTP {$statusCode}).",
+                'context_updates' => [
+                    'webhook_called' => true,
+                    'webhook_status' => $statusCode,
+                    'webhook_success' => $success,
+                ],
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'status' => 'webhook_error',
+                'message' => "Webhook call failed: {$e->getMessage()}",
+                'context_updates' => [
+                    'webhook_called' => true,
+                    'webhook_success' => false,
+                    'webhook_error' => $e->getMessage(),
+                ],
+            ];
+        }
+    }
+
+    /**
+     * Log an audit event via the AuditService.
+     *
+     * @param  array<string,mixed>  $config
+     * @param  array<string,mixed>  $context
+     * @return array{status:string,message:string,context_updates:array<string,mixed>}
+     */
+    protected function executeLogAuditEvent(array $config, array $context): array
+    {
+        $message = trim((string) ($config['message'] ?? 'Workflow audit event'));
+        $eventType = trim((string) ($config['event_type'] ?? 'workflow_automation'));
+        $triggeredBy = (int) data_get($context, '_workflow.triggered_by', 0);
+        $workflowId = data_get($context, '_workflow.workflow_id');
+        $runId = data_get($context, '_workflow.run_id');
+
+        $this->auditService->record(
+            $eventType,
+            'WorkflowRun',
+            $runId ?? 0,
+            $triggeredBy,
+            null,
+            array_filter([
+                'workflow_id' => $workflowId,
+                'run_id' => $runId,
+                'message' => $message,
+                'source' => 'workflow_automation',
+            ]),
+            $message,
+        );
+
+        return [
+            'status' => 'logged',
+            'message' => $message,
+            'context_updates' => [
+                'audit_logged' => true,
+                'audit_event_type' => $eventType,
+            ],
+        ];
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  RETRY / DEAD-LETTER HANDLING
+    // ──────────────────────────────────────────────────────────
+
+    /**
+     * Handle a failed workflow run: determine if it should be retried or dead-lettered.
+     */
+    public function handleFailedRun(WorkflowRun $run, \Throwable $exception): void
+    {
+        $run->refresh();
+
+        if ($run->is_dry_run) {
+            return; // Don't retry dry runs
+        }
+
+        $maxRetries = $run->max_retries ?? 3;
+        $attempt = $run->retry_attempt ?? 0;
+
+        if ($attempt >= $maxRetries) {
+            // Move to dead-letter
+            $run->update([
+                'is_dead_letter' => true,
+                'error_message' => $exception->getMessage() . ' [Dead-lettered after ' . $maxRetries . ' retries]',
+            ]);
+
+            Log::warning('Workflow run dead-lettered', [
+                'run_id' => $run->id,
+                'workflow_id' => $run->workflow_definition_id,
+                'retries' => $attempt,
+                'error' => $exception->getMessage(),
+            ]);
+
+            $this->auditService->record(
+                'workflow_run_dead_lettered',
+                'WorkflowRun',
+                $run->id,
+                $run->triggered_by ?? 0,
+                null,
+                ['error' => $exception->getMessage(), 'retries' => $attempt],
+                'Workflow run moved to dead-letter queue'
+            );
+        } else {
+            // Schedule retry with exponential backoff
+            $backoffSeconds = (int) pow(2, $attempt + 1) * 30; // 60s, 120s, 240s...
+            $nextRetryAt = now()->addSeconds($backoffSeconds);
+
+            $run->update([
+                'next_retry_at' => $nextRetryAt,
+            ]);
+
+            Log::info('Workflow run scheduled for retry', [
+                'run_id' => $run->id,
+                'attempt' => $attempt,
+                'next_retry_at' => $nextRetryAt->toIso8601String(),
+            ]);
+        }
+    }
+
+    /**
+     * Re-run a dead-lettered or failed run from scratch.
+     */
+    public function rerunFromDeadLetter(WorkflowRun $failedRun, ?int $userId = null): WorkflowRun
+    {
+        $newRun = WorkflowRun::create([
+            'workflow_definition_id' => $failedRun->workflow_definition_id,
+            'workflow_version_id' => $failedRun->workflow_version_id,
+            'status' => 'pending',
+            'trigger_type' => $failedRun->trigger_type,
+            'trigger_payload' => $failedRun->trigger_payload,
+            'context' => $failedRun->trigger_payload ?? [],
+            'triggered_by' => $userId ?? $failedRun->triggered_by,
+            'is_dry_run' => false,
+            'retry_attempt' => 0,
+            'max_retries' => $failedRun->max_retries,
+            'parent_run_id' => $failedRun->id,
+            'idempotency_key' => Str::uuid()->toString(),
+        ]);
+
+        // Mark original as rerun
+        $failedRun->update([
+            'error_message' => ($failedRun->error_message ?? '') . " [Rerun as #{$newRun->id}]",
+        ]);
+
+        return $this->executeRun($newRun);
     }
 }

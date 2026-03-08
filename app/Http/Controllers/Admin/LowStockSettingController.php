@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\LowStockSetting;
 use App\Models\Product;
 use App\Models\Branch;
+use App\Models\Inventory;
 use App\Services\AnalyticsService;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 
@@ -20,6 +22,7 @@ class LowStockSettingController extends Controller
         $alertBranchId = $request->integer('alert_branch_id')
             ?: $request->integer('branch_id');
         $alertProductId = $request->integer('alert_product_id');
+        $alertBatchId = $request->integer('alert_batch_id');
         $alertSearch = trim((string) $request->input('alert_search', ''));
 
         $globalSetting = LowStockSetting::where('is_global', true)->first();
@@ -63,6 +66,10 @@ class LowStockSettingController extends Controller
             $lowStockItems = $lowStockItems->where('product_id', $alertProductId);
         }
 
+        if ($alertBatchId) {
+            $lowStockItems = $lowStockItems->where('inventory_id', $alertBatchId);
+        }
+
         if ($alertSearch !== '') {
             $search = mb_strtolower($alertSearch);
             $lowStockItems = $lowStockItems->filter(function (array $item) use ($search) {
@@ -88,8 +95,74 @@ class LowStockSettingController extends Controller
             'lowStockItems',
             'alertBranchId',
             'alertProductId',
+            'alertBatchId',
             'alertSearch'
         ));
+    }
+
+    public function filterOptions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'branch_id' => [
+                'nullable',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
+            'product_id' => 'nullable|exists:products,id',
+        ]);
+
+        $branchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
+        $productId = isset($validated['product_id']) ? (int) $validated['product_id'] : null;
+        $availableExpr = 'COALESCE(onhand_qty, quantity) - COALESCE(hold_qty, 0)';
+
+        $inventoryBase = Inventory::query()
+            ->where('is_archived', false)
+            ->whereRaw("{$availableExpr} > 0")
+            ->whereHas('product', fn ($q) => $q->where('is_archived', false))
+            ->whereHas('branch', fn ($q) => $q->where('is_archived', false))
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId));
+
+        $productIds = (clone $inventoryBase)
+            ->distinct()
+            ->pluck('product_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $products = Product::query()
+            ->whereIn('id', $productIds)
+            ->where('is_archived', false)
+            ->orderByRaw('generic_name IS NULL, generic_name ASC')
+            ->orderBy('brand_name')
+            ->get(['id', 'generic_name', 'brand_name'])
+            ->map(fn (Product $product) => [
+                'id' => (int) $product->id,
+                'generic_name' => $product->generic_name,
+                'brand_name' => $product->brand_name,
+                'label' => trim(($product->generic_name ?? '') . ' ' . ($product->brand_name ?? '')),
+            ])
+            ->values();
+
+        $batches = collect();
+        if ($productId) {
+            $batches = (clone $inventoryBase)
+                ->where('product_id', $productId)
+                ->orderBy('expiry_date')
+                ->orderBy('created_at')
+                ->orderBy('id')
+                ->get(['id', 'product_id', 'branch_id', 'batch_number', 'expiry_date'])
+                ->map(fn (Inventory $inventory) => [
+                    'id' => (int) $inventory->id,
+                    'product_id' => (int) $inventory->product_id,
+                    'branch_id' => (int) $inventory->branch_id,
+                    'batch_number' => $inventory->batch_number,
+                    'expiry_date' => optional($inventory->expiry_date)->toDateString(),
+                ])
+                ->values();
+        }
+
+        return response()->json([
+            'products' => $products,
+            'batches' => $batches,
+        ]);
     }
 
     public function updateGlobal(Request $request)
