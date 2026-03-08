@@ -37,8 +37,8 @@ GTIMS is a robust inventory management system built with Laravel 12.x that manag
 | **Backend** | Laravel 12.x |
 | **PHP Version** | 8.2+ |
 | **Database** | MySQL / SQLite |
-| **Frontend** | Blade Templates + Vanilla JavaScript Tool** | V |
-| **Buildite |
+| **Frontend** | Blade Templates + Vanilla JavaScript |
+| **Build Tool** | Vite |
 | **CSS Framework** | Tailwind CSS |
 | **JS Interactivity** | Alpine.js |
 | **PDF Generation** | Dompdf |

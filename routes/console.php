@@ -10,8 +10,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Artisan::command('jm', function () {
-    // server start
-    passthru('php artisan serve');
+    $this->call('serve');
 })->purpose('start the server');
 
 Artisan::command('holds:expire', function () {

@@ -11,6 +11,7 @@ use App\Models\ProductMovement;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -26,7 +27,8 @@ class HoldService
      */
     public function createHold(array $data, array $items, int $userId): Hold
     {
-        return DB::transaction(function () use ($data, $items, $userId) {
+        try {
+            return DB::transaction(function () use ($data, $items, $userId) {
             $branchId = (int) Arr::get($data, 'branch_id');
             $requestedByInventory = $this->groupRequestedByInventory($items);
             $inventoryIds = array_keys($requestedByInventory);
@@ -143,7 +145,16 @@ class HoldService
             ]);
 
             return $hold->fresh(['items']);
-        });
+            });
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            Log::error('Failed to create hold', [
+                'user_id' => $userId,
+                'error' => $e->getMessage(),
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -310,8 +321,19 @@ class HoldService
 
         $count = 0;
         foreach ($expired as $hold) {
-            $this->finalizeHold($hold, $hold->created_by, 'expired', 'Auto-expired');
-            $count++;
+            try {
+                $this->finalizeHold($hold, $hold->created_by, 'expired', 'Auto-expired');
+                $count++;
+            } catch (\Exception $e) {
+                Log::error('Failed to expire hold', [
+                    'hold_id' => $hold->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        if ($count > 0) {
+            Log::info('Holds expired by scheduler', ['count' => $count]);
         }
 
         return $count;

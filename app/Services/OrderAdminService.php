@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\Branch;
 use App\Repositories\Interfaces\OrderRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 
@@ -188,31 +189,45 @@ public function create()
         $order = $this->orderRepository->findOrFail((int) $id);
         $action = $request->input('action'); // 'approve' or 'reject'
 
-        if ($action == 'reject') {
-            $order->update(['status' => 'rejected']);
-            return back()->with('success', 'Order has been rejected.');
-        }
+        try {
+            return DB::transaction(function () use ($order, $action) {
+                if ($action == 'reject') {
+                    $order->update(['status' => 'rejected']);
+                    Log::info('Order rejected', ['order_id' => $order->id, 'user_id' => Auth::id()]);
+                    return back()->with('success', 'Order has been rejected.');
+                }
 
-        // Logic Chain
-        // 1. User with admin approval permission approves -> goes to Finance
-        if ($order->status == 'pending_admin' && Auth::user()->hasPermission('orders.approve_admin')) {
-            $order->update([
-                'status' => 'pending_finance',
-                'admin_approved_at' => now()
+                // Logic Chain
+                // 1. User with admin approval permission approves -> goes to Finance
+                if ($order->status == 'pending_admin' && Auth::user()->hasPermission('orders.approve_admin')) {
+                    $order->update([
+                        'status' => 'pending_finance',
+                        'admin_approved_at' => now()
+                    ]);
+                    Log::info('Order approved by admin', ['order_id' => $order->id, 'user_id' => Auth::id()]);
+                    return back()->with('success', 'Approved! Order forwarded to Finance.');
+                }
+
+                // 2. User with finance approval permission approves -> Final Approved
+                if ($order->status == 'pending_finance' && Auth::user()->hasPermission('orders.approve_finance')) {
+                    $order->update([
+                        'status' => 'approved',
+                        'finance_approved_at' => now()
+                    ]);
+                    Log::info('Order approved by finance', ['order_id' => $order->id, 'user_id' => Auth::id()]);
+                    return back()->with('success', 'Final Approval Granted! Order is ready to print.');
+                }
+
+                return back()->with('error', 'Unauthorized action or invalid status flow.');
+            });
+        } catch (\Exception $e) {
+            Log::error('Failed to update order status', [
+                'order_id' => $order->id,
+                'action' => $action,
+                'error' => $e->getMessage(),
             ]);
-            return back()->with('success', 'Approved! Order forwarded to Finance.');
+            return back()->with('error', 'Failed to update order status. Please try again.');
         }
-
-        // 2. User with finance approval permission approves -> Final Approved
-        if ($order->status == 'pending_finance' && Auth::user()->hasPermission('orders.approve_finance')) {
-            $order->update([
-                'status' => 'approved',
-                'finance_approved_at' => now()
-            ]);
-            return back()->with('success', 'Final Approval Granted! Order is ready to print.');
-        }
-
-        return back()->with('error', 'Unauthorized action or invalid status flow.');
     }
 
     /**
