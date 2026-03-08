@@ -9,10 +9,6 @@ Route::get('/dangerous-db-reset', function () {
         abort(403, 'This route is only available in local environment.');
     }
 
-    if (app()->isProduction()) {
-        abort(403, 'This route is not available in production.');
-    }
-
     if (request()->query('key') !== 'resetdb') {
         abort(403, 'Unauthorized action.');
     }
