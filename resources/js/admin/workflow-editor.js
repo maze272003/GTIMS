@@ -26,6 +26,7 @@ function createWorkflowEditor() {
             actions: [],
         },
         urls: {},
+        branches: [],
         selectedNode: null,
         selectedPresetKey: '',
         saving: false,
@@ -44,6 +45,12 @@ function createWorkflowEditor() {
         activeGuideTriggerType: null,
         mobilePanel: 'canvas',
         canvasViewportSize: { width: 0, height: 0 },
+        zoomLevel: 1,
+        zoomMin: 0.25,
+        zoomMax: 2,
+        zoomStep: 0.1,
+        pinchStartDistance: null,
+        pinchStartZoom: null,
         compatibilityMap: {
             low_stock_reached: {
                 conditions: ['quantity_threshold', 'branch_matches', 'category_matches'],
@@ -119,6 +126,7 @@ function createWorkflowEditor() {
                 this.updateViewportMetrics();
                 this.showMobilePanel(this.mobilePanel, 'auto');
                 this.renderEdges();
+                this.setupPinchZoom();
             });
 
             if (!this.pointerMoveHandler) {
@@ -181,6 +189,7 @@ function createWorkflowEditor() {
                 actions: config.catalog?.actions || [],
             };
             this.urls = config.urls || {};
+            this.branches = config.branches || [];
             this.graphHash = config.initialGraphHash ?? null;
             this.syncToken = config.initialSyncToken ?? null;
             this.nodes = (config.nodes || []).map((node) => this.normalizeNode(node));
@@ -272,9 +281,72 @@ function createWorkflowEditor() {
             }
 
             return {
-                x: Math.max(0, clientX - rect.left),
-                y: Math.max(0, clientY - rect.top),
+                x: Math.max(0, (clientX - rect.left) / this.zoomLevel),
+                y: Math.max(0, (clientY - rect.top) / this.zoomLevel),
             };
+        },
+
+        handleWheelZoom(event) {
+            if (event.ctrlKey || event.metaKey) {
+                const delta = event.deltaY > 0 ? -this.zoomStep : this.zoomStep;
+                this.setZoom(this.zoomLevel + delta);
+            } else {
+                const viewport = this.getCanvasViewport();
+                if (viewport) {
+                    viewport.scrollTop += event.deltaY;
+                    viewport.scrollLeft += event.deltaX;
+                }
+            }
+        },
+
+        setupPinchZoom() {
+            const viewport = this.getCanvasViewport();
+            if (!viewport) {
+                return;
+            }
+
+            viewport.addEventListener('touchstart', (event) => {
+                if (event.touches.length === 2) {
+                    event.preventDefault();
+                    const dx = event.touches[0].clientX - event.touches[1].clientX;
+                    const dy = event.touches[0].clientY - event.touches[1].clientY;
+                    this.pinchStartDistance = Math.hypot(dx, dy);
+                    this.pinchStartZoom = this.zoomLevel;
+                }
+            }, { passive: false });
+
+            viewport.addEventListener('touchmove', (event) => {
+                if (event.touches.length === 2 && this.pinchStartDistance !== null) {
+                    event.preventDefault();
+                    const dx = event.touches[0].clientX - event.touches[1].clientX;
+                    const dy = event.touches[0].clientY - event.touches[1].clientY;
+                    const distance = Math.hypot(dx, dy);
+                    const scale = distance / this.pinchStartDistance;
+                    this.setZoom(this.pinchStartZoom * scale);
+                }
+            }, { passive: false });
+
+            viewport.addEventListener('touchend', () => {
+                this.pinchStartDistance = null;
+                this.pinchStartZoom = null;
+            });
+        },
+
+        setZoom(level) {
+            this.zoomLevel = Math.round(Math.max(this.zoomMin, Math.min(this.zoomMax, level)) * 100) / 100;
+            this.$nextTick(() => this.renderEdges());
+        },
+
+        zoomIn() {
+            this.setZoom(this.zoomLevel + this.zoomStep);
+        },
+
+        zoomOut() {
+            this.setZoom(this.zoomLevel - this.zoomStep);
+        },
+
+        resetZoom() {
+            this.setZoom(1);
         },
 
         showMobilePanel(panel, behavior = 'smooth') {
@@ -782,7 +854,7 @@ function createWorkflowEditor() {
 
         arrayPlaceholder(node, field) {
             if (field === 'branch_ids') {
-                return '1,2,3';
+                return 'Select branches above';
             }
 
             if (field === 'categories') {
@@ -790,6 +862,43 @@ function createWorkflowEditor() {
             }
 
             return 'a,b,c';
+        },
+
+        isBranchField(field) {
+            return ['branch_ids', 'recipient_branch_ids'].includes(field);
+        },
+
+        isSingleBranchField(field) {
+            return ['branch_id', 'target_branch_id'].includes(field);
+        },
+
+        toggleBranchSelection(node, field, branchId) {
+            if (!node.config) {
+                node.config = {};
+            }
+
+            const current = Array.isArray(node.config[field]) ? [...node.config[field]] : [];
+            const index = current.map(Number).indexOf(Number(branchId));
+
+            if (index >= 0) {
+                current.splice(index, 1);
+            } else {
+                current.push(Number(branchId));
+            }
+
+            node.config[field] = current;
+            this.markDirty();
+            this.syncSelectedPresetKey();
+        },
+
+        getBranchName(branchId) {
+            const branch = this.branches.find((b) => b.id === Number(branchId));
+            return branch ? branch.name : `Branch #${branchId}`;
+        },
+
+        getNodeLabel(nodeId) {
+            const node = this.nodes.find((n) => n.node_id === nodeId);
+            return node ? node.label : nodeId;
         },
 
         formatFieldLabel(field) {
@@ -892,6 +1001,13 @@ function createWorkflowEditor() {
                 );
 
                 if (!exists) {
+                    const compatibility = this.checkConnectionCompatibility(this.connectSourceNode, targetNode);
+                    if (!compatibility.allowed) {
+                        this.showToast(compatibility.reason, 'error');
+                        this.cancelConnect();
+                        return;
+                    }
+
                     this.edges.push({
                         source_node_id: this.connectSourceNode.node_id,
                         target_node_id: targetNode.node_id,
@@ -906,6 +1022,56 @@ function createWorkflowEditor() {
             this.cancelConnect();
         },
 
+        checkConnectionCompatibility(sourceNode, targetNode) {
+            // Trigger cannot connect to another trigger
+            if (sourceNode.type === 'trigger' && targetNode.type === 'trigger') {
+                return { allowed: false, reason: `Incompatible: Cannot connect trigger "${sourceNode.label}" to trigger "${targetNode.label}".` };
+            }
+
+            // Action cannot connect to trigger
+            if (sourceNode.type === 'action' && targetNode.type === 'trigger') {
+                return { allowed: false, reason: `Incompatible: Action "${sourceNode.label}" cannot connect back to trigger "${targetNode.label}".` };
+            }
+
+            // Condition cannot connect to trigger
+            if (sourceNode.type === 'condition' && targetNode.type === 'trigger') {
+                return { allowed: false, reason: `Incompatible: Condition "${sourceNode.label}" cannot connect back to trigger "${targetNode.label}".` };
+            }
+
+            // Validate compatibility using the compatibility map
+            if (sourceNode.type === 'trigger' && this.activeGuideTriggerType) {
+                const mapEntry = this.compatibilityMap[sourceNode.action_type];
+                if (mapEntry) {
+                    if (targetNode.type === 'condition' && !(mapEntry.conditions || []).includes(targetNode.action_type)) {
+                        return { allowed: false, reason: `Incompatible: Condition "${targetNode.label}" is not compatible with trigger "${sourceNode.label}".` };
+                    }
+                    if (targetNode.type === 'action' && !(mapEntry.actions || []).includes(targetNode.action_type)) {
+                        return { allowed: false, reason: `Incompatible: Action "${targetNode.label}" is not compatible with trigger "${sourceNode.label}".` };
+                    }
+                }
+            }
+
+            return { allowed: true, reason: '' };
+        },
+
+        showToast(message, type = 'info') {
+            if (typeof window.Swal !== 'undefined') {
+                window.Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: type === 'error' ? 'error' : 'info',
+                    title: message,
+                    showConfirmButton: false,
+                    timer: 4000,
+                    timerProgressBar: true,
+                });
+            } else {
+                this.statusMessage = message;
+                this.statusType = type;
+                setTimeout(() => { if (this.statusMessage === message) { this.statusMessage = ''; } }, 4000);
+            }
+        },
+
         cancelConnect() {
             this.connecting = false;
             this.connectSourceNode = null;
@@ -917,19 +1083,6 @@ function createWorkflowEditor() {
             const node = this.nodes.find((item) => item.node_id === nodeId);
             if (!node || !node.position) {
                 return { x: 0, y: 0 };
-            }
-
-            const surface = this.getCanvasSurface();
-            const element = surface?.querySelector(`[data-node-id="${nodeId}"]`);
-
-            if (surface && element) {
-                const surfaceRect = surface.getBoundingClientRect();
-                const rect = element.getBoundingClientRect();
-
-                return {
-                    x: (rect.left - surfaceRect.left) + (rect.width / 2),
-                    y: (rect.top - surfaceRect.top) + (rect.height / 2),
-                };
             }
 
             return {
@@ -990,12 +1143,64 @@ function createWorkflowEditor() {
                     return `<line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" stroke="#6b7280" stroke-width="2" marker-end="url(#arrowhead)"></line>`;
                 }).join('');
 
+                const suggestedLines = this.buildSuggestedConnectionLines();
+
                 const previewLine = this.connecting
                     ? `<line x1="${this.connectStart.x}" y1="${this.connectStart.y}" x2="${this.connectEnd.x}" y2="${this.connectEnd.y}" stroke="#ef4444" stroke-width="2" stroke-dasharray="5,5"></line>`
                     : '';
 
-                this.$refs.edgesLayer.innerHTML = `${lines}${previewLine}`;
+                this.$refs.edgesLayer.innerHTML = `${suggestedLines}${lines}${previewLine}`;
             });
+        },
+
+        buildSuggestedConnectionLines() {
+            if (!this.activeGuideTriggerType || this.nodes.length < 2) {
+                return '';
+            }
+
+            const connectedPairs = new Set(
+                this.edges.map((edge) => `${edge.source_node_id}|${edge.target_node_id}`),
+            );
+
+            const triggerNodes = this.nodes.filter((n) => n.type === 'trigger' && n.action_type === this.activeGuideTriggerType);
+            const mapEntry = this.compatibilityMap[this.activeGuideTriggerType];
+            if (!mapEntry || triggerNodes.length === 0) {
+                return '';
+            }
+
+            const suggestions = [];
+
+            triggerNodes.forEach((trigger) => {
+                this.nodes.forEach((target) => {
+                    if (target.node_id === trigger.node_id || target.type === 'trigger') {
+                        return;
+                    }
+
+                    const key = `${trigger.node_id}|${target.node_id}`;
+                    if (connectedPairs.has(key)) {
+                        return;
+                    }
+
+                    const isCompatible = target.type === 'condition'
+                        ? (mapEntry.conditions || []).includes(target.action_type)
+                        : target.type === 'action'
+                            ? (mapEntry.actions || []).includes(target.action_type)
+                            : false;
+
+                    if (isCompatible) {
+                        suggestions.push({ source: trigger.node_id, target: target.node_id });
+                    }
+                });
+            });
+
+            return suggestions.map((s) => {
+                const source = this.getNodeCenter(s.source);
+                const target = this.getNodeCenter(s.target);
+                if (!Number.isFinite(source.x) || !Number.isFinite(target.x)) {
+                    return '';
+                }
+                return `<line x1="${source.x}" y1="${source.y}" x2="${target.x}" y2="${target.y}" stroke="#d1d5db" stroke-width="1" stroke-dasharray="6,4" opacity="0.45" marker-end="url(#arrowhead-suggestion)"></line>`;
+            }).join('');
         },
 
         buildPayload() {
