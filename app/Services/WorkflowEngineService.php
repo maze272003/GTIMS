@@ -326,7 +326,7 @@ class WorkflowEngineService
             $presets[] = [
                 'key' => 'main_branch',
                 'label' => 'Main Branch',
-                'config' => ['branch_ids' => [1]],
+                'config' => ['branch_ids' => []],
             ];
         }
 

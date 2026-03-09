@@ -338,7 +338,7 @@
                          id="workflow-canvas" role="application" aria-label="Workflow canvas - drag nodes here">
                         <div x-ref="canvasSurface" class="relative min-h-full min-w-full"
                              @click.self="cancelConnect()"
-                             :style="workspaceStyle() + ' transform: scale(' + zoomLevel + '); transform-origin: 0 0;'">
+                             :style="workspaceStyle()">>
                             {{-- Canvas Background Grid --}}
                             <div class="absolute inset-0 pointer-events-none" style="background-image: radial-gradient(circle, #e5e7eb 1px, transparent 1px); background-size: 20px 20px;" aria-hidden="true"></div>
 

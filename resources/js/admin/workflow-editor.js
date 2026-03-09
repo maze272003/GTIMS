@@ -265,7 +265,7 @@ function createWorkflowEditor() {
         workspaceStyle() {
             const size = this.workspaceSize();
 
-            return `width:${size.width}px; height:${size.height}px;`;
+            return `width:${size.width}px; height:${size.height}px; transform: scale(${this.zoomLevel}); transform-origin: 0 0;`;
         },
 
         nodeStyle(node) {
@@ -273,6 +273,7 @@ function createWorkflowEditor() {
         },
 
         clientToCanvasPosition(clientX, clientY) {
+            const viewport = this.getCanvasViewport();
             const surface = this.getCanvasSurface();
             const rect = surface?.getBoundingClientRect();
 
@@ -280,9 +281,15 @@ function createWorkflowEditor() {
                 return { x: 0, y: 0 };
             }
 
+            const scrollLeft = viewport?.scrollLeft || 0;
+            const scrollTop = viewport?.scrollTop || 0;
+            const viewportRect = viewport?.getBoundingClientRect();
+            const offsetX = clientX - (viewportRect?.left || 0) + scrollLeft;
+            const offsetY = clientY - (viewportRect?.top || 0) + scrollTop;
+
             return {
-                x: Math.max(0, (clientX - rect.left) / this.zoomLevel),
-                y: Math.max(0, (clientY - rect.top) / this.zoomLevel),
+                x: Math.max(0, offsetX / this.zoomLevel),
+                y: Math.max(0, offsetY / this.zoomLevel),
             };
         },
 
@@ -333,7 +340,8 @@ function createWorkflowEditor() {
         },
 
         setZoom(level) {
-            this.zoomLevel = Math.round(Math.max(this.zoomMin, Math.min(this.zoomMax, level)) * 100) / 100;
+            const clamped = Math.max(this.zoomMin, Math.min(this.zoomMax, level));
+            this.zoomLevel = Math.round(clamped * 100) / 100;
             this.$nextTick(() => this.renderEdges());
         },
 
@@ -854,7 +862,7 @@ function createWorkflowEditor() {
 
         arrayPlaceholder(node, field) {
             if (field === 'branch_ids') {
-                return 'Select branches above';
+                return 'Use checkboxes to select branches';
             }
 
             if (field === 'categories') {
@@ -1023,30 +1031,26 @@ function createWorkflowEditor() {
         },
 
         checkConnectionCompatibility(sourceNode, targetNode) {
-            // Trigger cannot connect to another trigger
             if (sourceNode.type === 'trigger' && targetNode.type === 'trigger') {
-                return { allowed: false, reason: `Incompatible: Cannot connect trigger "${sourceNode.label}" to trigger "${targetNode.label}".` };
+                return { allowed: false, reason: `Cannot connect trigger "${sourceNode.label}" to trigger "${targetNode.label}".` };
             }
 
-            // Action cannot connect to trigger
             if (sourceNode.type === 'action' && targetNode.type === 'trigger') {
-                return { allowed: false, reason: `Incompatible: Action "${sourceNode.label}" cannot connect back to trigger "${targetNode.label}".` };
+                return { allowed: false, reason: `Action "${sourceNode.label}" cannot connect back to trigger "${targetNode.label}".` };
             }
 
-            // Condition cannot connect to trigger
             if (sourceNode.type === 'condition' && targetNode.type === 'trigger') {
-                return { allowed: false, reason: `Incompatible: Condition "${sourceNode.label}" cannot connect back to trigger "${targetNode.label}".` };
+                return { allowed: false, reason: `Condition "${sourceNode.label}" cannot connect back to trigger "${targetNode.label}".` };
             }
 
-            // Validate compatibility using the compatibility map
             if (sourceNode.type === 'trigger' && this.activeGuideTriggerType) {
                 const mapEntry = this.compatibilityMap[sourceNode.action_type];
                 if (mapEntry) {
                     if (targetNode.type === 'condition' && !(mapEntry.conditions || []).includes(targetNode.action_type)) {
-                        return { allowed: false, reason: `Incompatible: Condition "${targetNode.label}" is not compatible with trigger "${sourceNode.label}".` };
+                        return { allowed: false, reason: `Condition "${targetNode.label}" is not compatible with trigger "${sourceNode.label}".` };
                     }
                     if (targetNode.type === 'action' && !(mapEntry.actions || []).includes(targetNode.action_type)) {
-                        return { allowed: false, reason: `Incompatible: Action "${targetNode.label}" is not compatible with trigger "${sourceNode.label}".` };
+                        return { allowed: false, reason: `Action "${targetNode.label}" is not compatible with trigger "${sourceNode.label}".` };
                     }
                 }
             }
