@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Branch;
 use App\Models\IdempotencyKey;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowNode;
@@ -97,7 +98,14 @@ class WorkflowController extends Controller
         $initialGraphHash = $latestVersion ? $this->engine->computeGraphHash($graph) : null;
         $initialSyncToken = $latestVersion ? $this->buildSyncToken($latestVersion, $initialGraphHash) : null;
 
-        return view('admin.workflows.editor', compact('workflow', 'catalog', 'latestVersion', 'initialGraphHash', 'initialSyncToken'));
+        $branches = Branch::active()->orderBy('name')->get(['id', 'name', 'code', 'is_main'])->map(fn (Branch $b) => [
+            'id' => $b->id,
+            'name' => $b->name,
+            'code' => $b->code,
+            'is_main' => $b->is_main,
+        ])->values()->all();
+
+        return view('admin.workflows.editor', compact('workflow', 'catalog', 'latestVersion', 'initialGraphHash', 'initialSyncToken', 'branches'));
     }
 
     /**

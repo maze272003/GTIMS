@@ -306,10 +306,24 @@
                 {{-- Canvas (Center) --}}
                 <div x-ref="canvasPanel"
                     class="flex w-full flex-none snap-start flex-col bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden lg:w-auto lg:flex-1 lg:min-w-0">
-                    <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-700 lg:hidden">
-                        <div>
+                    <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+                        <div class="lg:hidden">
                             <h3 class="text-sm font-bold uppercase tracking-wider text-gray-700 dark:text-gray-300">Canvas</h3>
                             <p class="text-xs text-gray-500 dark:text-gray-400">Swipe the page for panels, or pan inside the canvas to review a larger graph.</p>
+                        </div>
+                        <div class="hidden lg:flex items-center gap-1.5">
+                            <button type="button" @click="zoomIn()"
+                                class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm" title="Zoom In">
+                                <i class="fa-solid fa-magnifying-glass-plus"></i>
+                            </button>
+                            <button type="button" @click="zoomOut()"
+                                class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition text-sm" title="Zoom Out">
+                                <i class="fa-solid fa-magnifying-glass-minus"></i>
+                            </button>
+                            <button type="button" @click="resetZoom()"
+                                class="inline-flex items-center justify-center px-2 h-8 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition text-xs font-medium" title="Reset Zoom">
+                                <span x-text="Math.round(zoomLevel * 100) + '%'"></span>
+                            </button>
                         </div>
                         <button type="button" @click="showMobilePanel('palette')"
                             class="inline-flex items-center rounded-md px-2.5 py-1.5 text-[11px] font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 transition dark:bg-purple-900/30 dark:text-purple-300">
@@ -319,6 +333,7 @@
 
                     <div x-ref="canvasViewport" class="relative flex-1 overflow-auto"
                          style="-webkit-overflow-scrolling: touch;"
+                         @wheel.prevent="handleWheelZoom($event)"
                          @dragover.prevent @drop="onDrop($event)"
                          id="workflow-canvas" role="application" aria-label="Workflow canvas - drag nodes here">
                         <div x-ref="canvasSurface" class="relative min-h-full min-w-full"
@@ -333,6 +348,9 @@
                                 <defs>
                                     <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                                         <polygon points="0 0, 10 3.5, 0 7" fill="#6b7280"/>
+                                    </marker>
+                                    <marker id="arrowhead-suggestion" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#d1d5db" opacity="0.45"/>
                                     </marker>
                                 </defs>
                                 {{-- Connecting line preview --}}
@@ -496,7 +514,25 @@
                                             </select>
                                         </template>
 
-                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && isArrayField(selectedNode, field)">
+                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && isArrayField(selectedNode, field) && isBranchField(field)">
+                                            <div>
+                                                <div class="space-y-1 max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700">
+                                                    <template x-for="branch in branches" :key="'branch-chk-' + branch.id">
+                                                        <label class="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 rounded px-1 py-0.5">
+                                                            <input type="checkbox"
+                                                                :checked="(getConfigValue(selectedNode, field) || []).map(Number).includes(branch.id)"
+                                                                @change="toggleBranchSelection(selectedNode, field, branch.id)"
+                                                                class="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500">
+                                                            <span class="text-gray-700 dark:text-gray-300" x-text="branch.name"></span>
+                                                            <span class="text-[10px] text-gray-400" x-text="branch.is_main ? '(Main)' : ''"></span>
+                                                        </label>
+                                                    </template>
+                                                </div>
+                                                <p class="text-[10px] text-gray-400 mt-1" x-text="(getConfigValue(selectedNode, field) || []).length + ' branch(es) selected'"></p>
+                                            </div>
+                                        </template>
+
+                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && isArrayField(selectedNode, field) && !isBranchField(field)">
                                             <input type="text"
                                                 :value="arrayConfigToInput(getConfigValue(selectedNode, field))"
                                                 @input="setArrayConfigValue(selectedNode, field, $event.target.value)"
@@ -511,7 +547,18 @@
                                                 class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
                                         </template>
 
-                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && !isArrayField(selectedNode, field) && !isLongTextField(selectedNode, field)">
+                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && !isArrayField(selectedNode, field) && !isLongTextField(selectedNode, field) && isSingleBranchField(field)">
+                                            <select :value="stringValue(getConfigValue(selectedNode, field))"
+                                                @change="setConfigValue(selectedNode, field, Number($event.target.value || 0))"
+                                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
+                                                <option value="">— Select Branch —</option>
+                                                <template x-for="branch in branches" :key="'sbranch-' + branch.id">
+                                                    <option :value="branch.id" x-text="branch.name + (branch.is_main ? ' (Main)' : '')"></option>
+                                                </template>
+                                            </select>
+                                        </template>
+
+                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && !isArrayField(selectedNode, field) && !isLongTextField(selectedNode, field) && !isSingleBranchField(field)">
                                             <input :type="isIntegerField(selectedNode, field) ? 'number' : 'text'"
                                                 :value="stringValue(getConfigValue(selectedNode, field))"
                                                 @input="setConfigValue(selectedNode, field, isIntegerField(selectedNode, field) ? Number($event.target.value || 0) : $event.target.value)"
@@ -527,7 +574,7 @@
                                 <div class="space-y-1">
                                     <template x-for="edge in edges.filter(e => e.source_node_id === selectedNode.node_id || e.target_node_id === selectedNode.node_id)" :key="edge.source_node_id + edge.target_node_id">
                                         <div class="flex items-center justify-between gap-2 text-xs bg-gray-50 dark:bg-gray-700 rounded p-2">
-                                            <span class="break-all text-gray-600 dark:text-gray-400" x-text="edge.source_node_id + ' -> ' + edge.target_node_id"></span>
+                                            <span class="break-all text-gray-600 dark:text-gray-400" x-text="getNodeLabel(edge.source_node_id) + ' → ' + getNodeLabel(edge.target_node_id)"></span>
                                             <button @click="removeEdge(edge)" class="text-red-500 hover:text-red-700">
                                                 <i class="fa-solid fa-trash-can"></i>
                                             </button>
@@ -552,6 +599,7 @@
             'nodes' => $latestVersion?->nodes ?? [],
             'edges' => $latestVersion?->edges ?? [],
             'catalog' => $catalog,
+            'branches' => $branches ?? [],
             'initialGraphHash' => $initialGraphHash,
             'initialSyncToken' => $initialSyncToken,
             'urls' => [

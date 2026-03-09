@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Branch;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowVersion;
 use App\Models\WorkflowNode;
@@ -120,10 +121,7 @@ class WorkflowEngineService
                     'label' => 'Branch Matches',
                     'config_schema' => ['branch_ids' => 'required|array'],
                     'default_preset' => 'main_branch',
-                    'presets' => [
-                        ['key' => 'main_branch', 'label' => 'Main Branch (1)', 'config' => ['branch_ids' => [1]]],
-                        ['key' => 'core_branches', 'label' => 'Core Branches (1,2,3)', 'config' => ['branch_ids' => [1, 2, 3]]],
-                    ],
+                    'presets' => $this->buildBranchMatchesPresets(),
                 ],
                 [
                     'type' => 'condition',
@@ -236,11 +234,8 @@ class WorkflowEngineService
                     'action_type' => 'create_transfer_request',
                     'label' => 'Create Transfer Request',
                     'config_schema' => ['target_branch_id' => 'optional|integer|min:1'],
-                    'default_preset' => 'branch_1',
-                    'presets' => [
-                        ['key' => 'branch_1', 'label' => 'To Branch 1', 'config' => ['target_branch_id' => 1]],
-                        ['key' => 'branch_2', 'label' => 'To Branch 2', 'config' => ['target_branch_id' => 2]],
-                    ],
+                    'default_preset' => '',
+                    'presets' => $this->buildTransferRequestPresets(),
                 ],
                 [
                     'type' => 'action',
@@ -303,6 +298,50 @@ class WorkflowEngineService
         ];
 
         return $this->mergeNodeCatalog($catalog, $this->advancedNodeCatalog());
+    }
+
+    protected function buildBranchMatchesPresets(): array
+    {
+        $branches = Branch::active()->orderBy('name')->get(['id', 'name', 'is_main']);
+        $presets = [];
+
+        $mainBranch = $branches->firstWhere('is_main', true);
+        if ($mainBranch) {
+            $presets[] = [
+                'key' => 'main_branch',
+                'label' => $mainBranch->name.' (Main)',
+                'config' => ['branch_ids' => [$mainBranch->id]],
+            ];
+        }
+
+        if ($branches->count() > 1) {
+            $presets[] = [
+                'key' => 'all_branches',
+                'label' => 'All Branches',
+                'config' => ['branch_ids' => $branches->pluck('id')->values()->all()],
+            ];
+        }
+
+        if (empty($presets)) {
+            $presets[] = [
+                'key' => 'main_branch',
+                'label' => 'Main Branch',
+                'config' => ['branch_ids' => []],
+            ];
+        }
+
+        return $presets;
+    }
+
+    protected function buildTransferRequestPresets(): array
+    {
+        $branches = Branch::active()->orderBy('name')->get(['id', 'name', 'is_main']);
+
+        return $branches->map(fn (Branch $branch) => [
+            'key' => 'to_branch_'.$branch->id,
+            'label' => 'To '.$branch->name.($branch->is_main ? ' (Main)' : ''),
+            'config' => ['target_branch_id' => $branch->id],
+        ])->values()->all();
     }
 
     /**
@@ -892,7 +931,8 @@ class WorkflowEngineService
             $actionType = (string) ($node['action_type'] ?? '');
             $catalogNode = $catalog[$type][$actionType] ?? null;
             if (!$catalogNode) {
-                $errors[] = "Node '{$nodeId}' has unsupported type/action pair '{$type}:{$actionType}'.";
+                $nodeLabel = trim((string) ($node['label'] ?? $nodeId));
+                $errors[] = "Node '{$nodeLabel}' has unsupported type/action pair '{$type}:{$actionType}'.";
                 continue;
             }
 
@@ -918,7 +958,7 @@ class WorkflowEngineService
             );
 
             foreach ($configValidation['errors'] as $configError) {
-                $errors[] = "Node '{$nodeId}': {$configError}";
+                $errors[] = "Node '{$label}': {$configError}";
             }
 
             $position = is_array($node['position'] ?? null) ? $node['position'] : [];
