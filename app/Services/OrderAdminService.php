@@ -13,7 +13,8 @@ use Illuminate\Validation\Rule;
 class OrderAdminService
 {
     public function __construct(
-        protected OrderRepositoryInterface $orderRepository
+        protected OrderRepositoryInterface $orderRepository,
+        protected BranchAccessService $branchAccessService
     ) {
     }
 
@@ -35,11 +36,14 @@ public function create()
     $this->checkAccess();
 
     $user = Auth::user();
-    $currentBranchId = $user->branch_id;
-    $branches = Branch::query()->active()->orderBy('name')->get();
+    $currentBranchId = $this->branchAccessService->branchId($user) ?? 0;
+    $visibleBranchIds = $this->branchAccessService->accessibleBranchIds($user);
+    $branches = $this->branchAccessService->visibleBranches($user);
 
     // 1. Fetch ALL active inventory grouped by Product and Branch.
-    $rawInventory = $this->orderRepository->getGroupedActiveInventoryTotals();
+    $rawInventory = $this->orderRepository->getGroupedActiveInventoryTotals()
+        ->filter(fn ($item) => in_array((int) $item->branch_id, $visibleBranchIds, true))
+        ->values();
 
     // 2. Build a dynamic StockMap.
     // Structure: [ productId => ['branches' => [branchId => qty], 'total' => qty] ]
@@ -95,7 +99,7 @@ public function create()
             ],
         ]);
 
-        $branchId = (int) $validated['branch_id'];
+        $branchId = $this->branchAccessService->resolveBranchFilter($request->user(), $validated['branch_id']);
         $inventoryRows = $this->orderRepository->getAvailableSourceInventoryByBranch($branchId);
         $grouped = [];
 
@@ -143,10 +147,14 @@ public function create()
             'items.*.source_inventory_id' => 'required|exists:inventories,id',
         ]);
 
+        $requestingBranchId = $this->branchAccessService->branchId(Auth::user());
+        abort_if(!$requestingBranchId, 403, app(AuthSessionService::class)->getForbiddenMessage(Auth::user(), 'create orders without an assigned branch'));
+        $sourceBranchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->integer('source_branch_id'));
+
         try {
             $this->orderRepository->createOrderWithItems(
-                (int) Auth::user()->branch_id,
-                (int) $request->integer('source_branch_id'),
+                $requestingBranchId,
+                $sourceBranchId,
                 (int) Auth::id(),
                 $request->remarks,
                 $request->items
@@ -173,8 +181,8 @@ public function create()
         $user = Auth::user();
 
         $orders = $this->orderRepository->paginateForUserBranch(
-            (int) $user->branch_id,
-            $user->hasPermission('orders.approve_admin'),
+            $this->branchAccessService->branchId($user) ?? 0,
+            $this->branchAccessService->canAccessAllBranches($user),
             10
         );
 
@@ -187,6 +195,7 @@ public function create()
     public function updateStatus(Request $request, $id)
     {
         $order = $this->orderRepository->findOrFail((int) $id);
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $order->branch_id, 'update orders from another branch');
         $action = $request->input('action'); // 'approve' or 'reject'
 
         try {
@@ -236,6 +245,7 @@ public function create()
     public function print($id)
     {
         $order = $this->orderRepository->findForPrint((int) $id);
+        $this->branchAccessService->authorizeBranchAccess(Auth::user(), $order->branch_id, 'print orders from another branch');
 
         if ($order->status != 'approved') {
             abort(403, 'Order must be fully approved to print.');

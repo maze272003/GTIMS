@@ -7,9 +7,9 @@ use Illuminate\Support\Collection;
 
 interface HistoryLogRepositoryInterface extends RepositoryInterface
 {
-    public function paginateWithFilters(array $filters, int $perPage = 20): LengthAwarePaginator;
+    public function paginateWithFilters(array $filters, int $perPage = 20, ?int $branchId = null): LengthAwarePaginator;
 
-    public function getDistinctActions(): Collection;
+    public function getDistinctActions(?int $branchId = null): Collection;
 
-    public function getDistinctUsers(): Collection;
+    public function getDistinctUsers(?int $branchId = null): Collection;
 }

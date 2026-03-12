@@ -17,14 +17,16 @@ use App\Repositories\Interfaces\PatientRecordsRepositoryInterface;
 class PatientRecordsAdminService
 {
     public function __construct(
-        protected PatientRecordsRepositoryInterface $patientRecordsRepository
+        protected PatientRecordsRepositoryInterface $patientRecordsRepository,
+        protected BranchAccessService $branchAccessService
     ) {
     }
 
     public function showpatientrecords(Request $request)
     {
         $user = Auth::user();
-        $branches = $this->patientRecordsRepository->getAllBranches();
+        $accessibleBranchIds = $this->branchAccessService->accessibleBranchIds($user);
+        $branches = $this->patientRecordsRepository->getAllBranches($accessibleBranchIds);
         $activeBranchIds = $branches->pluck('id')->map(fn ($id) => (int) $id)->all();
         $filters = $this->validatedFilters($request, $user, $activeBranchIds);
 
@@ -43,7 +45,7 @@ class PatientRecordsAdminService
         }
 
         // === 4. LOAD FULL PAGE DATA ===
-        $products = $this->patientRecordsRepository->getActiveInventoriesWithProduct();
+        $products = $this->patientRecordsRepository->getActiveInventoriesWithProduct($accessibleBranchIds);
         $barangays = $this->patientRecordsRepository->getAllBarangays();
 
         // Calculate Stats
@@ -91,10 +93,12 @@ class PatientRecordsAdminService
         ]);
 
         $user = Auth::user(); 
+        $branchId = $this->branchAccessService->resolveBranchFilter($user, null);
 
         // Check inventory first
         foreach ($validated['medications'] as $med) {
             $inventory = $this->patientRecordsRepository->findInventoryWithProductOrFail((int) $med['name']);
+            $this->branchAccessService->authorizeBranchAccess($user, $inventory->branch_id, 'dispense inventory from another branch');
             if ($inventory->quantity < $med['quantity']) {
                 return back()->withErrors(['medications' => 'Insufficient quantity for ' . ($inventory->product->generic_name ?? 'medicine') . '. Available: ' . $inventory->quantity], 'adddispensation')->withInput();
             }
@@ -107,7 +111,7 @@ class PatientRecordsAdminService
             'purok' => $validated['purok'],
             'category' => $validated['category'],
             'date_dispensed' => $validated['date-dispensed'],
-            'branch_id' => $user->branch_id,
+            'branch_id' => $branchId,
         ]);
 
         // === HISTORY LOG ===
@@ -118,13 +122,14 @@ class PatientRecordsAdminService
             'user_name' => $user->name ?? 'System',
             'metadata' => [
                 'patientrecord_id' => $newRecord->id,
-                'branch_id' => $user->branch_id
+                'branch_id' => $branchId
             ],
         ]);
 
         // Create dispensed medications and deduct inventory
         foreach ($validated['medications'] as $med) {
             $inventory = $this->patientRecordsRepository->findInventoryWithProductOrFail((int) $med['name']);
+            $this->branchAccessService->authorizeBranchAccess($user, $inventory->branch_id, 'dispense inventory from another branch');
             
             
             $quantity_before = $inventory->quantity;
@@ -182,11 +187,7 @@ class PatientRecordsAdminService
 
         $record = $this->patientRecordsRepository->findPatientRecordWithBarangayOrFail((int) $id);
         $user = Auth::user();
-
-        // SECURITY CHECK
-        if (!$user->hasPermission('patients.manage') && $record->branch_id != $user->branch_id) {
-            return back()->with('error', 'Unauthorized action.');
-        }
+        $this->branchAccessService->authorizeBranchAccess($user, $record->branch_id, 'update patient records from another branch');
 
         // capture old values before updating
         $old = $record->only(['patient_name', 'barangay_id', 'purok', 'category', 'date_dispensed']);
@@ -232,8 +233,8 @@ class PatientRecordsAdminService
     public function exportPdf(Request $request)
     {
         $user = Auth::user();
-        $canManagePatients = $user->hasPermission('patients.manage');
-        $branches = $this->patientRecordsRepository->getAllBranches();
+        $canAccessAllBranches = $this->branchAccessService->canAccessAllBranches($user);
+        $branches = $this->patientRecordsRepository->getAllBranches($this->branchAccessService->accessibleBranchIds($user));
         $barangays = $this->patientRecordsRepository->getAllBarangays();
         $activeBranchIds = $branches->pluck('id')->map(fn ($id) => (int) $id)->all();
         $filters = $this->validatedFilters($request, $user, $activeBranchIds);
@@ -254,7 +255,7 @@ class PatientRecordsAdminService
             'date' => Carbon::now()->format('F d, Y'),
             'filters' => $filters,
             'filter_labels' => [
-                'branch' => !$canManagePatients
+                'branch' => !$canAccessAllBranches
                     ? ($user->branch->name ?? ('Branch ID ' . $user->branch_id))
                     : ($filters['branch_filter'] === 'all'
                         ? 'All Branches'
@@ -272,7 +273,7 @@ class PatientRecordsAdminService
     public function exportExcel(Request $request)
     {
         $user = Auth::user();
-        $activeBranchIds = $this->patientRecordsRepository->getAllBranches()
+        $activeBranchIds = $this->patientRecordsRepository->getAllBranches($this->branchAccessService->accessibleBranchIds($user))
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();
@@ -292,15 +293,15 @@ class PatientRecordsAdminService
     public function buildFilteredPatientRecordsQuery(array $filters, User $user): Builder
     {
         $query = $this->patientRecordsRepository->patientRecordsQuery();
-        $canManagePatients = $user->hasPermission('patients.manage');
+        $canAccessAllBranches = $this->branchAccessService->canAccessAllBranches($user);
         $search = (string) ($filters['search'] ?? '');
         $searchTokens = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         $query
-            ->when($canManagePatients && ($filters['branch_filter'] ?? 'all') !== 'all', function (Builder $q) use ($filters) {
+            ->when($canAccessAllBranches && ($filters['branch_filter'] ?? 'all') !== 'all', function (Builder $q) use ($filters) {
                 $q->where('branch_id', (int) $filters['branch_filter']);
             })
-            ->when(!$canManagePatients, function (Builder $q) use ($user) {
+            ->when(!$canAccessAllBranches, function (Builder $q) use ($user) {
                 $q->where('branch_id', (int) $user->branch_id);
             })
             ->when($search !== '', function (Builder $q) use ($search, $searchTokens) {
@@ -356,7 +357,7 @@ class PatientRecordsAdminService
         ])->validate();
 
         $branchFilter = 'all';
-        if ($user->hasPermission('patients.manage')) {
+        if ($this->branchAccessService->canAccessAllBranches($user)) {
             $rawBranchFilter = (string) ($validated['branch_filter'] ?? 'all');
             if ($rawBranchFilter !== '' && $rawBranchFilter !== 'all') {
                 $branchId = (int) $rawBranchFilter;

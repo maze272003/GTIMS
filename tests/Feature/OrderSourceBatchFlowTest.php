@@ -17,18 +17,22 @@ class OrderSourceBatchFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function createOrderUser(bool $withOrdersViewPermission = true): User
+    private function createOrderUser(bool $withOrdersViewPermission = true, bool $withGlobalBranchAccess = false): User
     {
         $level = UserLevel::firstOrCreate(['name' => 'admin']);
         $requestingBranch = Branch::factory()->create();
 
         if ($withOrdersViewPermission) {
-            $permission = Permission::firstOrCreate([
-                'name' => 'orders.view',
-            ], [
-                'group' => 'orders',
-            ]);
-            $level->permissions()->syncWithoutDetaching([$permission->id]);
+            $permissionIds = collect(['orders.view', 'orders.create'])
+                ->when($withGlobalBranchAccess, fn ($permissions) => $permissions->push('branches.manage'))
+                ->map(fn (string $name) => Permission::firstOrCreate([
+                    'name' => $name,
+                ], [
+                    'group' => 'orders',
+                ])->id)
+                ->all();
+
+            $level->permissions()->syncWithoutDetaching($permissionIds);
         }
 
         return User::factory()->create([
@@ -40,7 +44,7 @@ class OrderSourceBatchFlowTest extends TestCase
 
     public function test_order_submission_deducts_selected_batch_and_records_traceability(): void
     {
-        $user = $this->createOrderUser();
+        $user = $this->createOrderUser(true, true);
         $sourceBranch = Branch::factory()->create();
         $product = Product::factory()->create(['is_archived' => 0]);
 
@@ -101,7 +105,7 @@ class OrderSourceBatchFlowTest extends TestCase
 
     public function test_order_submission_fails_when_selected_batch_has_insufficient_available_stock(): void
     {
-        $user = $this->createOrderUser();
+        $user = $this->createOrderUser(true, true);
         $sourceBranch = Branch::factory()->create();
         $product = Product::factory()->create(['is_archived' => 0]);
 
@@ -145,7 +149,7 @@ class OrderSourceBatchFlowTest extends TestCase
 
     public function test_source_inventory_endpoint_returns_fefo_fifo_sorted_non_zero_batches(): void
     {
-        $user = $this->createOrderUser(true);
+        $user = $this->createOrderUser(true, true);
         $sourceBranch = Branch::factory()->create();
         $product = Product::factory()->create(['is_archived' => 0]);
 

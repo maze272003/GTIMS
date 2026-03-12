@@ -8,6 +8,7 @@ use App\Http\Requests\Admin\StoreSupplierRequest;
 use App\Http\Requests\Admin\UpdateSupplierRequest;
 use App\Models\Inventory;
 use App\Repositories\Interfaces\SupplierRepositoryInterface;
+use App\Services\BranchAccessService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -16,13 +17,17 @@ use Maatwebsite\Excel\Facades\Excel;
 class SupplierController extends Controller
 {
     public function __construct(
-        protected SupplierRepositoryInterface $supplierRepository
+        protected SupplierRepositoryInterface $supplierRepository,
+        protected BranchAccessService $branchAccessService
     ) {
     }
 
     public function index()
     {
-        $suppliers = $this->supplierRepository->paginateWithProductCount(20);
+        $suppliers = $this->supplierRepository->paginateWithProductCount(
+            20,
+            $this->branchAccessService->accessibleBranchIds(request()->user())
+        );
         return view('admin.suppliers.index', compact('suppliers'));
     }
 
@@ -31,7 +36,7 @@ class SupplierController extends Controller
         $user = $request->user();
 
         return Excel::download(
-            new SuppliersExport($user),
+            new SuppliersExport($user, $this->branchAccessService->accessibleBranchIds($user)),
             'suppliers_' . Carbon::now()->format('Ymd_His') . '.xlsx'
         );
     }
@@ -50,7 +55,8 @@ class SupplierController extends Controller
 
     public function edit(int $id)
     {
-        $supplier = $this->supplierRepository->findWithInventoryLinks($id);
+        $accessibleBranchIds = $this->branchAccessService->accessibleBranchIds(request()->user());
+        $supplier = $this->supplierRepository->findWithInventoryLinks($id, $accessibleBranchIds);
 
         $linkedInventoryIds = $supplier->supplierProducts->pluck('inventory_id');
 
@@ -59,6 +65,7 @@ class SupplierController extends Controller
             ->where('is_archived', false)
             ->whereHas('product', fn ($query) => $query->where('is_archived', false))
             ->whereHas('branch', fn ($query) => $query->where('is_archived', false))
+            ->whereIn('branch_id', $accessibleBranchIds)
             ->when($linkedInventoryIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $linkedInventoryIds))
             ->orderBy('expiry_date')
             ->orderBy('batch_number')
@@ -91,6 +98,9 @@ class SupplierController extends Controller
             'unit_cost' => 'nullable|numeric|min:0',
         ]);
 
+        $inventory = Inventory::query()->findOrFail((int) $validated['inventory_id']);
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $inventory->branch_id, 'link supplier inventory from another branch');
+
         $this->supplierRepository->linkInventory(
             $supplierId,
             $validated['inventory_id'],
@@ -103,6 +113,9 @@ class SupplierController extends Controller
 
     public function unlinkInventory(int $supplierId, int $inventoryId)
     {
+        $inventory = Inventory::query()->findOrFail($inventoryId);
+        $this->branchAccessService->authorizeBranchAccess(request()->user(), $inventory->branch_id, 'unlink supplier inventory from another branch');
+
         $this->supplierRepository->unlinkInventory($supplierId, $inventoryId);
 
         return back()->with('success', 'Inventory batch unlinked from supplier.');

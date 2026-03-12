@@ -63,15 +63,25 @@ class ProductMovementRepository extends BaseRepository implements ProductMovemen
         return $query->paginate($perPage);
     }
 
-    public function getTodayStats(): array
+    public function getTodayStats(?int $branchId = null): array
     {
         $today = Carbon::today();
 
         return [
-            'movementsTodayCount' => $this->model->newQuery()->whereDate('created_at', $today)->count(),
-            'itemsInToday' => $this->model->newQuery()->where('type', 'IN')->whereDate('created_at', $today)->sum('quantity'),
-            'itemsOutToday' => $this->model->newQuery()->where('type', 'OUT')->whereDate('created_at', $today)->sum('quantity'),
+            'movementsTodayCount' => $this->model->newQuery()
+                ->when($branchId, fn ($query) => $query->whereHas('inventory', fn ($inventoryQuery) => $inventoryQuery->where('branch_id', $branchId)))
+                ->whereDate('created_at', $today)
+                ->count(),
+            'itemsInToday' => $this->model->newQuery()
+                ->when($branchId, fn ($query) => $query->whereHas('inventory', fn ($inventoryQuery) => $inventoryQuery->where('branch_id', $branchId)))
+                ->where('type', 'IN')
+                ->whereDate('created_at', $today)
+                ->sum('quantity'),
+            'itemsOutToday' => $this->model->newQuery()
+                ->when($branchId, fn ($query) => $query->whereHas('inventory', fn ($inventoryQuery) => $inventoryQuery->where('branch_id', $branchId)))
+                ->where('type', 'OUT')
+                ->whereDate('created_at', $today)
+                ->sum('quantity'),
         ];
     }
 }
-

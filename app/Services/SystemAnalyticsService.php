@@ -302,7 +302,8 @@ class SystemAnalyticsService
     public function getUserActivityTrends(
         ?Carbon $from = null,
         ?Carbon $to = null,
-        string $groupBy = 'day'
+        string $groupBy = 'day',
+        ?int $branchId = null
     ): array {
         $from = $from ?? Carbon::now()->subDays(30);
         $to = $to ?? Carbon::now();
@@ -316,6 +317,7 @@ class SystemAnalyticsService
                 DB::raw('COUNT(DISTINCT user_id) as unique_users')
             )
             ->whereBetween('audit_events.created_at', [$from, $to])
+            ->when($branchId, fn ($query) => $query->whereHas('user', fn ($userQuery) => $userQuery->where('branch_id', $branchId)))
             ->groupBy('period')
             ->orderBy('period')
             ->get()
@@ -334,7 +336,8 @@ class SystemAnalyticsService
      */
     public function getAuditEventDistribution(
         ?Carbon $from = null,
-        ?Carbon $to = null
+        ?Carbon $to = null,
+        ?int $branchId = null
     ): array {
         $from = $from ?? Carbon::now()->subDays(30);
         $to = $to ?? Carbon::now();
@@ -342,6 +345,7 @@ class SystemAnalyticsService
         $byAction = AuditEvent::query()
             ->select('action', DB::raw('COUNT(*) as count'))
             ->whereBetween('created_at', [$from, $to])
+            ->when($branchId, fn ($query) => $query->whereHas('user', fn ($userQuery) => $userQuery->where('branch_id', $branchId)))
             ->groupBy('action')
             ->orderBy('count', 'desc')
             ->get()
@@ -350,6 +354,7 @@ class SystemAnalyticsService
         $byEntity = AuditEvent::query()
             ->select('entity_type', DB::raw('COUNT(*) as count'))
             ->whereBetween('created_at', [$from, $to])
+            ->when($branchId, fn ($query) => $query->whereHas('user', fn ($userQuery) => $userQuery->where('branch_id', $branchId)))
             ->groupBy('entity_type')
             ->orderBy('count', 'desc')
             ->get()
@@ -432,7 +437,9 @@ class SystemAnalyticsService
      */
     public function getSystemOverview(?int $branchId = null): array
     {
-        $totalProducts = Product::where('is_archived', false)->count();
+        $totalProducts = $branchId
+            ? Inventory::where('is_archived', false)->where('branch_id', $branchId)->distinct('product_id')->count('product_id')
+            : Product::where('is_archived', false)->count();
         $totalBatches = Inventory::where('is_archived', false)
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->count();
@@ -463,9 +470,15 @@ class SystemAnalyticsService
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
             ->count();
 
-        $todayMovements = ProductMovement::whereDate('created_at', Carbon::today())->count();
+        $todayMovements = ProductMovement::query()
+            ->whereDate('created_at', Carbon::today())
+            ->when($branchId, fn ($query) => $query->whereHas('inventory', fn ($inventoryQuery) => $inventoryQuery->where('branch_id', $branchId)))
+            ->count();
 
-        $recentAuditCount = AuditEvent::where('created_at', '>=', Carbon::now()->subDay())->count();
+        $recentAuditCount = AuditEvent::query()
+            ->where('created_at', '>=', Carbon::now()->subDay())
+            ->when($branchId, fn ($query) => $query->whereHas('user', fn ($userQuery) => $userQuery->where('branch_id', $branchId)))
+            ->count();
 
         return [
             'total_products' => $totalProducts,

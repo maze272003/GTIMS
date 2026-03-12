@@ -11,12 +11,12 @@ interface SupplierRepositoryInterface extends RepositoryInterface
     /**
      * Get all suppliers with linked inventory count, paginated.
      */
-    public function paginateWithProductCount(int $perPage = 20): LengthAwarePaginator;
+    public function paginateWithProductCount(int $perPage = 20, ?array $branchIds = null): LengthAwarePaginator;
 
     /**
      * Get a supplier with its linked inventory batches loaded.
      */
-    public function findWithInventoryLinks(int $id): Supplier;
+    public function findWithInventoryLinks(int $id, ?array $branchIds = null): Supplier;
 
     /**
      * Link an inventory batch to a supplier.

@@ -16,7 +16,8 @@ use Illuminate\Validation\Rule;
 class InventoryAdminService
 {
     public function __construct(
-        protected InventoryAdminRepositoryInterface $inventoryAdminRepository
+        protected InventoryAdminRepositoryInterface $inventoryAdminRepository,
+        protected BranchAccessService $branchAccessService
     ) {
     }
 
@@ -25,6 +26,8 @@ class InventoryAdminService
 
 public function showinventory(Request $request)
 {
+    $user = $request->user();
+    $visibleBranchIds = $this->branchAccessService->accessibleBranchIds($user);
     $focusInventoryId = $request->integer('focus_inventory_id');
     $focusedInventory = null;
     $focusBranch = null;
@@ -33,6 +36,7 @@ public function showinventory(Request $request)
         $focusedInventory = $this->inventoryAdminRepository->getFocusInventoryWithProduct($focusInventoryId);
 
         if ($focusedInventory) {
+            $this->branchAccessService->authorizeBranchAccess($user, $focusedInventory->branch_id, 'view inventory from another branch');
             $focusBranch = (int) $focusedInventory->branch_id;
             $focusSearchKey = 'search_branch_' . $focusBranch;
 
@@ -47,8 +51,8 @@ public function showinventory(Request $request)
     // 1. Common Data
     $products = $this->inventoryAdminRepository->getActiveProducts();
     $archiveproducts = $this->inventoryAdminRepository->getArchivedProducts();
-    $branches = $this->inventoryAdminRepository->getSupportedBranches();
-    $inventorycount = $this->inventoryAdminRepository->getActiveInventories(); // Count all active
+    $branches = $this->inventoryAdminRepository->getSupportedBranches($visibleBranchIds);
+    $inventorycount = $this->inventoryAdminRepository->getActiveInventories($visibleBranchIds);
 
     $branchInventories = [];
 
@@ -127,8 +131,9 @@ public function showinventory(Request $request)
         ]);
 
         $productId = $request->input('product_id');
+        $visibleBranchIds = $this->branchAccessService->accessibleBranchIds($request->user());
 
-        $archivedstocks = $this->inventoryAdminRepository->paginateArchivedStocksByProduct((int) $productId, 20);
+        $archivedstocks = $this->inventoryAdminRepository->paginateArchivedStocksByProduct((int) $productId, $visibleBranchIds, 20);
 
         $html = '';
         if ($archivedstocks->isEmpty() && $request->page == 1) {
@@ -316,6 +321,8 @@ public function showinventory(Request $request)
             'expiry.required'=> 'Expiry date is required.',
         ]);
 
+        $validated['branch_id'] = $this->branchAccessService->resolveBranchFilter($request->user(), $validated['branch_id']);
+
         $branchName = $this->inventoryAdminRepository->findBranchName((int) $validated['branch_id']) ?? ('Branch #' . $validated['branch_id']);
 
         $existingStock = $this->inventoryAdminRepository->findExistingStock(
@@ -425,6 +432,7 @@ public function showinventory(Request $request)
         ]);
 
         $inventory = $this->inventoryAdminRepository->findInventoryWithProductOrFail((int) $validated['inventory_id']);
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $inventory->branch_id, 'edit inventory from another branch');
 
         // capture old values for logging
         $old = $inventory->only(['batch_number', 'quantity', 'expiry_date']);
@@ -487,7 +495,9 @@ public function showinventory(Request $request)
         ]);
 
         $sourceInventory = $this->inventoryAdminRepository->findInventoryWithProductOrFail((int) $request->inventory_id);
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $sourceInventory->branch_id, 'transfer stock from another branch');
         $destinationBranchId = (int) $request->destination_branch;
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $destinationBranchId, 'transfer stock into another branch');
 
         if ((int) $sourceInventory->branch_id === $destinationBranchId) {
             return back()->with('error', 'Destination branch must be different from source branch.');

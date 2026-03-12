@@ -14,18 +14,22 @@ class SupplierRepository extends BaseRepository implements SupplierRepositoryInt
         parent::__construct($model);
     }
 
-    public function paginateWithProductCount(int $perPage = 20): LengthAwarePaginator
+    public function paginateWithProductCount(int $perPage = 20, ?array $branchIds = null): LengthAwarePaginator
     {
         return $this->model
-            ->withCount(['supplierProducts as products_count'])
+            ->withCount([
+                'supplierProducts as products_count' => fn ($query) => $query
+                    ->when($branchIds !== null, fn ($supplierProductQuery) => $supplierProductQuery->whereHas('inventory', fn ($inventoryQuery) => $inventoryQuery->whereIn('branch_id', $branchIds))),
+            ])
             ->paginate($perPage);
     }
 
-    public function findWithInventoryLinks(int $id): Supplier
+    public function findWithInventoryLinks(int $id, ?array $branchIds = null): Supplier
     {
         return $this->model
             ->with([
                 'supplierProducts' => fn ($query) => $query
+                    ->when($branchIds !== null, fn ($supplierProductQuery) => $supplierProductQuery->whereHas('inventory', fn ($inventoryQuery) => $inventoryQuery->whereIn('branch_id', $branchIds)))
                     ->with(['inventory.product', 'inventory.branch'])
                     ->latest('id'),
             ])

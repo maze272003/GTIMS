@@ -31,19 +31,21 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
         return Product::where('is_archived', 1)->get();
     }
 
-    public function getSupportedBranches(): Collection
+    public function getSupportedBranches(?array $branchIds = null): Collection
     {
         return Branch::query()
             ->active()
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('id', $branchIds))
             ->orderBy('name')
             ->get();
     }
 
-    public function getActiveInventories(): Collection
+    public function getActiveInventories(?array $branchIds = null): Collection
     {
         return Inventory::query()
             ->where('is_archived', '!=', 1)
             ->whereHas('branch', fn($query) => $query->where('is_archived', false))
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('branch_id', $branchIds))
             ->get();
     }
 
@@ -52,10 +54,11 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
         return Inventory::where('branch_id', $branchId)->where('is_archived', '!=', 1);
     }
 
-    public function paginateArchivedStocksByProduct(int $productId, int $perPage = 20): LengthAwarePaginator
+    public function paginateArchivedStocksByProduct(int $productId, ?array $branchIds = null, int $perPage = 20): LengthAwarePaginator
     {
         return Inventory::where('is_archived', 1)
             ->where('product_id', $productId)
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('branch_id', $branchIds))
             ->orderBy('expiry_date', 'desc')
             ->paginate($perPage);
     }

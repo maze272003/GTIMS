@@ -17,11 +17,12 @@ class AnalyticsService
         $this->availabilityService = $availabilityService;
     }
 
-    public function getRequestSLAMetrics(?\Carbon\Carbon $from = null, ?\Carbon\Carbon $to = null): array
+    public function getRequestSLAMetrics(?\Carbon\Carbon $from = null, ?\Carbon\Carbon $to = null, ?int $branchId = null): array
     {
         $query = IncomingRequest::query();
         if ($from) $query->where('created_at', '>=', $from);
         if ($to) $query->where('created_at', '<=', $to);
+        if ($branchId) $query->where('branch_id', $branchId);
 
         $requests = $query->with('statusHistory')->get();
 

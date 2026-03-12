@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\BranchAccessService;
 use App\Services\SystemAnalyticsService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -12,8 +13,10 @@ class SystemAnalyticsController extends Controller
 {
     protected SystemAnalyticsService $service;
 
-    public function __construct(SystemAnalyticsService $service)
-    {
+    public function __construct(
+        SystemAnalyticsService $service,
+        protected BranchAccessService $branchAccessService
+    ) {
         $this->service = $service;
     }
 
@@ -29,10 +32,16 @@ class SystemAnalyticsController extends Controller
             'group_by' => 'nullable|in:day,week,month',
         ]);
 
+        $branchId = $this->branchAccessService->resolveBranchFilter(
+            $request->user(),
+            $validated['branch_id'] ?? null,
+            defaultToUserBranch: true
+        );
+
         return [
             'from' => isset($validated['from']) ? Carbon::parse($validated['from']) : null,
             'to' => isset($validated['to']) ? Carbon::parse($validated['to']) : null,
-            'branch_id' => $validated['branch_id'] ?? null,
+            'branch_id' => $branchId,
             'group_by' => $validated['group_by'] ?? 'day',
         ];
     }
@@ -40,9 +49,10 @@ class SystemAnalyticsController extends Controller
     public function overview(Request $request): JsonResponse
     {
         $request->validate(['branch_id' => 'nullable|integer']);
+        $branchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->input('branch_id'), defaultToUserBranch: true);
 
         return response()->json(
-            $this->service->getSystemOverview($request->integer('branch_id') ?: null)
+            $this->service->getSystemOverview($branchId)
         );
     }
 
@@ -63,10 +73,11 @@ class SystemAnalyticsController extends Controller
     public function stockLevelDistribution(Request $request): JsonResponse
     {
         $request->validate(['branch_id' => 'nullable|integer']);
+        $branchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->input('branch_id'), defaultToUserBranch: true);
 
         return response()->json([
             'distribution' => $this->service->getStockLevelDistribution(
-                $request->integer('branch_id') ?: null
+                $branchId
             ),
         ]);
     }
@@ -74,10 +85,11 @@ class SystemAnalyticsController extends Controller
     public function expiryTracking(Request $request): JsonResponse
     {
         $request->validate(['branch_id' => 'nullable|integer']);
+        $branchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->input('branch_id'), defaultToUserBranch: true);
 
         return response()->json(
             $this->service->getExpiryTracking(
-                $request->integer('branch_id') ?: null
+                $branchId
             )
         );
     }
@@ -85,10 +97,11 @@ class SystemAnalyticsController extends Controller
     public function requestStatusDistribution(Request $request): JsonResponse
     {
         $request->validate(['branch_id' => 'nullable|integer']);
+        $branchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->input('branch_id'), defaultToUserBranch: true);
 
         return response()->json(
             $this->service->getRequestStatusDistribution(
-                $request->integer('branch_id') ?: null
+                $branchId
             )
         );
     }
@@ -110,10 +123,11 @@ class SystemAnalyticsController extends Controller
     public function holdAnalytics(Request $request): JsonResponse
     {
         $request->validate(['branch_id' => 'nullable|integer']);
+        $branchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->input('branch_id'), defaultToUserBranch: true);
 
         return response()->json(
             $this->service->getHoldAnalytics(
-                $request->integer('branch_id') ?: null
+                $branchId
             )
         );
     }
@@ -126,7 +140,8 @@ class SystemAnalyticsController extends Controller
             $this->service->getUserActivityTrends(
                 $filters['from'],
                 $filters['to'],
-                $filters['group_by']
+                $filters['group_by'],
+                $filters['branch_id']
             )
         );
     }
@@ -138,7 +153,8 @@ class SystemAnalyticsController extends Controller
         return response()->json(
             $this->service->getAuditEventDistribution(
                 $filters['from'],
-                $filters['to']
+                $filters['to'],
+                $filters['branch_id']
             )
         );
     }

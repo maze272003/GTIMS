@@ -44,11 +44,12 @@ class HoldRepository extends BaseRepository implements HoldRepositoryInterface
         ])->findOrFail($id);
     }
 
-    public function getAvailableBatches(): Collection
+    public function getAvailableBatches(?array $branchIds = null): Collection
     {
         return Inventory::query()
             ->whereRaw('COALESCE(onhand_qty, quantity) > 0')
             ->whereHas('branch', fn($query) => $query->where('is_archived', false))
+            ->when($branchIds !== null, fn ($query) => $query->whereIn('branch_id', $branchIds))
             ->withSum([
                 'holdItems as held_quantity' => function ($query) {
                     $query->whereHas('hold', function ($holdQuery) {

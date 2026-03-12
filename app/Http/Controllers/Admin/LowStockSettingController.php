@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\Branch;
 use App\Models\Inventory;
 use App\Services\AnalyticsService;
+use App\Services\BranchAccessService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -15,12 +16,20 @@ use Illuminate\Validation\Rule;
 
 class LowStockSettingController extends Controller
 {
-    public function __construct(private AnalyticsService $analyticsService) {}
+    public function __construct(
+        private AnalyticsService $analyticsService,
+        private BranchAccessService $branchAccessService
+    ) {}
 
     public function index(Request $request)
     {
-        $alertBranchId = $request->integer('alert_branch_id')
-            ?: $request->integer('branch_id');
+        $user = $request->user();
+        $accessibleBranchIds = $this->branchAccessService->accessibleBranchIds($user);
+        $alertBranchId = $this->branchAccessService->resolveBranchFilter(
+            $user,
+            $request->integer('alert_branch_id') ?: $request->integer('branch_id'),
+            defaultToUserBranch: true
+        );
         $alertProductId = $request->integer('alert_product_id');
         $alertBatchId = $request->integer('alert_batch_id');
         $alertSearch = trim((string) $request->input('alert_search', ''));
@@ -31,6 +40,7 @@ class LowStockSettingController extends Controller
         $branchDefaults = LowStockSetting::where('is_global', false)
             ->whereNull('product_id')
             ->whereNotNull('branch_id')
+            ->whereIn('branch_id', $accessibleBranchIds)
             ->with('branch')
             ->orderBy('branch_id')
             ->get();
@@ -38,6 +48,13 @@ class LowStockSettingController extends Controller
         // Overrides: product_id NOT NULL (with or without branch)
         $overrides = LowStockSetting::where('is_global', false)
             ->whereNotNull('product_id')
+            ->when(
+                !$this->branchAccessService->canAccessAllBranches($user),
+                fn ($query) => $query->where(function ($nestedQuery) use ($accessibleBranchIds) {
+                    $nestedQuery->whereNull('branch_id')
+                        ->orWhereIn('branch_id', $accessibleBranchIds);
+                })
+            )
             ->with(['product', 'branch'])
             ->orderByDesc('updated_at')
             ->paginate(20, ['*'], 'overrides_page')
@@ -50,10 +67,7 @@ class LowStockSettingController extends Controller
             ->get();
 
         // Branches: avoid unknown column errors (don’t assume "name" exists)
-        $branches = Branch::query()
-            ->active()
-            ->orderBy('name')
-            ->get();
+        $branches = $this->branchAccessService->visibleBranches($user);
 
         $globalThreshold = $globalSetting?->threshold ?? 100;
 
@@ -110,7 +124,11 @@ class LowStockSettingController extends Controller
             'product_id' => 'nullable|exists:products,id',
         ]);
 
-        $branchId = isset($validated['branch_id']) ? (int) $validated['branch_id'] : null;
+        $branchId = $this->branchAccessService->resolveBranchFilter(
+            $request->user(),
+            $validated['branch_id'] ?? null,
+            defaultToUserBranch: true
+        );
         $productId = isset($validated['product_id']) ? (int) $validated['product_id'] : null;
         $availableExpr = 'COALESCE(onhand_qty, quantity) - COALESCE(hold_qty, 0)';
 
@@ -167,6 +185,8 @@ class LowStockSettingController extends Controller
 
     public function updateGlobal(Request $request)
     {
+        $this->branchAccessService->authorizeGlobalBranchAccess($request->user(), 'update global low stock settings');
+
         $validated = $request->validate([
             'threshold' => 'required|integer|min:1',
         ]);
@@ -193,6 +213,8 @@ class LowStockSettingController extends Controller
             'threshold' => 'required|integer|min:1',
         ]);
 
+        $validated['branch_id'] = $this->branchAccessService->resolveBranchFilter($request->user(), $validated['branch_id']);
+
         LowStockSetting::updateOrCreate(
             [
                 'is_global' => false,
@@ -216,11 +238,21 @@ class LowStockSettingController extends Controller
             'threshold'  => 'required|integer|min:1',
         ]);
 
+        if (empty($validated['branch_id'])) {
+            if ($this->branchAccessService->canAccessAllBranches($request->user())) {
+                $validated['branch_id'] = null;
+            } else {
+                $validated['branch_id'] = $this->branchAccessService->resolveBranchFilter($request->user(), null);
+            }
+        } else {
+            $validated['branch_id'] = $this->branchAccessService->resolveBranchFilter($request->user(), $validated['branch_id']);
+        }
+
         LowStockSetting::updateOrCreate(
             [
                 'is_global'  => false,
                 'product_id' => $validated['product_id'],
-                'branch_id'  => $validated['branch_id'] ?? null, // null = all branches
+                'branch_id'  => $validated['branch_id'] ?? null,
             ],
             ['threshold' => $validated['threshold']]
         );
@@ -230,6 +262,12 @@ class LowStockSettingController extends Controller
 
     public function destroyOverride(LowStockSetting $setting)
     {
+        if (is_null($setting->branch_id)) {
+            $this->branchAccessService->authorizeGlobalBranchAccess(request()->user(), 'remove an all-branch low stock override');
+        } else {
+            $this->branchAccessService->authorizeBranchAccess(request()->user(), $setting->branch_id, 'remove another branch\'s low stock override');
+        }
+
         if ($setting->is_global) {
             return back()->with('error', 'Cannot delete global setting.');
         }

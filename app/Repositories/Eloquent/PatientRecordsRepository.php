@@ -20,12 +20,13 @@ class PatientRecordsRepository implements PatientRecordsRepositoryInterface
         return Patientrecords::query();
     }
 
-    public function getActiveInventoriesWithProduct(): Collection
+    public function getActiveInventoriesWithProduct(?array $branchIds = null): Collection
     {
         return Inventory::query()
             ->with('product')
             ->where('is_archived', 0)
             ->whereHas('branch', fn($query) => $query->where('is_archived', false))
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('branch_id', $branchIds))
             ->latest()
             ->get();
     }
@@ -35,10 +36,11 @@ class PatientRecordsRepository implements PatientRecordsRepositoryInterface
         return Barangay::all();
     }
 
-    public function getAllBranches(): Collection
+    public function getAllBranches(?array $branchIds = null): Collection
     {
         return Branch::query()
             ->active()
+            ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('id', $branchIds))
             ->orderBy('name')
             ->get();
     }

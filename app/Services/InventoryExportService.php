@@ -11,12 +11,14 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 class InventoryExportService
 {
     public function __construct(
-        protected HistoryLogRepositoryInterface $historyLogRepository
+        protected HistoryLogRepositoryInterface $historyLogRepository,
+        protected BranchAccessService $branchAccessService
     ) {
     }
 
     public function export(int|string $branch, ?string $filter = null, ?string $search = null): BinaryFileResponse
     {
+        $branch = $this->branchAccessService->resolveBranchFilter(auth()->user(), $branch);
         $branchModel = Branch::query()->findOrFail((int) $branch);
         $branchSlug = $branchModel->code ?: 'branch-'.$branchModel->id;
         $fileName = 'inventory_' . $branchSlug . '_' . now()->format('Y-m-d_His') . '.xlsx';

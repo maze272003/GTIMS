@@ -16,16 +16,23 @@ class InventoryControllerTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function createAdminUser(): User
+    private function createAdminUser(bool $withGlobalBranchAccess = false): User
     {
         $level = UserLevel::firstOrCreate(['name' => 'admin']);
         $branch = Branch::firstOrCreate(['name' => 'RHU 1'], ['code' => 'rhu-1']);
         Branch::firstOrCreate(['name' => 'RHU 2'], ['code' => 'rhu-2']);
 
-        $perms = collect([
+        $permissionNames = [
             'inventory.view', 'inventory.add', 'inventory.edit',
             'inventory.archive', 'inventory.transfer', 'dashboard.view',
-        ])->map(fn ($name) => Permission::firstOrCreate(['name' => $name], ['group' => 'test']));
+        ];
+
+        if ($withGlobalBranchAccess) {
+            $permissionNames[] = 'branches.manage';
+        }
+
+        $perms = collect($permissionNames)
+            ->map(fn ($name) => Permission::firstOrCreate(['name' => $name], ['group' => 'test']));
         $level->permissions()->syncWithoutDetaching($perms->pluck('id'));
 
         return User::factory()->create([
@@ -174,7 +181,7 @@ class InventoryControllerTest extends TestCase
      */
     public function test_transfer_stock_creates_two_movements()
     {
-        $user = $this->createAdminUser();
+        $user = $this->createAdminUser(true);
         $product = Product::factory()->create();
         
         // Source: RHU 1 has 50 items

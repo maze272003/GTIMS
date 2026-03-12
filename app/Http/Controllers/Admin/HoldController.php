@@ -7,8 +7,10 @@ use App\Http\Requests\Admin\StoreHoldRequest;
 use App\Models\Branch;
 use App\Models\Barangay;
 use App\Models\Hold;
+use App\Models\Inventory;
 use App\Repositories\Interfaces\HoldRepositoryInterface;
 use App\Repositories\Interfaces\ProductRepositoryInterface;
+use App\Services\BranchAccessService;
 use App\Services\HoldService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -19,20 +21,23 @@ class HoldController extends Controller
     public function __construct(
         protected HoldService $holdService,
         protected HoldRepositoryInterface $holdRepository,
-        protected ProductRepositoryInterface $productRepository
+        protected ProductRepositoryInterface $productRepository,
+        protected BranchAccessService $branchAccessService
     ) {
     }
 
     public function index(Request $request)
     {
+        $branchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->branch_id, defaultToUserBranch: true);
+
         $holds = $this->holdRepository->paginateWithFilters(
             $request->status,
             $request->type,
-            $request->branch_id ? (int) $request->branch_id : null,
+            $branchId,
             20
         );
 
-        $branches = Branch::query()->active()->orderBy('name')->get();
+        $branches = $this->branchAccessService->visibleBranches($request->user());
 
         return view('admin.holds.index', compact('holds', 'branches'));
     }
@@ -40,9 +45,9 @@ class HoldController extends Controller
     public function create()
     {
         $products = $this->productRepository->getActive();
-        $branches = Branch::query()->active()->orderBy('name')->get();
+        $branches = $this->branchAccessService->visibleBranches(Auth::user());
         $barangays = Barangay::orderBy('barangay_name')->get();
-        $batches = $this->holdRepository->getAvailableBatches();
+        $batches = $this->holdRepository->getAvailableBatches($this->branchAccessService->accessibleBranchIds(Auth::user()));
 
         return view('admin.holds.create', compact('products', 'branches', 'barangays', 'batches'));
     }
@@ -50,6 +55,7 @@ class HoldController extends Controller
     public function store(StoreHoldRequest $request)
     {
         $validated = $request->validated();
+        $validated['branch_id'] = $this->branchAccessService->resolveBranchFilter($request->user(), $validated['branch_id']);
 
         try {
             $this->holdService->createHold(
@@ -68,6 +74,7 @@ class HoldController extends Controller
 
     public function show(Hold $hold)
     {
+        $this->branchAccessService->authorizeBranchAccess(Auth::user(), $hold->branch_id, 'view holds from another branch');
         $hold->load([
             'branch',
             'barangay',
@@ -84,6 +91,8 @@ class HoldController extends Controller
 
     public function approve(Hold $hold)
     {
+        $this->branchAccessService->authorizeBranchAccess(Auth::user(), $hold->branch_id, 'approve holds from another branch');
+
         if ($hold->status !== 'pending') {
             return back()->with('error', 'Hold can only be approved when pending.');
         }
@@ -95,6 +104,8 @@ class HoldController extends Controller
 
     public function release(Request $request, Hold $hold)
     {
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $hold->branch_id, 'release holds from another branch');
+
         if (!in_array($hold->status, ['pending', 'approved'], true)) {
             return back()->with('error', 'Hold can only be released when pending or approved.');
         }
@@ -114,6 +125,8 @@ class HoldController extends Controller
 
     public function cancel(Request $request, Hold $hold)
     {
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $hold->branch_id, 'cancel holds from another branch');
+
         if (!in_array($hold->status, ['pending', 'approved'], true)) {
             return back()->with('error', 'Hold can only be cancelled when pending or approved.');
         }
@@ -140,6 +153,9 @@ class HoldController extends Controller
             'reference_no' => 'nullable|string|max:100',
             'override_held' => 'nullable|boolean',
         ]);
+
+        $inventory = Inventory::query()->findOrFail((int) $validated['inventory_id']);
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $inventory->branch_id, 'pull out stock from another branch');
 
         try {
             $this->holdService->pullOutInventory(

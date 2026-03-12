@@ -5,9 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\IncomingRequest;
 use App\Models\Product;
-use App\Models\Branch;
 use App\Models\RequestComment;
 use App\Models\RequestAttachment;
+use App\Services\BranchAccessService;
 use App\Services\RequestWorkflowService;
 use App\Services\SubstitutionService;
 use App\Services\AvailabilityService;
@@ -19,15 +19,18 @@ use Illuminate\Validation\ValidationException;
 
 class IncomingRequestController extends Controller
 {
+    protected BranchAccessService $branchAccessService;
     protected RequestWorkflowService $workflowService;
     protected SubstitutionService $substitutionService;
     protected AvailabilityService $availabilityService;
 
     public function __construct(
+        BranchAccessService $branchAccessService,
         RequestWorkflowService $workflowService,
         SubstitutionService $substitutionService,
         AvailabilityService $availabilityService
     ) {
+        $this->branchAccessService = $branchAccessService;
         $this->workflowService = $workflowService;
         $this->substitutionService = $substitutionService;
         $this->availabilityService = $availabilityService;
@@ -35,14 +38,16 @@ class IncomingRequestController extends Controller
 
     public function index(Request $request)
     {
+        $branchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->branch_id, defaultToUserBranch: true);
+
         $requests = IncomingRequest::with(['branch', 'requester', 'items.product'])
             ->when($request->status, fn($q, $s) => $q->where('status', $s))
             ->when($request->priority, fn($q, $p) => $q->where('priority', $p))
-            ->when($request->branch_id, fn($q, $b) => $q->where('branch_id', $b))
+            ->when($branchId, fn($q, $b) => $q->where('branch_id', $b))
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        $branches = Branch::query()->active()->orderBy('name')->get();
+        $branches = $this->branchAccessService->visibleBranches($request->user());
 
         return view('admin.requests.index', compact('requests', 'branches'));
     }
@@ -50,7 +55,7 @@ class IncomingRequestController extends Controller
     public function create()
     {
         $products = Product::where('is_archived', false)->get();
-        $branches = Branch::query()->active()->orderBy('name')->get();
+        $branches = $this->branchAccessService->visibleBranches(Auth::user());
         return view('admin.requests.create', compact('products', 'branches'));
     }
 
@@ -71,6 +76,8 @@ class IncomingRequestController extends Controller
             'items.*.quantity' => 'nullable|integer|min:1',
             'items.*.allow_substitution' => 'sometimes|boolean',
         ]);
+
+        $validated['branch_id'] = $this->branchAccessService->resolveBranchFilter($request->user(), $validated['branch_id']);
 
         $normalizedItems = collect($validated['items'])->values()->map(function (array $item, int $index): array {
             $quantityRequested = $item['quantity_requested'] ?? $item['quantity'] ?? null;
@@ -100,6 +107,7 @@ class IncomingRequestController extends Controller
 
     public function show(IncomingRequest $incomingRequest)
     {
+        $this->branchAccessService->authorizeBranchAccess(Auth::user(), $incomingRequest->branch_id, 'view requests from another branch');
         $incomingRequest->load([
             'branch', 'requester', 'items.product', 'items.substitutedProduct',
             'comments.user', 'attachments.user', 'statusHistory.changer',
@@ -122,6 +130,8 @@ class IncomingRequestController extends Controller
 
     public function transition(Request $request, IncomingRequest $incomingRequest)
     {
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $incomingRequest->branch_id, 'update requests from another branch');
+
         $validated = $request->validate([
             'status' => 'required|string',
             'reason' => 'nullable|string',
@@ -143,6 +153,8 @@ class IncomingRequestController extends Controller
 
     public function fulfill(IncomingRequest $incomingRequest)
     {
+        $this->branchAccessService->authorizeBranchAccess(Auth::user(), $incomingRequest->branch_id, 'fulfill requests from another branch');
+
         try {
             $this->workflowService->fulfillRequest(
                 $incomingRequest,
@@ -157,6 +169,8 @@ class IncomingRequestController extends Controller
 
     public function addComment(Request $request, IncomingRequest $incomingRequest)
     {
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $incomingRequest->branch_id, 'comment on requests from another branch');
+
         $validated = $request->validate([
             'comment' => 'required|string|max:1000',
         ]);
@@ -172,6 +186,8 @@ class IncomingRequestController extends Controller
 
     public function addAttachment(Request $request, IncomingRequest $incomingRequest)
     {
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $incomingRequest->branch_id, 'attach files to requests from another branch');
+
         $validated = $request->validate([
             'attachment' => 'required|file|max:10240|mimes:pdf,doc,docx,jpg,jpeg,png,xlsx,xls,csv',
         ]);

@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Branch;
 use App\Models\IncomingRequest;
+use App\Models\Permission;
 use App\Models\Product;
 use App\Models\RequestItem;
 use App\Models\User;
@@ -23,6 +24,11 @@ class IncomingRequestControllerTest extends TestCase
         parent::setUp();
 
         $level = UserLevel::create(['name' => 'Admin']);
+        $level->permissions()->sync(
+            collect(['requests.view', 'requests.create'])
+                ->map(fn (string $name) => Permission::firstOrCreate(['name' => $name], ['group' => 'Test', 'description' => $name])->id)
+                ->all()
+        );
         $this->branch = Branch::factory()->create([
             'name' => 'RHU 1',
             'code' => 'rhu-1',

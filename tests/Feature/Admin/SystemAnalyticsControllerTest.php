@@ -41,7 +41,7 @@ class SystemAnalyticsControllerTest extends TestCase
         // Set up permissions so the user can access admin routes
         $permissions = [
             'dashboard.view',
-            'analytics.view',
+            'reports.view',
         ];
         foreach ($permissions as $perm) {
             $p = Permission::firstOrCreate(['name' => $perm]);

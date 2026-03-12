@@ -27,7 +27,8 @@ class DashboardAdminService
     public function __construct(
         protected DashboardRepositoryInterface $dashboardRepository,
         protected SystemAnalyticsService $systemAnalyticsService,
-        protected AnalyticsService $analyticsService
+        protected AnalyticsService $analyticsService,
+        protected BranchAccessService $branchAccessService
     ) {
     }
     /**
@@ -35,7 +36,9 @@ class DashboardAdminService
      */
 // Add | RedirectResponse to the end
 public function showdashboard(Request $request): View | JsonResponse | RedirectResponse    {
-        if (!\Illuminate\Support\Facades\Auth::user()->hasPermission('dashboard.view')) {
+        $user = \Illuminate\Support\Facades\Auth::user();
+
+        if (!$user->hasPermission('dashboard.view')) {
         return redirect()->route('admin.orders.index');
 
     }
@@ -61,7 +64,12 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
 
         $timespan = $inputs['filter_timespan'] ?? '30d';
         $filter_barangay = $inputs['filter_barangay'] ?? null;
-        $filter_branch = $inputs['filter_branch'] ?? null; // <--- ASSIGN VARIABLE
+        $filter_branch = $this->branchAccessService->resolveBranchFilter(
+            $user,
+            $inputs['filter_branch'] ?? null,
+            defaultToUserBranch: true
+        );
+        $inputs['filter_branch'] = $filter_branch;
         $filter_product_id = $inputs['filter_product_id'] ?? null;
         $forecast_days = $inputs['forecast_days'] ?? 90;
         $grouping = $inputs['grouping'] ?? 'day';
@@ -438,6 +446,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
 
         // Load all branches for the dropdown
         $filter_branches = Branch::query()
+            ->whereIn('id', $this->branchAccessService->accessibleBranchIds($user))
             ->active()
             ->orderBy('name')
             ->get();

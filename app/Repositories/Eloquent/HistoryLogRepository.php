@@ -16,7 +16,7 @@ class HistoryLogRepository extends BaseRepository implements HistoryLogRepositor
         parent::__construct($model);
     }
 
-    public function paginateWithFilters(array $filters, int $perPage = 20): LengthAwarePaginator
+    public function paginateWithFilters(array $filters, int $perPage = 20, ?int $branchId = null): LengthAwarePaginator
     {
         $search = (string) ($filters['search'] ?? '');
         $action = (string) ($filters['action'] ?? '');
@@ -26,6 +26,8 @@ class HistoryLogRepository extends BaseRepository implements HistoryLogRepositor
         $sort = strtolower((string) ($filters['sort'] ?? 'desc')) === 'asc' ? 'asc' : 'desc';
 
         $query = $this->model->newQuery()->orderBy('created_at', $sort);
+
+        $this->applyBranchScope($query, $branchId);
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
@@ -64,13 +66,39 @@ class HistoryLogRepository extends BaseRepository implements HistoryLogRepositor
         return $query->paginate($perPage);
     }
 
-    public function getDistinctActions(): Collection
+    public function getDistinctActions(?int $branchId = null): Collection
     {
-        return $this->model->newQuery()->select('action')->distinct()->pluck('action');
+        $query = $this->model->newQuery()->select('action')->distinct();
+        $this->applyBranchScope($query, $branchId);
+
+        return $query->pluck('action');
     }
 
-    public function getDistinctUsers(): Collection
+    public function getDistinctUsers(?int $branchId = null): Collection
     {
-        return $this->model->newQuery()->select('user_name')->distinct()->pluck('user_name');
+        $query = $this->model->newQuery()->select('user_name')->distinct();
+        $this->applyBranchScope($query, $branchId);
+
+        return $query->pluck('user_name');
+    }
+
+    private function applyBranchScope($query, ?int $branchId): void
+    {
+        if (!$branchId) {
+            return;
+        }
+
+        $driver = DB::connection()->getDriverName();
+
+        $query->where(function ($branchQuery) use ($branchId, $driver) {
+            $branchQuery->whereHas('user', fn ($userQuery) => $userQuery->where('branch_id', $branchId));
+
+            if ($driver === 'sqlite') {
+                $branchQuery->orWhereRaw("json_extract(metadata, '$.branch_id') = ?", [$branchId]);
+                return;
+            }
+
+            $branchQuery->orWhere('metadata->branch_id', $branchId);
+        });
     }
 }

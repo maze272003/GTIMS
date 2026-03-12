@@ -25,5 +25,5 @@ interface HoldRepositoryInterface extends RepositoryInterface
     /**
      * Get available inventory batches with held quantity calculations.
      */
-    public function getAvailableBatches(): Collection;
+    public function getAvailableBatches(?array $branchIds = null): Collection;
 }

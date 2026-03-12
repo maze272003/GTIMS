@@ -30,7 +30,8 @@ class SuppliersExport implements
     WithEvents
 {
     public function __construct(
-        protected $user
+        protected $user,
+        protected ?array $branchIds = null
     ) {
     }
 
@@ -68,10 +69,14 @@ class SuppliersExport implements
         return Supplier::query()
             ->with([
                 'supplierProducts' => fn ($query) => $query
+                    ->when($this->branchIds !== null, fn ($supplierProductQuery) => $supplierProductQuery->whereHas('inventory', fn ($inventoryQuery) => $inventoryQuery->whereIn('branch_id', $this->branchIds)))
                     ->with(['inventory.product', 'inventory.branch'])
                     ->orderBy('id'),
             ])
-            ->withCount(['supplierProducts as linked_batches_count'])
+            ->withCount([
+                'supplierProducts as linked_batches_count' => fn ($query) => $query
+                    ->when($this->branchIds !== null, fn ($supplierProductQuery) => $supplierProductQuery->whereHas('inventory', fn ($inventoryQuery) => $inventoryQuery->whereIn('branch_id', $this->branchIds))),
+            ])
             ->orderBy('name')
             ->get();
     }
