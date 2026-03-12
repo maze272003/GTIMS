@@ -25,6 +25,7 @@ class User extends Authenticatable
         'otp_expires_at', // Idagdag ito
         'branch_id',
         'user_level_id',
+        'uses_custom_permissions',
     ];
 
     /**
@@ -46,7 +47,9 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'otp_expires_at' => 'datetime',
             'password' => 'hashed',
+            'uses_custom_permissions' => 'boolean',
         ];
     }
 
@@ -66,17 +69,70 @@ class User extends Authenticatable
         return $this->belongsTo(Branch::class);
     }
 
-    public function hasPermission(string $permissionName): bool
+    public function permissions()
     {
-        if (!$this->level) {
-            return false;
+        return $this->belongsToMany(Permission::class, 'user_permissions')->withTimestamps();
+    }
+
+    public function getEffectivePermissions()
+    {
+        if ($this->uses_custom_permissions) {
+            if (!$this->relationLoaded('permissions')) {
+                $this->load('permissions');
+            }
+
+            return $this->permissions;
         }
 
-        // Use cached permissions to avoid repeated queries
+        if (!$this->level) {
+            return collect();
+        }
+
         if (!$this->relationLoaded('level') || !$this->level->relationLoaded('permissions')) {
             $this->load('level.permissions');
         }
 
-        return $this->level->permissions->contains('name', $permissionName);
+        return $this->level->permissions;
+    }
+
+    public function hasPermission(string $permissionName): bool
+    {
+        return $this->getEffectivePermissions()->contains('name', $permissionName);
+    }
+
+    public function syncDirectPermissions(array $permissionIds): void
+    {
+        $this->permissions()->sync($permissionIds);
+
+        if (!$this->uses_custom_permissions) {
+            $this->forceFill(['uses_custom_permissions' => true])->save();
+        }
+
+        $this->unsetRelation('permissions');
+    }
+
+    public function scopeWhereHasPermission($query, string|array $permissions)
+    {
+        foreach ((array) $permissions as $permissionName) {
+            $query->where(function ($permissionQuery) use ($permissionName) {
+                $permissionQuery
+                    ->where(function ($customPermissionQuery) use ($permissionName) {
+                        $customPermissionQuery
+                            ->where('uses_custom_permissions', true)
+                            ->whereHas('permissions', function ($relationQuery) use ($permissionName) {
+                                $relationQuery->where('name', $permissionName);
+                            });
+                    })
+                    ->orWhere(function ($rolePermissionQuery) use ($permissionName) {
+                        $rolePermissionQuery
+                            ->where('uses_custom_permissions', false)
+                            ->whereHas('level.permissions', function ($relationQuery) use ($permissionName) {
+                                $relationQuery->where('name', $permissionName);
+                            });
+                    });
+            });
+        }
+
+        return $query;
     }
 }

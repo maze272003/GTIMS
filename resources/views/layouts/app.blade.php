@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <meta name="user-level" content="{{ auth()->check() ? auth()->user()->user_level_id : '' }}">
-        <meta name="user-permissions" content="{{ auth()->check() ? auth()->user()->level?->permissions->pluck('name')->implode(',') : '' }}">
+        <meta name="user-permissions" content="{{ auth()->check() ? auth()->user()->getEffectivePermissions()->pluck('name')->implode(',') : '' }}">
         <title>{{ $title ?? 'General Tinio - Inventory System' }}</title>
 
         {{-- Prevent light-theme flash before CSS/JS loads by applying saved theme immediately --}}
@@ -38,6 +38,7 @@
 
         <script src="{{ asset('js/gtims-notify.js') }}" defer></script>
         <script src="{{ asset('js/tour.js') }}" defer></script>
+        <script src="{{ asset('js/user-permissions.js') }}" defer></script>
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -85,7 +86,7 @@
         <script>
             // @deprecated Use window.hasPermission() instead of window.currentUserLevel for access checks
             window.currentUserLevel = {{ auth()->check() ? auth()->user()->user_level_id : 'null' }};
-            window.userPermissions = '{{ auth()->check() ? auth()->user()->level?->permissions->pluck("name")->implode(",") : "" }}'.split(',');
+            window.userPermissions = '{{ auth()->check() ? auth()->user()->getEffectivePermissions()->pluck("name")->implode(",") : "" }}'.split(',').filter(Boolean);
             window.hasPermission = function(perm) { return window.userPermissions.indexOf(perm) !== -1; };
         </script>
 

@@ -71,6 +71,18 @@ class WorkflowControllerTest extends TestCase
 
     public function test_editor_page_loads(): void
     {
+        Permission::firstOrCreate(['name' => 'workflow.inspector.special']);
+        User::factory()->create([
+            'name' => 'Inspector User',
+            'email' => 'inspector-editor@example.com',
+            'user_level_id' => $this->level->id,
+            'branch_id' => $this->user->branch_id,
+        ]);
+        \App\Models\Product::factory()->create([
+            'generic_name' => 'InspectorProduct',
+            'brand_name' => 'DropdownBrand',
+        ]);
+
         $workflow = WorkflowDefinition::create([
             'name' => 'Test Workflow',
             'created_by' => $this->user->id,
@@ -85,6 +97,10 @@ class WorkflowControllerTest extends TestCase
         $response = $this->actingAs($this->user)->get(route('admin.workflows.editor', $workflow));
         $response->assertStatus(200);
         $response->assertSee('Test Workflow');
+        $response->assertSee('inspectorOptions', false);
+        $response->assertSee('InspectorProduct');
+        $response->assertSee('inspector-editor@example.com');
+        $response->assertSee('workflow.inspector.special');
     }
 
     public function test_save_graph_stores_nodes_and_edges(): void

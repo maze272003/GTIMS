@@ -73,7 +73,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     //
     Route::prefix('admin')
           ->name('admin.')
-          ->middleware('level.all') // L1, L2, L3, L4 CAN ENTER THIS BLOCK
+          ->middleware(['level.all', 'admin.permission']) // L1, L2, L3, L4 CAN ENTER THIS BLOCK
           ->group(function () {
 
         // == A. BASE ACCESS ROUTES (Para sa lahat ng nakapasa sa level.all) ==
@@ -246,8 +246,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
                   ->name('manageaccount');
 
             // L1: Role/Permission Management
-            Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');
-            Route::post('/roles', [RolePermissionController::class, 'update'])->name('roles.update');
+            Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index')->middleware('permission:settings.roles');
+            Route::post('/roles', [RolePermissionController::class, 'update'])->name('roles.update')->middleware('permission:settings.roles');
 
             // L1: Branch Management
             Route::prefix('branches')

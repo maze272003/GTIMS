@@ -43,13 +43,10 @@ class SystemActivityNotificationService
         }
 
         $this->notifiableUsers = User::query()
-            ->whereHas('level.permissions', function ($query) {
-                $query->where('name', 'notifications.manage');
-            })
+            ->whereHasPermission('notifications.manage')
             ->select(['id', 'name', 'email'])
             ->get();
 
         return $this->notifiableUsers;
     }
 }
-

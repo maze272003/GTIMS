@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Branch;
 use App\Models\IdempotencyKey;
+use App\Models\Permission;
+use App\Models\Product;
+use App\Models\User;
+use App\Models\UserLevel;
 use App\Models\WorkflowDefinition;
 use App\Models\WorkflowNode;
 use App\Models\WorkflowEdge;
@@ -105,7 +109,69 @@ class WorkflowController extends Controller
             'is_main' => $b->is_main,
         ])->values()->all();
 
-        return view('admin.workflows.editor', compact('workflow', 'catalog', 'latestVersion', 'initialGraphHash', 'initialSyncToken', 'branches'));
+        $inspectorOptions = [
+            'products' => Product::query()
+                ->where('is_archived', false)
+                ->orderBy('generic_name')
+                ->orderBy('brand_name')
+                ->get(['id', 'generic_name', 'brand_name', 'strength', 'form'])
+                ->map(function (Product $product) {
+                    $name = trim(implode(' ', array_filter([
+                        $product->generic_name,
+                        $product->brand_name ? "({$product->brand_name})" : null,
+                        $product->strength,
+                        $product->form,
+                    ])));
+
+                    return [
+                        'id' => $product->id,
+                        'label' => $name !== '' ? $name : 'Product #' . $product->id,
+                    ];
+                })
+                ->values()
+                ->all(),
+            'users' => User::query()
+                ->orderBy('name')
+                ->get(['id', 'name', 'email', 'branch_id', 'user_level_id'])
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'label' => trim($user->name . ($user->email ? " <{$user->email}>" : '')),
+                    'email' => $user->email,
+                    'branch_id' => $user->branch_id,
+                    'user_level_id' => $user->user_level_id,
+                ])
+                ->values()
+                ->all(),
+            'userLevels' => UserLevel::query()
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn (UserLevel $level) => [
+                    'id' => $level->id,
+                    'label' => $level->name,
+                ])
+                ->values()
+                ->all(),
+            'permissions' => Permission::query()
+                ->orderBy('name')
+                ->get(['name'])
+                ->map(fn (Permission $permission) => [
+                    'value' => $permission->name,
+                    'label' => $permission->name,
+                ])
+                ->values()
+                ->all(),
+        ];
+
+        return view('admin.workflows.editor', compact(
+            'workflow',
+            'catalog',
+            'latestVersion',
+            'initialGraphHash',
+            'initialSyncToken',
+            'branches',
+            'inspectorOptions'
+        ));
     }
 
     /**

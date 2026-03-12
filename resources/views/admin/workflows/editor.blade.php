@@ -495,6 +495,7 @@
                             {{-- Dynamic Config Fields --}}
                             <div>
                                 <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-2">Configuration</label>
+                                <p class="text-[11px] text-gray-400 mb-3">Configuration values are selected from dropdown lists only.</p>
 
                                 <template x-if="Object.keys(getConfigSchema(selectedNode)).length === 0">
                                     <p class="text-xs text-gray-400">No additional configuration required for this node.</p>
@@ -504,67 +505,48 @@
                                     <div class="mb-3">
                                         <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1" x-text="formatFieldLabel(field)"></label>
 
-                                        <template x-if="fieldOptions(selectedNode, field).length > 0">
-                                            <select :value="stringValue(getConfigValue(selectedNode, field))"
-                                                @change="setConfigValue(selectedNode, field, $event.target.value)"
-                                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
-                                                <template x-for="option in fieldOptions(selectedNode, field)" :key="option">
-                                                    <option :value="option" x-text="option"></option>
+                                        <template x-if="isArrayField(selectedNode, field)">
+                                            <select multiple
+                                                :size="multiSelectSize(selectedNode, field)"
+                                                @change="setMultiSelectConfigValue(selectedNode, field, Array.from($event.target.selectedOptions).map(option => option.value))"
+                                                :class="fieldControlClass(selectedNode, field)"
+                                                :disabled="fieldOptions(selectedNode, field).length === 0">
+                                                <template x-if="fieldOptions(selectedNode, field).length === 0">
+                                                    <option value="">No dropdown choices available</option>
+                                                </template>
+                                                <template x-for="option in fieldOptions(selectedNode, field)" :key="field + '-opt-' + stringValue(option.value)">
+                                                    <option :value="stringValue(option.value)"
+                                                        :selected="selectedOptionValues(selectedNode, field).includes(stringValue(option.value))"
+                                                        x-text="option.label"></option>
                                                 </template>
                                             </select>
                                         </template>
 
-                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && isArrayField(selectedNode, field) && isBranchField(field)">
-                                            <div>
-                                                <div class="space-y-1 max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700">
-                                                    <template x-for="branch in branches" :key="'branch-chk-' + branch.id">
-                                                        <label class="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 rounded px-1 py-0.5">
-                                                            <input type="checkbox"
-                                                                :checked="(getConfigValue(selectedNode, field) || []).map(Number).includes(branch.id)"
-                                                                @change="toggleBranchSelection(selectedNode, field, branch.id)"
-                                                                class="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500">
-                                                            <span class="text-gray-700 dark:text-gray-300" x-text="branch.name"></span>
-                                                            <span class="text-[10px] text-gray-400" x-text="branch.is_main ? '(Main)' : ''"></span>
-                                                        </label>
-                                                    </template>
-                                                </div>
-                                                <p class="text-[10px] text-gray-400 mt-1" x-text="(getConfigValue(selectedNode, field) || []).length + ' branch(es) selected'"></p>
-                                            </div>
+                                        <template x-if="!isArrayField(selectedNode, field)">
+                                            <select @change="setSelectConfigValue(selectedNode, field, $event.target.value)"
+                                                :class="fieldControlClass(selectedNode, field)"
+                                                :disabled="fieldOptions(selectedNode, field).length === 0">
+                                                <option value=""
+                                                    :selected="selectedOptionValue(selectedNode, field) === ''"
+                                                    x-text="emptyOptionLabel(selectedNode, field)"></option>
+                                                <template x-if="fieldOptions(selectedNode, field).length === 0">
+                                                    <option value="">No dropdown choices available</option>
+                                                </template>
+                                                <template x-for="option in fieldOptions(selectedNode, field)" :key="field + '-opt-' + stringValue(option.value)">
+                                                    <option :value="stringValue(option.value)"
+                                                        :selected="selectedOptionValue(selectedNode, field) === stringValue(option.value)"
+                                                        x-text="option.label"></option>
+                                                </template>
+                                            </select>
                                         </template>
 
-                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && isArrayField(selectedNode, field) && !isBranchField(field)">
-                                            <input type="text"
-                                                :value="arrayConfigToInput(getConfigValue(selectedNode, field))"
-                                                @input="setArrayConfigValue(selectedNode, field, $event.target.value)"
-                                                :placeholder="arrayPlaceholder(selectedNode, field)"
-                                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
-                                        </template>
+                                        <p class="text-[10px] text-gray-400 mt-1" x-show="isArrayField(selectedNode, field)">
+                                            Hold Ctrl/Cmd to select multiple values.
+                                        </p>
 
-                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && !isArrayField(selectedNode, field) && isLongTextField(selectedNode, field)">
-                                            <textarea rows="3"
-                                                :value="stringValue(getConfigValue(selectedNode, field))"
-                                                @input="setConfigValue(selectedNode, field, $event.target.value)"
-                                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white"></textarea>
-                                        </template>
-
-                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && !isArrayField(selectedNode, field) && !isLongTextField(selectedNode, field) && isSingleBranchField(field)">
-                                            <select :value="stringValue(getConfigValue(selectedNode, field))"
-                                                @change="setConfigValue(selectedNode, field, Number($event.target.value || 0))"
-                                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
+                                        <p class="text-[11px] text-red-500 mt-1" x-show="isFieldInvalid(selectedNode, field)" x-text="fieldValidationMessage(selectedNode, field)"></p><!--
                                                 <option value="">— Select Branch —</option>
-                                                <template x-for="branch in branches" :key="'sbranch-' + branch.id">
-                                                    <option :value="branch.id" x-text="branch.name + (branch.is_main ? ' (Main)' : '')"></option>
-                                                </template>
-                                            </select>
-                                        </template>
-
-                                        <template x-if="fieldOptions(selectedNode, field).length === 0 && !isArrayField(selectedNode, field) && !isLongTextField(selectedNode, field) && !isSingleBranchField(field)">
-                                            <input :type="isIntegerField(selectedNode, field) ? 'number' : 'text'"
-                                                :value="stringValue(getConfigValue(selectedNode, field))"
-                                                @input="setConfigValue(selectedNode, field, isIntegerField(selectedNode, field) ? Number($event.target.value || 0) : $event.target.value)"
-                                                class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-gray-900 dark:text-white">
-                                        </template>
-                                    </div>
+                                    --></div>
                                 </template>
                             </div>
 
@@ -600,6 +582,7 @@
             'edges' => $latestVersion?->edges ?? [],
             'catalog' => $catalog,
             'branches' => $branches ?? [],
+            'inspectorOptions' => $inspectorOptions ?? [],
             'initialGraphHash' => $initialGraphHash,
             'initialSyncToken' => $initialSyncToken,
             'urls' => [

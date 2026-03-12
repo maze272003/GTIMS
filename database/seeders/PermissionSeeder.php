@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Permission;
+use App\Models\User;
 use App\Models\UserLevel;
 use Illuminate\Database\Seeder;
 
@@ -147,5 +148,14 @@ class PermissionSeeder extends Seeder
             ])->pluck('id')->toArray();
             $finance->permissions()->sync($financePerms);
         }
+
+        User::query()
+            ->with('level.permissions')
+            ->get()
+            ->each(function (User $user) {
+                $permissionIds = $user->level?->permissions?->pluck('id')->all() ?? [];
+                $user->permissions()->sync($permissionIds);
+                $user->forceFill(['uses_custom_permissions' => true])->save();
+            });
     }
 }

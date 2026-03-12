@@ -2514,11 +2514,7 @@ class WorkflowEngineService
                 $permissionNames = $this->normalizeStringArray($config['recipient_permissions'] ?? []);
                 if (!empty($permissionNames)) {
                     foreach ($permissionNames as $permissionName) {
-                        $query->whereHas('level', function ($levelQuery) use ($permissionName) {
-                            $levelQuery->whereHas('permissions', function ($permQuery) use ($permissionName) {
-                                $permQuery->where('name', $permissionName);
-                            });
-                        });
+                        $query->whereHasPermission($permissionName);
                     }
                     $hasCriteria = true;
                 }
@@ -2569,11 +2565,7 @@ class WorkflowEngineService
     {
         return \App\Models\User::query()
             ->whereNotNull('email')
-            ->whereHas('level', function ($query) use ($permissionName) {
-                $query->whereHas('permissions', function ($q) use ($permissionName) {
-                    $q->where('name', $permissionName);
-                });
-            });
+            ->whereHasPermission($permissionName);
     }
 
     /**

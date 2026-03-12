@@ -44,7 +44,7 @@ class OtpLoginService
 
     public function verifyOtp(Request $request, string $email, string $otp): array
     {
-        $user = $this->userRepository->findByEmailWithRelations($email, ['level.permissions']);
+        $user = $this->userRepository->findByEmailWithRelations($email, ['permissions', 'level.permissions']);
 
         if (
             !$user
@@ -72,4 +72,3 @@ class OtpLoginService
         return ['success' => true, 'status' => 200, 'redirect_url' => $redirectUrl];
     }
 }
-

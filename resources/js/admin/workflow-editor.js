@@ -27,6 +27,12 @@ function createWorkflowEditor() {
         },
         urls: {},
         branches: [],
+        inspectorOptions: {
+            products: [],
+            users: [],
+            userLevels: [],
+            permissions: [],
+        },
         selectedNode: null,
         selectedPresetKey: '',
         saving: false,
@@ -190,6 +196,12 @@ function createWorkflowEditor() {
             };
             this.urls = config.urls || {};
             this.branches = config.branches || [];
+            this.inspectorOptions = {
+                products: config.inspectorOptions?.products || [],
+                users: config.inspectorOptions?.users || [],
+                userLevels: config.inspectorOptions?.userLevels || [],
+                permissions: config.inspectorOptions?.permissions || [],
+            };
             this.graphHash = config.initialGraphHash ?? null;
             this.syncToken = config.initialSyncToken ?? null;
             this.nodes = (config.nodes || []).map((node) => this.normalizeNode(node));
@@ -797,11 +809,342 @@ function createWorkflowEditor() {
 
         fieldOptions(node, field) {
             const template = this.getCatalogNode(node.type, node.action_type);
-            if (this.isArrayField(node, field)) {
+            const explicitUiValues = Array.isArray(template?.ui?.[field]) ? template.ui[field] : [];
+
+            return this.mergeOptionSets(
+                this.optionObjectsFromValues(explicitUiValues),
+                this.fieldSpecificOptions(node, field),
+                this.optionObjectsFromValues(this.presetFieldValues(node, field)),
+                this.optionObjectsFromValues(this.currentFieldValues(node, field)),
+            );
+        },
+
+        optionObjectsFromValues(values) {
+            if (!Array.isArray(values)) {
                 return [];
             }
 
-            return template?.ui?.[field] || [];
+            return values
+                .filter((value) => value !== null && typeof value !== 'undefined' && String(value).trim() !== '')
+                .map((value) => ({
+                    value,
+                    label: this.formatOptionLabel(value),
+                }));
+        },
+
+        mergeOptionSets(...sets) {
+            const merged = [];
+            const seen = new Set();
+
+            sets.forEach((set) => {
+                (set || []).forEach((option) => {
+                    if (!option || typeof option !== 'object') {
+                        return;
+                    }
+
+                    const value = Object.prototype.hasOwnProperty.call(option, 'value') ? option.value : option.label;
+                    const label = option.label ?? this.formatOptionLabel(value);
+                    const key = `${typeof value}:${String(value)}`;
+
+                    if (seen.has(key)) {
+                        return;
+                    }
+
+                    seen.add(key);
+                    merged.push({
+                        value,
+                        label,
+                    });
+                });
+            });
+
+            return merged;
+        },
+
+        formatOptionLabel(value) {
+            if (value === null || typeof value === 'undefined') {
+                return '';
+            }
+
+            if (typeof value === 'string') {
+                return value
+                    .replace(/_/g, ' ')
+                    .replace(/\b\w/g, (char) => char.toUpperCase());
+            }
+
+            return String(value);
+        },
+
+        presetFieldValues(node, field) {
+            const values = [];
+
+            this.getNodePresets(node).forEach((preset) => {
+                const presetValue = preset?.config?.[field];
+                if (Array.isArray(presetValue)) {
+                    presetValue.forEach((value) => values.push(value));
+                    return;
+                }
+
+                if (presetValue !== null && typeof presetValue !== 'undefined' && String(presetValue).trim() !== '') {
+                    values.push(presetValue);
+                }
+            });
+
+            return values;
+        },
+
+        currentFieldValues(node, field) {
+            const currentValue = this.getConfigValue(node, field);
+            if (Array.isArray(currentValue)) {
+                return currentValue;
+            }
+
+            if (currentValue === null || typeof currentValue === 'undefined' || String(currentValue).trim() === '') {
+                return [];
+            }
+
+            return [currentValue];
+        },
+
+        fieldSpecificOptions(node, field) {
+            if (this.isBranchField(field) || this.isSingleBranchField(field)) {
+                return this.branchSelectOptions();
+            }
+
+            if (['product_id'].includes(field)) {
+                return (this.inspectorOptions.products || []).map((product) => ({
+                    value: product.id,
+                    label: product.label,
+                }));
+            }
+
+            if (['employee_id', 'auditor_user_id'].includes(field)) {
+                return this.userSelectOptions();
+            }
+
+            if (['recipient_user_ids'].includes(field)) {
+                return this.userSelectOptions();
+            }
+
+            if (['recipient_level_ids'].includes(field)) {
+                return (this.inspectorOptions.userLevels || []).map((level) => ({
+                    value: level.id,
+                    label: level.label,
+                }));
+            }
+
+            if (['permission', 'recipient_permissions'].includes(field)) {
+                return (this.inspectorOptions.permissions || []).map((permission) => ({
+                    value: permission.value,
+                    label: permission.label,
+                }));
+            }
+
+            if (['recipient_emails', 'share_emails'].includes(field)) {
+                return this.userEmailOptions();
+            }
+
+            if (['user_id_field', 'recipient_context_user_field'].includes(field)) {
+                return this.optionObjectsFromValues(this.contextUserFieldOptions());
+            }
+
+            if (field === 'reference_time_field') {
+                return this.optionObjectsFromValues(this.timestampFieldOptions());
+            }
+
+            if (field === 'field') {
+                return this.optionObjectsFromValues(this.contextFieldOptions());
+            }
+
+            if (field === 'value' && node.action_type === 'data_field_matches') {
+                return this.optionObjectsFromValues(this.dataFieldMatchValueOptions(node));
+            }
+
+            if (field === 'department') {
+                return this.optionObjectsFromValues(['Administration', 'Compliance', 'Finance', 'HR', 'IT', 'Inventory', 'Pharmacy', 'Procurement']);
+            }
+
+            if (field === 'document_type') {
+                return this.optionObjectsFromValues(['policy', 'memo', 'report', 'request_form', 'contract']);
+            }
+
+            if (field === 'source_system') {
+                return this.optionObjectsFromValues(['crm', 'erp', 'gtims', 'external_api']);
+            }
+
+            if (field === 'entity_type') {
+                return this.optionObjectsFromValues(['customer', 'document', 'employee', 'inventory', 'order']);
+            }
+
+            if (field === 'ticket_priority') {
+                return this.optionObjectsFromValues(['low', 'normal', 'high', 'critical']);
+            }
+
+            if (field === 'window_name') {
+                return this.optionObjectsFromValues(['monthly', 'quarterly', 'annual']);
+            }
+
+            if (field === 'field_mappings') {
+                return this.optionObjectsFromValues([
+                    'employee_name:crm_contact_name',
+                    'department:erp_department',
+                    'email:crm_primary_email',
+                    'order_id:erp_order_id',
+                    'product_id:erp_product_id',
+                    'branch_id:erp_branch_id',
+                ]);
+            }
+
+            if (field === 'folder_id') {
+                return this.optionObjectsFromValues(['workflow_archive', 'hr_documents', 'it_documents', 'compliance_archive']);
+            }
+
+            if (field === 'crm_endpoint') {
+                return this.optionObjectsFromValues([
+                    'https://crm.example.com/api/customers',
+                    'https://crm.example.com/api/employees',
+                ]);
+            }
+
+            if (field === 'erp_endpoint') {
+                return this.optionObjectsFromValues([
+                    'https://erp.example.com/api/inventory',
+                    'https://erp.example.com/api/orders',
+                ]);
+            }
+
+            if (field === 'event_type') {
+                return this.optionObjectsFromValues(['workflow_automation', 'compliance', 'audit', 'notification']);
+            }
+
+            if (this.isBooleanToggleField(field)) {
+                return [
+                    { value: 1, label: 'Yes' },
+                    { value: 0, label: 'No' },
+                ];
+            }
+
+            if (this.isIntegerField(node, field)) {
+                return this.optionObjectsFromValues(this.numericFieldOptions(node, field));
+            }
+
+            return [];
+        },
+
+        branchSelectOptions() {
+            return (this.branches || []).map((branch) => ({
+                value: branch.id,
+                label: `${branch.name}${branch.is_main ? ' (Main)' : ''}`,
+            }));
+        },
+
+        userSelectOptions() {
+            return (this.inspectorOptions.users || []).map((user) => ({
+                value: user.id,
+                label: user.label,
+            }));
+        },
+
+        userEmailOptions() {
+            return (this.inspectorOptions.users || [])
+                .filter((user) => user.email)
+                .map((user) => ({
+                    value: user.email,
+                    label: `${user.email}${user.name ? ` (${user.name})` : ''}`,
+                }));
+        },
+
+        contextFieldOptions() {
+            return [
+                'available_qty',
+                'branch_id',
+                'category',
+                'department',
+                'document_type',
+                'entity_type',
+                'expiry_date',
+                'order_id',
+                'product_id',
+                'quantity',
+                'source_system',
+                'status',
+                'sync_status',
+                'ticket_priority',
+                'user_id',
+                'window_name',
+            ];
+        },
+
+        contextUserFieldOptions() {
+            return ['user_id', 'auditor_user_id', 'employee_id', 'requester_user_id', 'triggered_by'];
+        },
+
+        timestampFieldOptions() {
+            return ['created_at', 'requested_at', 'scheduled_at', 'updated_at'];
+        },
+
+        dataFieldMatchValueOptions(node) {
+            const selectedField = String(this.getConfigValue(node, 'field') || '').trim();
+
+            switch (selectedField) {
+                case 'branch_id':
+                    return this.branches.map((branch) => branch.id);
+                case 'category':
+                    return ['vaccine', 'antibiotic', 'analgesic', 'consumable', 'pharmaceuticals', 'office_supplies'];
+                case 'status':
+                    return ['pending', 'approved', 'cancelled', 'completed'];
+                case 'sync_status':
+                    return ['queued', 'synced', 'failed'];
+                case 'department':
+                    return ['Administration', 'Compliance', 'Finance', 'HR', 'IT', 'Inventory', 'Pharmacy', 'Procurement'];
+                case 'document_type':
+                    return ['policy', 'memo', 'report', 'request_form', 'contract'];
+                case 'entity_type':
+                    return ['customer', 'document', 'employee', 'inventory', 'order'];
+                case 'source_system':
+                    return ['crm', 'erp', 'gtims', 'external_api'];
+                case 'ticket_priority':
+                    return ['low', 'normal', 'high', 'critical'];
+                case 'user_id':
+                    return (this.inspectorOptions.users || []).map((user) => user.id);
+                case 'window_name':
+                    return ['monthly', 'quarterly', 'annual'];
+                default:
+                    return [];
+            }
+        },
+
+        numericFieldOptions(node, field) {
+            const presetValues = this.presetFieldValues(node, field)
+                .filter((value) => /^-?\d+$/.test(String(value)))
+                .map((value) => Number(value));
+
+            const commonValuesByField = {
+                threshold: [3, 5, 10, 15, 25, 50],
+                days: [1, 3, 7, 15, 30, 60, 90],
+                value: [0, 1, 3, 5, 10, 25, 50, 100],
+                quantity: [10, 25, 50, 100, 250, 500],
+                minutes: [15, 30, 60, 120, 240],
+                approval_tier: [1, 2, 3, 4, 5],
+                require_notifications: [1, 0],
+                require_error_resolution: [1, 0],
+                fail_on_error: [1, 0],
+                recipient_match_context_branch: [1, 0],
+                include_trigger_user: [1, 0],
+            };
+
+            const values = [...(commonValuesByField[field] || []), ...presetValues];
+            return Array.from(new Set(values)).sort((left, right) => left - right);
+        },
+
+        isBooleanToggleField(field) {
+            return [
+                'fail_on_error',
+                'include_trigger_user',
+                'recipient_match_context_branch',
+                'require_error_resolution',
+                'require_notifications',
+            ].includes(field);
         },
 
         ruleForField(node, field) {
@@ -833,6 +1176,202 @@ function createWorkflowEditor() {
             node.config[field] = value;
             this.markDirty();
             this.syncSelectedPresetKey();
+        },
+
+        selectedOptionValue(node, field) {
+            const value = this.getConfigValue(node, field);
+            if (value === null || typeof value === 'undefined' || String(value).trim() === '') {
+                return '';
+            }
+
+            return String(value);
+        },
+
+        selectedOptionValues(node, field) {
+            const value = this.getConfigValue(node, field);
+            if (!Array.isArray(value)) {
+                return [];
+            }
+
+            return value.map((item) => String(item));
+        },
+
+        setSelectConfigValue(node, field, rawValue) {
+            const normalized = String(rawValue || '').trim();
+
+            if (normalized === '') {
+                this.setConfigValue(node, field, '');
+                return;
+            }
+
+            this.setConfigValue(node, field, this.normalizeOptionValue(node, field, normalized));
+        },
+
+        setMultiSelectConfigValue(node, field, rawValues) {
+            if (!node.config) {
+                node.config = {};
+            }
+
+            const normalizedValues = (Array.isArray(rawValues) ? rawValues : [])
+                .map((value) => String(value || '').trim())
+                .filter((value) => value !== '')
+                .map((value) => this.normalizeOptionValue(node, field, value));
+
+            node.config[field] = normalizedValues;
+            this.markDirty();
+            this.syncSelectedPresetKey();
+        },
+
+        normalizeOptionValue(node, field, rawValue) {
+            if (this.fieldStoresNumericValues(node, field) && /^-?\d+$/.test(String(rawValue))) {
+                return Number(rawValue);
+            }
+
+            return rawValue;
+        },
+
+        fieldStoresNumericValues(node, field) {
+            if (this.isIntegerField(node, field)) {
+                return true;
+            }
+
+            return [
+                'branch_id',
+                'branch_ids',
+                'employee_id',
+                'product_id',
+                'recipient_branch_ids',
+                'recipient_level_ids',
+                'recipient_user_ids',
+                'target_branch_id',
+                'auditor_user_id',
+            ].includes(field);
+        },
+
+        emptyOptionLabel(node, field) {
+            return this.isRequiredField(node, field)
+                ? `Select ${this.formatFieldLabel(field)}`
+                : `Default ${this.formatFieldLabel(field)}`;
+        },
+
+        multiSelectSize(node, field) {
+            const optionCount = this.fieldOptions(node, field).length;
+            const minSize = this.isRequiredField(node, field) ? 4 : 3;
+            return Math.max(minSize, Math.min(optionCount || minSize, 6));
+        },
+
+        fieldControlClass(node, field) {
+            const invalid = this.isFieldInvalid(node, field);
+
+            return [
+                'w-full px-3 py-2 text-sm rounded-lg border transition',
+                'dark:bg-gray-700 text-gray-900 dark:text-white',
+                invalid
+                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20 dark:border-red-500 focus:ring-2 focus:ring-red-300'
+                    : 'border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-red-500',
+            ].join(' ');
+        },
+
+        isRequiredField(node, field) {
+            const rules = String(this.ruleForField(node, field)).split('|');
+            return rules.includes('required') && !rules.includes('optional');
+        },
+
+        isFieldInvalid(node, field) {
+            return this.fieldValidationMessage(node, field) !== '';
+        },
+
+        fieldValidationMessage(node, field) {
+            const label = this.formatFieldLabel(field);
+            const options = this.fieldOptions(node, field);
+
+            if (this.isArrayField(node, field)) {
+                const selectedValues = Array.isArray(this.getConfigValue(node, field)) ? this.getConfigValue(node, field) : [];
+                if (this.isRequiredField(node, field) && selectedValues.length === 0) {
+                    return `${label} is required.`;
+                }
+
+                if (selectedValues.length === 0) {
+                    return '';
+                }
+
+                if (options.length === 0) {
+                    return `No dropdown choices are available for ${label}.`;
+                }
+
+                const allowedValues = new Set(options.map((option) => String(option.value)));
+                if (selectedValues.some((value) => !allowedValues.has(String(value)))) {
+                    return `${label} has an invalid selection.`;
+                }
+
+                return '';
+            }
+
+            const selectedValue = this.selectedOptionValue(node, field);
+            if (this.isRequiredField(node, field) && selectedValue === '') {
+                return `${label} is required.`;
+            }
+
+            if (selectedValue === '') {
+                return '';
+            }
+
+            if (options.length === 0) {
+                return `No dropdown choices are available for ${label}.`;
+            }
+
+            if (!options.some((option) => String(option.value) === selectedValue)) {
+                return `${label} has an invalid selection.`;
+            }
+
+            return '';
+        },
+
+        collectInspectorValidationErrors() {
+            const errors = [];
+
+            this.nodes.forEach((node) => {
+                Object.keys(this.getConfigSchema(node)).forEach((field) => {
+                    const message = this.fieldValidationMessage(node, field);
+                    if (message) {
+                        errors.push(`${node.label}: ${message}`);
+                    }
+                });
+            });
+
+            return Array.from(new Set(errors));
+        },
+
+        findFirstInvalidInspectorField() {
+            for (const node of this.nodes) {
+                for (const field of Object.keys(this.getConfigSchema(node))) {
+                    const message = this.fieldValidationMessage(node, field);
+                    if (message) {
+                        return { node, field, message };
+                    }
+                }
+            }
+
+            return null;
+        },
+
+        ensureInspectorValidation(actionLabel = 'saving') {
+            const errors = this.collectInspectorValidationErrors();
+            this.validationErrors = errors;
+
+            if (errors.length === 0) {
+                return true;
+            }
+
+            const firstInvalid = this.findFirstInvalidInspectorField();
+            if (firstInvalid?.node) {
+                this.selectNode(firstInvalid.node);
+            }
+
+            this.statusMessage = `Inspector validation failed. Fix the red dropdown fields before ${actionLabel}.`;
+            this.statusType = 'error';
+
+            return false;
         },
 
         setArrayConfigValue(node, field, inputValue) {
@@ -942,7 +1481,7 @@ function createWorkflowEditor() {
 
                 if (rule.split('|').includes('array')) {
                     defaults[field] = [];
-                } else if (rule.split('|').includes('integer')) {
+                } else if (this.isBooleanToggleField(field)) {
                     defaults[field] = 0;
                 } else if (Array.isArray(ui[field]) && ui[field].length > 0) {
                     defaults[field] = ui[field][0];
@@ -1270,11 +1809,14 @@ function createWorkflowEditor() {
                 return this.savePromise;
             }
 
+            if (!this.ensureInspectorValidation('saving')) {
+                return Promise.resolve({ success: false, localValidationFailed: true });
+            }
+
             this.saving = true;
 
             if (!silent) {
                 this.statusMessage = '';
-                this.validationErrors = [];
             }
 
             const idempotencyKey = `save-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -1322,7 +1864,9 @@ function createWorkflowEditor() {
         },
 
         async validateWorkflow() {
-            this.validationErrors = [];
+            if (!this.ensureInspectorValidation('validating')) {
+                return;
+            }
 
             try {
                 await this.saveGraph({ silent: true });
@@ -1358,6 +1902,10 @@ function createWorkflowEditor() {
                 return;
             }
 
+            if (!this.ensureInspectorValidation('publishing')) {
+                return;
+            }
+
             try {
                 await this.saveGraph({ silent: true });
                 await this.requestJson(this.urls.publish, {
@@ -1382,6 +1930,10 @@ function createWorkflowEditor() {
         },
 
         async runWorkflow(dryRun) {
+            if (!this.ensureInspectorValidation(dryRun ? 'running the dry run' : 'running the workflow')) {
+                return;
+            }
+
             try {
                 const idempotencyKey = `run-${Date.now()}-${Math.random().toString(36).slice(2)}`;
                 const data = await this.requestJson(this.urls.run, {

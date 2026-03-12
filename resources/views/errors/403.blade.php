@@ -101,12 +101,15 @@
     </style>
 </head>
 <body>
+    @php
+        $message = trim((string) ($exception?->getMessage() ?? ''));
+        $fallbackMessage = 'This page or action cannot be accessed with your account. Please contact the superadmin for assistance.';
+    @endphp
     <main class="card" role="main" aria-labelledby="error-title">
         <div class="badge">403 Forbidden</div>
-        <h1 id="error-title">You do not have permission to access this page</h1>
+        <h1 id="error-title">This page cannot be accessed</h1>
         <p>
-            Your account is signed in, but it does not have the required permission for this page or action.
-            If you believe this is incorrect, contact your administrator.
+            {{ $message !== '' ? $message : $fallbackMessage }}
         </p>
 
         <div class="actions">
@@ -114,9 +117,7 @@
             <a class="btn btn-secondary" href="{{ url()->previous() }}">Go Back</a>
         </div>
 
-        @if (!empty($exception?->getMessage()))
-            <p class="detail">{{ $exception->getMessage() }}</p>
-        @endif
+        <p class="detail">If you need access, contact the superadmin so your permissions can be reviewed.</p>
     </main>
 </body>
 </html>
