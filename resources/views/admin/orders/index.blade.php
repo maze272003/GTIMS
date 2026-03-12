@@ -3,6 +3,10 @@
     <div id="content-wrapper" class="transition-all duration-300 lg:ml-64 md:ml-20">
         <x-admin.header/>
         <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
+            @php
+                $createOrderState = $permissionView->disabledAttributes('orders.create', 'create orders');
+                $createOrderClasses = $permissionView->disabledClasses('orders.create');
+            @endphp
            
             {{-- Header Section --}}
             <div class="mb-6 pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-20">
@@ -13,11 +17,13 @@
                     <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Order Management</h2>
                 </div>
                 {{-- Create Button: Only for users with orders.create permission --}}
-                @if(auth()->user()->hasPermission('orders.create'))
-                    <a href="{{ route('admin.orders.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm font-medium text-sm transition-all duration-200">
-                        <i class="fa-solid fa-plus mr-2"></i> Create New Order
-                    </a>
-                @endif
+                <a
+                    href="{{ route('admin.orders.create') }}"
+                    {!! $createOrderState !!}
+                    class="inline-flex items-center justify-center px-5 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl shadow-sm font-medium text-sm transition-all duration-200 {{ $createOrderClasses }}"
+                >
+                    <i class="fa-solid fa-plus mr-2"></i> Create New Order
+                </a>
             </div>
 
             {{-- Orders Table --}}
@@ -36,6 +42,12 @@
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                             @forelse($orders as $order)
+                                @php
+                                    $approveAdminState = $permissionView->disabledAttributes('orders.approve_admin', 'approve admin orders');
+                                    $approveAdminClasses = $permissionView->disabledClasses('orders.approve_admin');
+                                    $approveFinanceState = $permissionView->disabledAttributes('orders.approve_finance', 'approve finance orders');
+                                    $approveFinanceClasses = $permissionView->disabledClasses('orders.approve_finance');
+                                @endphp
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors duration-150">
                                     <td class="px-6 py-4 text-sm font-bold text-gray-900 dark:text-white">
                                         #{{ $order->id }}
@@ -98,11 +110,16 @@
                                         <div class="flex items-center justify-center gap-2">
 
                                             {{-- Admin Approval Actions --}}
-                                            @if(Auth::user()->hasPermission('orders.approve_admin') && $order->status == 'pending_admin')
+                                            @if($order->status == 'pending_admin')
                                                 <form action="{{ route('admin.orders.update', $order->id) }}" method="POST" class="inline">
                                                     @csrf
                                                     <input type="hidden" name="action" value="approve">
-                                                    <button type="button" class="approve-btn p-2 rounded-lg bg-green-100 text-green-700 bold text-sm hover:bg-green-200 transition" title="Approve">
+                                                    <button
+                                                        type="button"
+                                                        {!! $approveAdminState !!}
+                                                        class="approve-btn p-2 rounded-xl bg-green-100 text-green-700 bold text-sm hover:bg-green-200 transition {{ $approveAdminClasses }}"
+                                                        title="Approve"
+                                                    >
                                                         <i class="fa-regular fa-check mr-1"></i>
                                                         Approve
                                                     </button>
@@ -111,7 +128,12 @@
                                                 <form action="{{ route('admin.orders.update', $order->id) }}" method="POST" class="inline">
                                                     @csrf
                                                     <input type="hidden" name="action" value="reject">
-                                                    <button type="button" class="reject-btn p-2 rounded-lg bg-red-100 text-red-700 text-sm hover:bg-red-200 transition" title="Reject">
+                                                    <button
+                                                        type="button"
+                                                        {!! $approveAdminState !!}
+                                                        class="reject-btn p-2 rounded-xl bg-red-100 text-red-700 text-sm hover:bg-red-200 transition {{ $approveAdminClasses }}"
+                                                        title="Reject"
+                                                    >
                                                         <i class="fa-regular fa-xmark mr-1"></i>
                                                         Reject
                                                     </button>
@@ -119,11 +141,16 @@
                                             @endif
 
                                             {{-- Finance Approval Actions --}}
-                                            @if(Auth::user()->hasPermission('orders.approve_finance') && $order->status == 'pending_finance')
+                                            @if($order->status == 'pending_finance')
                                                 <form action="{{ route('admin.orders.update', $order->id) }}" method="POST" class="inline">
                                                     @csrf
                                                     <input type="hidden" name="action" value="approve">
-                                                    <button type="button" class="approve-finance-btn p-2 rounded-lg bg-green-100 text-green-700 bold text-sm hover:bg-green-200 transition"  title="Final Approve">
+                                                    <button
+                                                        type="button"
+                                                        {!! $approveFinanceState !!}
+                                                        class="approve-finance-btn p-2 rounded-xl bg-green-100 text-green-700 bold text-sm hover:bg-green-200 transition {{ $approveFinanceClasses }}"
+                                                        title="Final Approve"
+                                                    >
                                                         <i class="fa-regular fa-check mr-1"></i>
                                                         Approve
                                                     </button>
@@ -132,7 +159,12 @@
                                                 <form action="{{ route('admin.orders.update', $order->id) }}" method="POST" class="inline">
                                                     @csrf
                                                     <input type="hidden" name="action" value="reject">
-                                                    <button type="button" class="reject-finance-btn p-2 rounded-lg bg-red-100 text-red-700 text-sm hover:bg-red-200 transition" title="Reject">
+                                                    <button
+                                                        type="button"
+                                                        {!! $approveFinanceState !!}
+                                                        class="reject-finance-btn p-2 rounded-xl bg-red-100 text-red-700 text-sm hover:bg-red-200 transition {{ $approveFinanceClasses }}"
+                                                        title="Reject"
+                                                    >
                                                         <i class="fa-regular fa-xmark mr-1"></i>
                                                         Reject
                                                     </button>

@@ -74,6 +74,35 @@ class UserLoginTest extends TestCase
         $this->assertGuest(); // Dapat hindi naka-login
     }
 
+    public function test_users_are_redirected_to_first_available_module_after_login()
+    {
+        $level = UserLevel::create(['name' => 'notifications-only']);
+        $branch = Branch::create(['name' => 'RHU 1']);
+
+        $permission = Permission::create([
+            'name' => 'notifications.manage',
+            'group' => 'Notifications',
+        ]);
+
+        $level->permissions()->sync([$permission->id]);
+
+        $user = User::factory()->create([
+            'password' => bcrypt('password'),
+            'user_level_id' => $level->id,
+            'branch_id' => $branch->id,
+            'email_verified_at' => now(),
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+            'g-recaptcha-response' => 'test-token',
+        ]);
+
+        $this->assertAuthenticated();
+        $response->assertRedirect(route('admin.notifications.index'));
+    }
+
     public function test_users_can_not_authenticate_with_invalid_password()
     {
         $level = UserLevel::create(['name' => 'admin']);

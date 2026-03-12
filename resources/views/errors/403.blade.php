@@ -102,8 +102,15 @@
 </head>
 <body>
     @php
+        $authSessionService = app(\App\Services\AuthSessionService::class);
+        $destination = auth()->check() ? $authSessionService->getRedirectDestination(auth()->user()) : null;
         $message = trim((string) ($exception?->getMessage() ?? ''));
-        $fallbackMessage = 'This page or action cannot be accessed with your account. Please contact the superadmin for assistance.';
+        $fallbackMessage = $authSessionService->getForbiddenMessage(auth()->user());
+        $currentUrl = url()->current();
+        $previousUrl = url()->previous();
+        $safeBackUrl = $previousUrl !== $currentUrl ? $previousUrl : url('/');
+        $primaryUrl = $destination['url'] ?? $safeBackUrl;
+        $primaryLabel = $destination ? 'Go to '.$destination['label'] : 'Go Back';
     @endphp
     <main class="card" role="main" aria-labelledby="error-title">
         <div class="badge">403 Forbidden</div>
@@ -113,8 +120,8 @@
         </p>
 
         <div class="actions">
-            <a class="btn btn-primary" href="{{ route('dashboard') }}">Go to Dashboard</a>
-            <a class="btn btn-secondary" href="{{ url()->previous() }}">Go Back</a>
+            <a class="btn btn-primary" href="{{ $primaryUrl }}">{{ $primaryLabel }}</a>
+            <a class="btn btn-secondary" href="{{ $safeBackUrl }}">Go Back</a>
         </div>
 
         <p class="detail">If you need access, contact the superadmin so your permissions can be reviewed.</p>

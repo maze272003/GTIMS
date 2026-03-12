@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Listeners\LogUserLogin;
 use App\Listeners\LogUserLoginFailed;
 use App\Listeners\LogUserLogout;
+use App\Services\AuthSessionService;
+use App\Support\PermissionView;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\WorkflowDefinition;
@@ -19,6 +21,7 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\View;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -81,6 +84,26 @@ class AppServiceProvider extends ServiceProvider
         // Register Blade directive for permission-based rendering
         Blade::if('haspermission', function (string $permission) {
             return auth()->check() && auth()->user()->hasPermission($permission);
+        });
+
+        Blade::if('hasanypermission', function (...$permissions) {
+            if (!auth()->check()) {
+                return false;
+            }
+
+            return (new PermissionView(auth()->user(), app(AuthSessionService::class)))->hasAny($permissions);
+        });
+
+        Blade::if('hasallpermissions', function (...$permissions) {
+            if (!auth()->check()) {
+                return false;
+            }
+
+            return (new PermissionView(auth()->user(), app(AuthSessionService::class)))->hasAll($permissions);
+        });
+
+        View::composer('*', function ($view) {
+            $view->with('permissionView', new PermissionView(auth()->user(), app(AuthSessionService::class)));
         });
 
         // Register the Workflow policy

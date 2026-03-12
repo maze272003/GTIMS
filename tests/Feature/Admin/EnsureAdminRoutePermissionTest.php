@@ -41,6 +41,55 @@ class EnsureAdminRoutePermissionTest extends TestCase
         $response->assertSee('contact the superadmin', false);
     }
 
+    public function test_forbidden_page_points_to_users_first_available_module(): void
+    {
+        $notificationsPermission = Permission::create([
+            'name' => 'notifications.manage',
+            'group' => 'Notifications',
+            'description' => 'Manage notifications',
+        ]);
+
+        $user = $this->createUserWithPermissions([$notificationsPermission->id]);
+
+        $response = $this->actingAs($user)->get(route('admin.inventory'));
+
+        $response->assertForbidden();
+        $response->assertSee('Go to Notifications');
+        $response->assertSee(route('admin.notifications.index'), false);
+    }
+
+    public function test_export_route_requires_both_view_and_export_permissions(): void
+    {
+        $inventoryView = Permission::create([
+            'name' => 'inventory.view',
+            'group' => 'Inventory',
+            'description' => 'View inventory',
+        ]);
+
+        $user = $this->createUserWithPermissions([$inventoryView->id]);
+
+        $response = $this->actingAs($user)->post(route('admin.inventory.export'), []);
+
+        $response->assertForbidden();
+        $response->assertSee('contact the superadmin', false);
+        $response->assertSee('Go to Inventory');
+    }
+
+    public function test_dashboard_redirect_uses_available_module_when_dashboard_is_not_allowed(): void
+    {
+        $notificationsPermission = Permission::create([
+            'name' => 'notifications.manage',
+            'group' => 'Notifications',
+            'description' => 'Manage notifications',
+        ]);
+
+        $user = $this->createUserWithPermissions([$notificationsPermission->id]);
+
+        $response = $this->actingAs($user)->get(route('dashboard'));
+
+        $response->assertRedirect(route('admin.notifications.index'));
+    }
+
     private function createUserWithPermissions(array $permissionIds): User
     {
         $branch = Branch::create([

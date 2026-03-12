@@ -1,5 +1,12 @@
 @php
     use Carbon\Carbon;
+
+    $createProductState = $permissionView->disabledAttributes('inventory.add', 'register a new product');
+    $createProductClasses = $permissionView->disabledClasses('inventory.add');
+    $archiveViewState = $permissionView->disabledAttributes('inventory.archive', 'view archived inventory');
+    $archiveViewClasses = $permissionView->disabledClasses('inventory.archive');
+    $exportInventoryState = $permissionView->disabledAttributes(['inventory.view', 'reports.export'], 'export inventory data', true, true);
+    $exportInventoryClasses = $permissionView->disabledClasses(['inventory.view', 'reports.export'], true);
 @endphp
 <x-app-layout>
     <x-admin.sidebar/>
@@ -72,15 +79,23 @@
             </div>
 
             <div class="mt-6 flex flex-wrap gap-3 w-full justify-end mb-8">
-                @if (auth()->user()->hasPermission('inventory.add'))
-                    <button id="addnewproductbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
-                        <i class="fa-regular fa-plus mr-2"></i> Register New Product
-                    </button>
-                @endif
-                <button id="viewallproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
+                <button
+                    id="addnewproductbtn"
+                    type="button"
+                    {!! $createProductState !!}
+                    class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-3 border border-gray-300 dark:border-gray-600 rounded-xl transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px] hover:-translate-y-1 hover:shadow-md {{ $createProductClasses }}"
+                >
+                    <i class="fa-regular fa-plus mr-2"></i> Register New Product
+                </button>
+                <button id="viewallproductsbtn" type="button" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
                     <i class="fa-regular fa-eye mr-2"></i> View All Products
                 </button>
-                <button id="viewarchiveproductsbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px]">
+                <button
+                    id="viewarchiveproductsbtn"
+                    type="button"
+                    {!! $archiveViewState !!}
+                    class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-3 border border-gray-300 dark:border-gray-600 rounded-xl transition-all duration-200 text-gray-700 dark:text-gray-300 flex-1 sm:flex-none min-w-[200px] hover:-translate-y-1 hover:shadow-md {{ $archiveViewClasses }}"
+                >
                     <i class="fa-regular fa-box-archive mr-2"></i> View Archive Products
                 </button>
             </div>
@@ -117,7 +132,11 @@
                             <input type="hidden" name="branch" value="{{ $branchId }}">
                             <input type="hidden" name="filter" id="export-filter-branch-{{ $branchId }}" value="{{ request($filterKey, '') }}">
                             <input type="hidden" name="search" id="export-search-branch-{{ $branchId }}" value="{{ request($searchKey, '') }}">
-                            <button type="submit" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                            <button
+                                type="submit"
+                                {!! $exportInventoryState !!}
+                                class="bg-white dark:bg-gray-800 inline-flex items-center justify-center p-3 border border-gray-300 dark:border-gray-600 rounded-xl transition-all duration-200 text-gray-700 dark:text-gray-300 hover:-translate-y-1 hover:shadow-md {{ $exportInventoryClasses }}"
+                            >
                                 <i class="fa-regular fa-file-export text-lg text-green-600 dark:text-green-400"></i>
                                 <span class="ml-2">Export to XLSX</span>
                             </button>

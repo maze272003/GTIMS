@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\NotificationController;
 use App\Http\Controllers\Admin\BranchManagementController;
 use App\Http\Controllers\Admin\SystemAnalyticsController;
 use App\Http\Controllers\Admin\WorkflowController;
+use App\Services\AuthSessionService;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
@@ -38,7 +39,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // =================== 1. ANG LOGIN REDIRECTOR ===================
     // Ito ang sasalubong sa LAHAT ng user pagka-login.
-    Route::get('/dashboard', function () {
+    Route::get('/dashboard', function (AuthSessionService $authSessionService) {
         $user = Auth::user();
 
         if (!$user || !$user->level) {
@@ -46,13 +47,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             return redirect('/login')->with('error', 'You do not have permission.');
         }
 
-        // Redirect based on permissions
-        if ($user->hasPermission('dashboard.view')) {
-            return redirect()->route('admin.dashboard');
-        }
-
-        if ($user->hasPermission('orders.view')) {
-            return redirect()->route('admin.orders.index');
+        $redirectUrl = $authSessionService->getRedirectUrl($user);
+        if ($redirectUrl) {
+            return redirect()->to($redirectUrl);
         }
 
         Auth::logout();

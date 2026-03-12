@@ -44,7 +44,7 @@ class PatientRecordsFilteringTest extends TestCase
 
     public function test_global_search_matches_resident_and_location_fields(): void
     {
-        $user = $this->createUserWithPermissions(['patients.view', 'patients.manage'], $this->branchOne->id);
+        $user = $this->createUserWithPermissions(['patients.view', 'patients.manage', 'reports.export'], $this->branchOne->id);
 
         Patientrecords::create([
             'patient_name' => 'Juan Dela Cruz',
@@ -83,7 +83,7 @@ class PatientRecordsFilteringTest extends TestCase
 
     public function test_combined_filters_apply_branch_category_barangay_and_date_dispensed(): void
     {
-        $user = $this->createUserWithPermissions(['patients.view', 'patients.manage'], $this->branchOne->id);
+        $user = $this->createUserWithPermissions(['patients.view', 'patients.manage', 'reports.export'], $this->branchOne->id);
 
         Patientrecords::create([
             'patient_name' => 'Filter Match Resident',
@@ -172,7 +172,7 @@ class PatientRecordsFilteringTest extends TestCase
         Excel::fake();
         Excel::matchByRegex();
 
-        $user = $this->createUserWithPermissions(['patients.view', 'patients.manage'], $this->branchOne->id);
+        $user = $this->createUserWithPermissions(['patients.view', 'patients.manage', 'reports.export'], $this->branchOne->id);
 
         $expected = Patientrecords::create([
             'patient_name' => 'Export Match Resident',

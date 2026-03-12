@@ -1,3 +1,7 @@
+@php
+    $archiveInventoryState = $permissionView->disabledAttributes('inventory.archive', 'manage archived products');
+    $archiveInventoryClasses = $permissionView->disabledClasses('inventory.archive');
+@endphp
 <div class="fixed w-full h-screen top-0 left-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden" id="viewarchiveproductsmodal">
       <div class="modal bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto p-6">
         <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4 sticky top-0 bg-white dark:bg-gray-800 z-10">
@@ -12,9 +16,7 @@
               <tr>
                 <th class="p-3">#</th>
                 <th class="p-3">Product Details</th>
-                @if (auth()->user()->hasPermission('inventory.archive'))
                 <th class="p-3 text-center">Actions</th>
-                @endif
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -43,21 +45,28 @@
                     </div>
                   </div>
                 </td>
-                @if (auth()->user()->hasPermission('inventory.archive'))
                 <td class="p-3 flex items-center justify-center gap-2 font-semibold">
-                  <button class="view-archivestock-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 duration-300 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white transition-all mr-2" data-product-id="{{ $product->id }}">
+                  <button
+                    type="button"
+                    {!! $archiveInventoryState !!}
+                    class="view-archivestock-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2.5 rounded-xl hover:-translate-y-1 duration-300 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white transition-all mr-2 {{ $archiveInventoryClasses }}"
+                    data-product-id="{{ $product->id }}"
+                  >
                     <i class="fa-regular fa-eye mr-1"></i>View Archived Stock
                   </button>
                   <form action="{{ route('admin.inventory.unarchiveproduct') }}" method="POST" id="unarchiveproductform">
                     @csrf
                     @method('PUT')
                     <input type="hidden" name="product_id" value="{{ $product->id }}">
-                    <button type="button" class="restore-product-btn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 duration-300 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white transition-all">
+                    <button
+                      type="button"
+                      {!! $archiveInventoryState !!}
+                      class="restore-product-btn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2.5 rounded-xl hover:-translate-y-1 duration-300 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white transition-all {{ $archiveInventoryClasses }}"
+                    >
                       <i class="fa-regular fa-rotate-left mr-1"></i>Restore
                     </button>
                   </form>
                 </td>
-                @endif
               </tr>
               @endforeach
             </tbody>

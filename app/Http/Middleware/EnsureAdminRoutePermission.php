@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AuthSessionService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -10,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureAdminRoutePermission
 {
     /**
-     * @var array<string, array<int, string>>
+     * @var array<string, array<int|string, mixed>>
      */
     protected array $routePermissionMap = [
         'admin.roles.*' => ['settings.roles'],
@@ -71,13 +72,13 @@ class EnsureAdminRoutePermission
         'admin.inventory.unarchiveproduct' => ['inventory.archive'],
         'admin.inventory.fetchArchivedStocks' => ['inventory.archive'],
         'admin.inventory.transferstock' => ['inventory.transfer'],
-        'admin.inventory.export' => ['inventory.view', 'reports.export'],
+        'admin.inventory.export' => ['all' => ['inventory.view', 'reports.export']],
         'admin.inventory' => ['inventory.view'],
 
         'admin.patientrecords.adddispensation' => ['patients.manage'],
         'admin.patientrecords.update' => ['patients.manage'],
-        'admin.patientrecords.exportPdf' => ['patients.view', 'reports.export'],
-        'admin.patientrecords.exportExcel' => ['patients.view', 'reports.export'],
+        'admin.patientrecords.exportPdf' => ['all' => ['patients.view', 'reports.export']],
+        'admin.patientrecords.exportExcel' => ['all' => ['patients.view', 'reports.export']],
         'admin.patientrecords' => ['patients.view'],
 
         'admin.orders.create' => ['orders.create'],
@@ -98,34 +99,56 @@ class EnsureAdminRoutePermission
             return $next($request);
         }
 
-        $requiredPermissions = $this->resolvePermissionsForRoute($routeName);
+        $permissionRule = $this->resolvePermissionsForRoute($routeName);
 
-        if ($requiredPermissions === []) {
+        if ($permissionRule['permissions'] === []) {
             return $next($request);
         }
 
         $user = $request->user();
 
-        foreach ($requiredPermissions as $permission) {
-            if ($user && $user->hasPermission($permission)) {
-                return $next($request);
-            }
+        $hasRequiredAccess = match ($permissionRule['mode']) {
+            'all' => collect($permissionRule['permissions'])->every(
+                fn ($permission) => $user && $user->hasPermission($permission)
+            ),
+            default => collect($permissionRule['permissions'])->contains(
+                fn ($permission) => $user && $user->hasPermission($permission)
+            ),
+        };
+
+        if ($hasRequiredAccess) {
+            return $next($request);
         }
 
-        abort(403, 'This page or action cannot be accessed with your account. Please contact the superadmin for assistance.');
+        abort(403, app(AuthSessionService::class)->getForbiddenMessage($user));
     }
 
     /**
-     * @return array<int, string>
+     * @return array{mode:string,permissions:array<int,string>}
      */
     protected function resolvePermissionsForRoute(string $routeName): array
     {
-        foreach ($this->routePermissionMap as $pattern => $permissions) {
-            if (Str::is($pattern, $routeName)) {
-                return $permissions;
+        foreach ($this->routePermissionMap as $pattern => $permissionRule) {
+            if (!Str::is($pattern, $routeName)) {
+                continue;
             }
+
+            if (is_array($permissionRule) && array_key_exists('all', $permissionRule)) {
+                return [
+                    'mode' => 'all',
+                    'permissions' => array_values($permissionRule['all']),
+                ];
+            }
+
+            return [
+                'mode' => 'any',
+                'permissions' => array_values($permissionRule),
+            ];
         }
 
-        return [];
+        return [
+            'mode' => 'any',
+            'permissions' => [],
+        ];
     }
 }

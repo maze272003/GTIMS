@@ -1,3 +1,11 @@
+@php
+    $addStockActionState = $permissionView->disabledAttributes('inventory.add', 'add stock');
+    $addStockActionClasses = $permissionView->disabledClasses('inventory.add');
+    $editProductActionState = $permissionView->disabledAttributes('inventory.edit', 'edit product details');
+    $editProductActionClasses = $permissionView->disabledClasses('inventory.edit');
+    $archiveProductActionState = $permissionView->disabledAttributes('inventory.archive', 'archive products');
+    $archiveProductActionClasses = $permissionView->disabledClasses('inventory.archive');
+@endphp
 <div class="fixed w-full h-screen top-0 left-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden" id="viewallproductsmodal">
       <div class="modal bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl max-h-screen overflow-y-auto p-6">
           <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4 sticky top-0 bg-white dark:bg-gray-800 z-10">
@@ -13,9 +21,7 @@
                       <tr>
                           <th class="p-3">#</th>
                           <th class="p-3">Product Details</th>
-                          @if (auth()->user()->hasPermission('inventory.add'))
                           <th class="p-3 text-center">Actions</th>
-                        @endif
                       </tr>
                   </thead>
                   <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
@@ -32,8 +38,8 @@
                                   data-form="{{ $product->form }}"
                                   data-strength="{{ $product->strength }}">
                                   <td class="p-3 text-gray-700 dark:text-gray-300">{{ $loop->iteration }}</td>
-                                  <td class="p-3 text-gray-700 dark:text-gray-300">
-                                      <div class="flex gap-4">
+                              <td class="p-3 text-gray-700 dark:text-gray-300">
+                                  <div class="flex gap-4">
                                           <div>
                                               <p class="font-semibold text-gray-700 dark:text-gray-200">{{ $product->generic_name }}</p>
                                               <p class="italic text-gray-500 dark:text-gray-400">{{ $product->brand_name }}</p>
@@ -44,24 +50,35 @@
                                           </div>
                                       </div>
                                   </td>
-                                  @if (auth()->user()->hasPermission('inventory.add'))
                                   <td class="p-3 flex items-center justify-center gap-2 font-semibold">
-                                      <button class="add-stock-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 duration-300 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white transition-all mr-2">
+                                      <button
+                                          type="button"
+                                          {!! $addStockActionState !!}
+                                          class="add-stock-btn bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2.5 rounded-xl hover:-translate-y-1 duration-300 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white transition-all mr-2 {{ $addStockActionClasses }}"
+                                      >
                                           <i class="fa-regular fa-plus mr-1"></i>Add Stock
                                       </button>
-                                      <button class="edit-product-btn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 duration-300 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white transition-all">
+                                      <button
+                                          type="button"
+                                          {!! $editProductActionState !!}
+                                          class="edit-product-btn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2.5 rounded-xl hover:-translate-y-1 duration-300 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white transition-all {{ $editProductActionClasses }}"
+                                      >
                                           <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
                                       </button>
                                       <form action="{{ route('admin.inventory.archiveproduct') }}" method="POST" class="inline" id="archiveproductform">
                                           @csrf
                                           @method('PUT')
                                           <input type="hidden" name="product_id" value="{{ $product->id }}">
-                                          <button type="button" id="archiveproductbtn" class="delete-product-btn bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 p-2 rounded-lg hover:-translate-y-1 duration-300 hover:bg-red-600 dark:hover:bg-red-800 hover:text-white transition-all">
+                                          <button
+                                              type="button"
+                                              {!! $archiveProductActionState !!}
+                                              id="archiveproductbtn"
+                                              class="delete-product-btn bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 p-2.5 rounded-xl hover:-translate-y-1 duration-300 hover:bg-red-600 dark:hover:bg-red-800 hover:text-white transition-all {{ $archiveProductActionClasses }}"
+                                          >
                                               <i class="fa-regular fa-trash mr-1"></i>Archive
                                           </button>
                                       </form>
                                   </td>
-                                  @endif
                               </tr>
                           @endforeach
                       @endif

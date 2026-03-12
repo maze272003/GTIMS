@@ -7,16 +7,13 @@
             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Quantity</th>
             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Status</th>
             <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Expiry Date</th>
-
-            @if (auth()->user()->hasPermission('inventory.edit'))
-                <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Actions</th>
-            @endif
+            <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm text-left tracking-wide">Actions</th>
         </tr>
     </thead>
     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700" id="inventory-table-body">
         @if ($inventories->isEmpty())
             <tr>
-                <td colspan="{{ auth()->user()->hasPermission('inventory.edit') ? 7 : 6 }}"
+                <td colspan="7"
                     class="p-3 text-center text-sm text-gray-500 dark:text-gray-400">
                     No inventory records available
                 </td>
@@ -25,6 +22,10 @@
             @foreach ($inventories as $inventory)
                 @php
                     $isFocusedInventory = isset($focusInventoryId) && (int) $focusInventoryId === (int) $inventory->id;
+                    $editStockState = $permissionView->disabledAttributes('inventory.edit', 'edit inventory stock');
+                    $editStockClasses = $permissionView->disabledClasses('inventory.edit');
+                    $transferStockState = $permissionView->disabledAttributes('inventory.transfer', 'transfer inventory stock');
+                    $transferStockClasses = $permissionView->disabledClasses('inventory.transfer');
                 @endphp
                 <tr id="inventory-row-{{ $inventory->id }}"
                     class="{{ $isFocusedInventory ? 'bg-red-50 dark:bg-red-900/20' : '' }}"
@@ -71,32 +72,35 @@
                         {{ \Carbon\Carbon::parse($inventory->expiry_date)->format('M d, Y') }}
                     </td>
 
-                    @if (auth()->user()->hasPermission('inventory.edit'))
-                        <td class="p-3 flex">
-                            <div class="flex gap-2 w-full">
-                                <button type="button" class="edit-stock-btn w-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white font-semibold text-sm text-center">
-                                    <i class="fa-regular fa-pen-to-square mr-2"></i>
-                                    Edit Stock
-                                </button>
+                    <td class="p-3">
+                        <div class="flex flex-col gap-2 sm:flex-row">
+                            <button
+                                type="button"
+                                {!! $editStockState !!}
+                                class="edit-stock-btn w-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 p-2.5 rounded-xl hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-blue-600 dark:hover:bg-blue-800 hover:text-white font-semibold text-sm text-center {{ $editStockClasses }}"
+                            >
+                                <i class="fa-regular fa-pen-to-square mr-2"></i>
+                                Edit Stock
+                            </button>
 
-                                @if (auth()->user()->hasPermission('inventory.transfer'))
-                                    <button type="button"
-                                            class="transfer-stock-btn w-full bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-purple-600 dark:hover:bg-purple-800 hover:text-white font-semibold text-sm text-center"
-                                            data-stock-id="{{ $inventory->id }}"
-                                            data-batch="{{ $inventory->batch_number }}"
-                                            data-product="{{ $inventory->product->generic_name }} {{ $inventory->product->brand_name }}"
-                                            data-strength="{{ $inventory->product->strength }}"
-                                            data-form="{{ $inventory->product->form }}"
-                                            data-quantity="{{ $inventory->quantity }}"
-                                            data-branch="{{ $inventory->branch?->name ?? 'Unknown Branch' }}"
-                                            data-branch-id="{{ $inventory->branch_id }}">
-                                            <i class="fa-regular fa-share-from-square mr-2"></i>
-                                        Transfer
-                                    </button>
-                                @endif
-                            </div>
-                        </td>
-                    @endif
+                            <button
+                                type="button"
+                                {!! $transferStockState !!}
+                                class="transfer-stock-btn w-full bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 p-2.5 rounded-xl hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-purple-600 dark:hover:bg-purple-800 hover:text-white font-semibold text-sm text-center {{ $transferStockClasses }}"
+                                data-stock-id="{{ $inventory->id }}"
+                                data-batch="{{ $inventory->batch_number }}"
+                                data-product="{{ $inventory->product->generic_name }} {{ $inventory->product->brand_name }}"
+                                data-strength="{{ $inventory->product->strength }}"
+                                data-form="{{ $inventory->product->form }}"
+                                data-quantity="{{ $inventory->quantity }}"
+                                data-branch="{{ $inventory->branch?->name ?? 'Unknown Branch' }}"
+                                data-branch-id="{{ $inventory->branch_id }}"
+                            >
+                                <i class="fa-regular fa-share-from-square mr-2"></i>
+                                Transfer
+                            </button>
+                        </div>
+                    </td>
                 </tr>
             @endforeach
         @endif

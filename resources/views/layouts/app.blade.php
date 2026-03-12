@@ -5,7 +5,8 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <meta name="user-level" content="{{ auth()->check() ? auth()->user()->user_level_id : '' }}">
-        <meta name="user-permissions" content="{{ auth()->check() ? auth()->user()->getEffectivePermissions()->pluck('name')->implode(',') : '' }}">
+        <meta name="user-permissions" content="{{ implode(',', $permissionView->names()) }}">
+        <meta name="user-default-access-url" content="{{ $permissionView->destination()['url'] ?? '' }}">
         <title>{{ $title ?? 'General Tinio - Inventory System' }}</title>
 
         {{-- Prevent light-theme flash before CSS/JS loads by applying saved theme immediately --}}
@@ -37,6 +38,7 @@
         <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 
         <script src="{{ asset('js/gtims-notify.js') }}" defer></script>
+        <script src="{{ asset('js/permission-ui.js') }}" defer></script>
         <script src="{{ asset('js/tour.js') }}" defer></script>
         <script src="{{ asset('js/user-permissions.js') }}" defer></script>
 
@@ -86,7 +88,11 @@
         <script>
             // @deprecated Use window.hasPermission() instead of window.currentUserLevel for access checks
             window.currentUserLevel = {{ auth()->check() ? auth()->user()->user_level_id : 'null' }};
-            window.userPermissions = '{{ auth()->check() ? auth()->user()->getEffectivePermissions()->pluck("name")->implode(",") : "" }}'.split(',').filter(Boolean);
+            window.permissionContext = {
+                permissions: @json($permissionView->names()),
+                redirectDestination: @json($permissionView->destination()),
+            };
+            window.userPermissions = window.permissionContext.permissions;
             window.hasPermission = function(perm) { return window.userPermissions.indexOf(perm) !== -1; };
         </script>
 

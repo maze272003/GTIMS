@@ -5,6 +5,12 @@
         
         {{-- Check for Authorization --}}
         @if(auth()->user()->hasPermission('patients.view'))
+            @php
+                $addDispensationState = $permissionView->disabledAttributes('patients.manage', 'record a new dispensation');
+                $addDispensationClasses = $permissionView->disabledClasses('patients.manage');
+                $patientExportState = $permissionView->disabledAttributes(['patients.view', 'reports.export'], 'export patient records', false, true);
+                $patientExportClasses = $permissionView->disabledClasses(['patients.view', 'reports.export'], true);
+            @endphp
             {{-- AUTHORIZED VIEW --}}
             <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
                 
@@ -55,13 +61,16 @@
                     </div>
                 </div>
 
-                @if (auth()->user()->hasPermission('patients.manage'))
-                    <div class="mt-6 flex flex-col sm:flex-row gap-3 w-full justify-end">
-                        <button id="adddispensationbtn" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
-                            <i class="fa-regular fa-plus mr-2"></i> Record New Dispensation
-                        </button>
-                    </div>
-                @endif
+                <div class="mt-6 flex flex-col sm:flex-row gap-3 w-full justify-end">
+                    <button
+                        id="adddispensationbtn"
+                        type="button"
+                        {!! $addDispensationState !!}
+                        class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-5 py-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 {{ $addDispensationClasses }}"
+                    >
+                        <i class="fa-regular fa-plus mr-2"></i> Record New Dispensation
+                    </button>
+                </div>
 
                 {{-- Records Table Container --}}
                 <div id="patientrecords-data-container">
@@ -115,13 +124,22 @@
 
                                 <div class="flex gap-2">
                                     {{-- PDF Button --}}
-                                    <a href="{{ route('admin.patientrecords.exportPdf', request()->except('page')) }}" target="_blank" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                    <a
+                                        href="{{ route('admin.patientrecords.exportPdf', request()->except('page')) }}"
+                                        target="_blank"
+                                        {!! $patientExportState !!}
+                                        class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 {{ $patientExportClasses }}"
+                                    >
                                         <i class="fa-regular fa-file-pdf text-lg text-red-600 dark:text-red-400"></i>
                                         <span class="ml-2 hidden sm:inline">PDF</span>
                                     </a>
 
                                     {{-- EXCEL Button --}}
-                                    <a href="{{ route('admin.patientrecords.exportExcel', request()->except('page')) }}" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                    <a
+                                        href="{{ route('admin.patientrecords.exportExcel', request()->except('page')) }}"
+                                        {!! $patientExportState !!}
+                                        class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 {{ $patientExportClasses }}"
+                                    >
                                         <i class="fa-regular fa-file-excel text-lg text-green-600 dark:text-green-400"></i>
                                         <span class="ml-2 hidden sm:inline">Excel</span>
                                     </a>

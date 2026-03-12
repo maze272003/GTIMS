@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AuthSessionService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -32,6 +33,6 @@ class CheckPermission
             }
         }
 
-        abort(403, 'This page or action cannot be accessed with your account. Please contact the superadmin for assistance.');
+        abort(403, app(AuthSessionService::class)->getForbiddenMessage($user));
     }
 }
