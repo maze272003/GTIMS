@@ -33,10 +33,12 @@
         </style>
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-        <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.1.0/css/all.css">
+        <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+        <link rel="stylesheet" href="{{ asset('css/icon-compat.css') }}">
         <link rel="icon" type="image/png" href="{{ asset('images/gtlogo.png') }}">
         <link rel="stylesheet" href="{{ asset('css/style.css') }}">
 
+        <script src="{{ asset('js/icon-compat.js') }}" defer></script>
         <script src="{{ asset('js/gtims-notify.js') }}" defer></script>
         <script src="{{ asset('js/permission-ui.js') }}" defer></script>
         <script src="{{ asset('js/tour.js') }}" defer></script>

@@ -10,10 +10,12 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>General Tinio - Inventory System</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+    <link rel="stylesheet" href="{{ asset('css/icon-compat.css') }}">
     <link rel="icon" type="image/png" href="{{ asset('images/gtlogo.png') }}">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="https://unpkg.com/sweetalert2@11"></script>
+    <script src="{{ asset('js/icon-compat.js') }}" defer></script>
 </head>
 <style>
 .swal-popup {
