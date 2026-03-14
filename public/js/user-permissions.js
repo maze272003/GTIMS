@@ -8,6 +8,11 @@
     window.__gtimsUserPermissionsBound = true;
 
     let pendingSearchTimer = null;
+    let pendingGetRequest = null;
+
+    function getPermissionsForm() {
+        return document.getElementById('permissionsForm');
+    }
 
     function getApp() {
         return document.getElementById('user-permissions-app');
@@ -24,6 +29,150 @@
 
     function currentSelectedUserId() {
         return getApp()?.dataset.selectedUserId || '';
+    }
+
+    function currentPermissionInputs() {
+        const form = getPermissionsForm();
+
+        if (!form) {
+            return [];
+        }
+
+        return Array.from(form.querySelectorAll('input[name="permissions[]"]'));
+    }
+
+    function currentCheckedPermissionInputs() {
+        return currentPermissionInputs().filter(function (input) {
+            return input.checked;
+        });
+    }
+
+    function parseInitialSelection(form) {
+        if (!form) {
+            return [];
+        }
+
+        try {
+            const payload = JSON.parse(form.dataset.initialSelected || '[]');
+
+            return Array.isArray(payload)
+                ? payload.map(function (value) { return String(value); }).sort()
+                : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    function currentSelectedPermissionIds() {
+        return currentCheckedPermissionInputs()
+            .map(function (input) { return String(input.value); })
+            .sort();
+    }
+
+    function selectionsMatch(left, right) {
+        if (left.length !== right.length) {
+            return false;
+        }
+
+        return left.every(function (value, index) {
+            return value === right[index];
+        });
+    }
+
+    function sectionCheckedCount(section) {
+        if (!section) {
+            return 0;
+        }
+
+        return section.querySelectorAll('input[name="permissions[]"]:checked').length;
+    }
+
+    function updateCurrentAccessPreview(checkedInputs) {
+        const list = document.querySelector('[data-current-access-list]');
+        const emptyState = document.querySelector('[data-current-access-empty]');
+
+        if (!list || !emptyState) {
+            return;
+        }
+
+        if (checkedInputs.length === 0) {
+            list.innerHTML = '';
+            list.classList.add('hidden');
+            emptyState.classList.remove('hidden');
+            return;
+        }
+
+        const items = checkedInputs
+            .map(function (input) {
+                return {
+                    id: String(input.value),
+                    label: input.closest('[data-permission-item]')?.dataset.permissionLabel || input.value,
+                };
+            })
+            .sort(function (left, right) {
+                return left.label.localeCompare(right.label);
+            });
+
+        list.innerHTML = items.map(function (item) {
+            return '<span class="inline-flex items-center rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 dark:border-red-500/20 dark:bg-gray-900 dark:text-gray-200">'
+                + item.label
+                + '</span>';
+        }).join('');
+
+        list.classList.remove('hidden');
+        emptyState.classList.add('hidden');
+    }
+
+    function syncWorkspaceState() {
+        const form = getPermissionsForm();
+
+        if (!form) {
+            return;
+        }
+
+        const checkedInputs = currentCheckedPermissionInputs();
+        const selectedCount = checkedInputs.length;
+        const initialSelection = parseInitialSelection(form);
+        const isDirty = !selectionsMatch(
+            currentSelectedPermissionIds(),
+            initialSelection
+        );
+
+        form.dataset.dirty = isDirty ? 'true' : 'false';
+
+        document.querySelectorAll('[data-assigned-count]').forEach(function (element) {
+            element.textContent = String(selectedCount);
+        });
+
+        document.querySelectorAll('[data-current-access-count]').forEach(function (element) {
+            element.textContent = String(selectedCount);
+        });
+
+        document.querySelectorAll('[data-permission-section]').forEach(function (section) {
+            const assignedCount = sectionCheckedCount(section);
+
+            section.querySelectorAll('[data-section-assigned-count]').forEach(function (element) {
+                element.textContent = String(assignedCount);
+            });
+        });
+
+        updateCurrentAccessPreview(checkedInputs);
+
+        const dirtyState = document.querySelector('[data-permissions-dirty-state]');
+        if (dirtyState) {
+            dirtyState.textContent = isDirty
+                ? 'Unsaved changes ready to save.'
+                : 'Validation runs before saving and only this user\'s permissions are updated.';
+        }
+
+        const accessMode = document.querySelector('[data-access-mode]');
+        if (accessMode) {
+            const isInitiallyCustom = form.dataset.initialCustom === 'true';
+
+            accessMode.textContent = (!isInitiallyCustom && isDirty)
+                ? 'Custom after save'
+                : (isInitiallyCustom ? 'Custom' : 'Template');
+        }
     }
 
     function buildRolesUrl(userId, search) {
@@ -102,7 +251,7 @@
             window.history.pushState({ userPermissions: true }, '', payload.url);
         }
 
-        filterUsers();
+        initializeUserPermissionsPage();
     }
 
     function handleFetchFailure(response, fallbackUrl) {
@@ -128,7 +277,7 @@
     async function fetchFragments(url, options) {
         const app = getApp();
 
-        if (!app || app.dataset.fetching === 'true') {
+        if (!app) {
             return null;
         }
 
@@ -139,6 +288,19 @@
                 'Accept': 'application/json',
             },
         }, options || {});
+
+        const requestMethod = String(requestOptions.method || 'GET').toUpperCase();
+
+        if (app.dataset.fetching === 'true') {
+            if (requestMethod === 'GET') {
+                pendingGetRequest = {
+                    url: url,
+                    options: requestOptions,
+                };
+            }
+
+            return null;
+        }
 
         setLoadingState(true);
 
@@ -162,7 +324,13 @@
             }
 
             const payload = await response.json();
-            renderFragments(payload, requestOptions.method === 'GET');
+            const hasPendingNewerGet = requestMethod === 'GET'
+                && pendingGetRequest
+                && pendingGetRequest.url !== url;
+
+            if (!hasPendingNewerGet) {
+                renderFragments(payload, requestMethod === 'GET');
+            }
 
             if (payload.message && typeof gtToast !== 'undefined') {
                 gtToast.success(payload.message);
@@ -177,6 +345,15 @@
             return null;
         } finally {
             setLoadingState(false);
+
+            if (pendingGetRequest) {
+                const nextRequest = pendingGetRequest;
+                pendingGetRequest = null;
+
+                if (requestMethod !== 'GET' || nextRequest.url !== url) {
+                    fetchFragments(nextRequest.url, nextRequest.options);
+                }
+            }
         }
     }
 
@@ -266,6 +443,7 @@
         }
 
         filterUsers();
+        syncWorkspaceState();
     }
 
     document.addEventListener('DOMContentLoaded', initializeUserPermissionsPage);
@@ -295,6 +473,11 @@
 
         if (event.target.id === 'mobileUserSelect' && event.target.value) {
             loadUserFromUrl(event.target.value);
+            return;
+        }
+
+        if (event.target.matches('input[name="permissions[]"]')) {
+            syncWorkspaceState();
         }
     });
 

@@ -30,6 +30,9 @@ class RolePermissionRepository extends BaseRepository implements RolePermissionR
                     $searchQuery
                         ->where('name', 'like', '%'.$search.'%')
                         ->orWhere('email', 'like', '%'.$search.'%')
+                        ->orWhereHas('branch', function ($branchQuery) use ($search) {
+                            $branchQuery->where('name', 'like', '%'.$search.'%');
+                        })
                         ->orWhereHas('level', function ($levelQuery) use ($search) {
                             $levelQuery->where('name', 'like', '%'.$search.'%');
                         });

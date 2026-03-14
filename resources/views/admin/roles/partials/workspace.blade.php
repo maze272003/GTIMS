@@ -43,7 +43,7 @@
                 <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <div class="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/70">
                         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">Assigned</p>
-                        <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ count($selectedPermissionIds) }}</p>
+                        <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white" data-assigned-count>{{ count($selectedPermissionIds) }}</p>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Permissions currently enabled.</p>
                     </div>
                     <div class="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/70">
@@ -58,7 +58,7 @@
                     </div>
                     <div class="rounded-2xl bg-gray-50 p-4 dark:bg-gray-800/70">
                         <p class="text-xs font-semibold uppercase tracking-[0.16em] text-gray-500 dark:text-gray-400">Access Mode</p>
-                        <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ $selectedUser->uses_custom_permissions ? 'Custom' : 'Template' }}</p>
+                        <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white" data-access-mode>{{ $selectedUser->uses_custom_permissions ? 'Custom' : 'Template' }}</p>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Saving here switches this user to individual access.</p>
                     </div>
                 </div>
@@ -70,20 +70,24 @@
                             <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">A quick glance at the permissions currently enabled for this user.</p>
                         </div>
                         <span class="inline-flex items-center rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm dark:bg-gray-900 dark:text-gray-200">
-                            {{ count($selectedPermissionIds) }} enabled
+                            <span data-current-access-count>{{ count($selectedPermissionIds) }}</span>&nbsp;enabled
                         </span>
                     </div>
 
                     @if($assignedPermissions->isNotEmpty())
-                        <div class="mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto pr-2">
+                        <div class="mt-4 flex max-h-48 flex-wrap gap-2 overflow-y-auto pr-2" data-current-access-list>
                             @foreach($assignedPermissions as $permission)
                                 <span class="inline-flex items-center rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 dark:border-red-500/20 dark:bg-gray-900 dark:text-gray-200">
                                     {{ ucwords(str_replace(['.', '_'], ' ', $permission->name)) }}
                                 </span>
                             @endforeach
                         </div>
+                        <div class="mt-4 hidden rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400" data-current-access-empty>
+                            No permissions are currently assigned. Toggle access below and save changes to grant access.
+                        </div>
                     @else
-                        <div class="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400">
+                        <div class="mt-4 hidden flex max-h-48 flex-wrap gap-2 overflow-y-auto pr-2" data-current-access-list></div>
+                        <div class="mt-4 rounded-2xl border border-dashed border-gray-300 bg-white p-4 text-sm text-gray-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400" data-current-access-empty>
                             No permissions are currently assigned. Toggle access below and save changes to grant access.
                         </div>
                     @endif
@@ -91,13 +95,20 @@
             </div>
         </div>
 
-        <form id="permissionsForm" action="{{ route('admin.roles.update') }}" method="POST" class="space-y-6 pb-28">
+        <form
+            id="permissionsForm"
+            action="{{ route('admin.roles.update') }}"
+            method="POST"
+            class="space-y-6 pb-28"
+            data-initial-selected='@json(array_values($selectedPermissionIds))'
+            data-initial-custom="{{ $selectedUser->uses_custom_permissions ? 'true' : 'false' }}"
+        >
             @csrf
             <input type="hidden" name="user_id" value="{{ $selectedUser->id }}">
             <input type="hidden" name="search" value="{{ $search }}">
 
             @forelse($permissionSections as $section)
-                <details class="group overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900" @if($loop->first || $section['assigned_count'] > 0) open @endif>
+                <details class="group overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900" data-permission-section data-section-key="{{ $section['key'] }}" @if($loop->first || $section['assigned_count'] > 0) open @endif>
                     <summary class="cursor-pointer list-none p-5 sm:p-6">
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div class="flex items-start gap-4">
@@ -112,7 +123,7 @@
 
                             <div class="flex items-center gap-3">
                                 <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200">
-                                    {{ $section['assigned_count'] }} / {{ $section['total_count'] }} enabled
+                                    <span data-section-assigned-count>{{ $section['assigned_count'] }}</span>&nbsp;/ {{ $section['total_count'] }} enabled
                                 </span>
                                 <span class="text-gray-400 transition group-open:rotate-180 dark:text-gray-500">
                                     <i class="fa-solid fa-chevron-down"></i>
@@ -124,7 +135,7 @@
                     <div class="border-t border-gray-200 p-4 dark:border-gray-800 sm:p-6">
                         <div class="grid gap-4 lg:grid-cols-2">
                             @foreach($section['permissions'] as $permission)
-                                <label class="flex items-start gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 transition hover:border-red-200 hover:bg-white dark:border-gray-800 dark:bg-gray-800/70 dark:hover:border-red-500/30 dark:hover:bg-gray-900">
+                                <label class="flex items-start gap-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 transition hover:border-red-200 hover:bg-white dark:border-gray-800 dark:bg-gray-800/70 dark:hover:border-red-500/30 dark:hover:bg-gray-900" data-permission-item data-permission-id="{{ $permission['id'] }}" data-permission-label="{{ $permission['label'] }}">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-center gap-2">
                                             <span class="text-sm font-semibold text-gray-900 dark:text-white">{{ $permission['label'] }}</span>
@@ -169,7 +180,7 @@
                         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                             <div>
                                 <p class="text-sm font-semibold text-gray-900 dark:text-white">Save {{ $selectedUser->name }}'s access</p>
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Validation runs before saving and only this user's permissions are updated.</p>
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400" data-permissions-dirty-state>Validation runs before saving and only this user's permissions are updated.</p>
                             </div>
                             <button
                                 id="savePermissionsButton"
