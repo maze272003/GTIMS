@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Exports\InventoryExport;
 use App\Models\Branch;
 use App\Repositories\Interfaces\HistoryLogRepositoryInterface;
+use App\Repositories\Interfaces\InventoryAdminRepositoryInterface;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -12,6 +13,7 @@ class InventoryExportService
 {
     public function __construct(
         protected HistoryLogRepositoryInterface $historyLogRepository,
+        protected InventoryAdminRepositoryInterface $inventoryAdminRepository,
         protected BranchAccessService $branchAccessService
     ) {
     }
@@ -35,6 +37,12 @@ class InventoryExportService
             ],
         ]);
 
-        return Excel::download(new InventoryExport((int) $branchModel->id, $filter, $search), $fileName);
+        $query = $this->inventoryAdminRepository->buildActiveInventoryByBranchQuery(
+            (int) $branchModel->id,
+            $search,
+            $filter
+        );
+
+        return Excel::download(new InventoryExport($query, $branchModel->name, $filter, $search), $fileName);
     }
 }

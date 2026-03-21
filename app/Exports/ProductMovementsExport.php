@@ -2,8 +2,7 @@
 
 namespace App\Exports;
 
-use App\Models\ProductMovement;
-use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -29,11 +28,11 @@ class ProductMovementsExport implements
     WithCustomStartCell, 
     WithEvents
 {
-    protected $params;
+    protected Builder $query;
 
-    public function __construct($params)
+    public function __construct(Builder $query)
     {
-        $this->params = $params;
+        $this->query = clone $query;
     }
 
     public function drawings()
@@ -66,31 +65,7 @@ class ProductMovementsExport implements
 
     public function query()
     {
-        $query = ProductMovement::with(['product', 'user', 'inventory.branch'])
-            ->orderBy('created_at', $this->params['sort'] ?? 'desc');
-
-        if (!empty($this->params['search'])) {
-            $search = $this->params['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('description', 'like', "%{$search}%")
-                  ->orWhereHas('inventory', fn($q_inv) => $q_inv->where('batch_number', 'like', "%{$search}%"));
-            });
-        }
-
-        if (!empty($this->params['product_id'])) $query->where('product_id', $this->params['product_id']);
-        if (!empty($this->params['type'])) $query->where('type', $this->params['type']);
-        if (!empty($this->params['user_id'])) $query->where('user_id', $this->params['user_id']);
-        if (!empty($this->params['branch_id'])) {
-            $query->whereHas('inventory', fn($q) => $q->where('branch_id', $this->params['branch_id']));
-        }
-        if (!empty($this->params['from'])) {
-            $query->where('created_at', '>=', Carbon::parse($this->params['from'])->startOfDay());
-        }
-        if (!empty($this->params['to'])) {
-            $query->where('created_at', '<=', Carbon::parse($this->params['to'])->endOfDay());
-        }
-
-        return $query;
+        return clone $this->query;
     }
 
     public function headings(): array

@@ -23,8 +23,9 @@ class ProductMovementQueryService
     {
         $params['branch_id'] = $this->branchAccessService->resolveBranchFilter(auth()->user(), $params['branch_id'] ?? null, defaultToUserBranch: true);
         $fileName = 'movements_report_' . now()->format('Y-m-d_His') . '.xlsx';
+        $query = $this->productMovementRepository->buildFilteredQuery($params);
 
-        return Excel::download(new ProductMovementsExport($params), $fileName);
+        return Excel::download(new ProductMovementsExport($query), $fileName);
     }
 
     public function getIndexData(array $filters): array

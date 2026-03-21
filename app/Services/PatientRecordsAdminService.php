@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exports\PatientRecordsExport;
 use App\Models\User;
+use App\Support\SearchRelevance;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -30,40 +31,32 @@ class PatientRecordsAdminService
         $activeBranchIds = $branches->pluck('id')->map(fn ($id) => (int) $id)->all();
         $filters = $this->validatedFilters($request, $user, $activeBranchIds);
 
-        // === 1. BUILD THE QUERY ===
         $query = $this->buildFilteredPatientRecordsQuery($filters, $user)
             ->with(['dispensedMedications', 'barangay', 'branch'])
             ->orderByDesc('date_dispensed')
             ->orderByDesc('id');
 
-        // === 2. PAGINATION ===
         $patientrecords = $query->paginate(20)->withQueryString();
 
-        // === 3. AJAX CHECK ===
         if ($request->ajax()) {
             return view('admin.partials.patientrecords_table', compact('patientrecords'))->render();
         }
 
-        // === 4. LOAD FULL PAGE DATA ===
         $products = $this->patientRecordsRepository->getActiveInventoriesWithProduct($accessibleBranchIds);
         $barangays = $this->patientRecordsRepository->getAllBarangays();
-
-        // Calculate Stats
-        $patientrecordscard = $this->buildFilteredPatientRecordsQuery($filters, $user)
-            ->with('dispensedMedications')
-            ->get();
-
-        $totalPeopleServed = $patientrecordscard->count();
-        $totalProductsDispensed = $patientrecordscard->sum(function ($record) {
-            return $record->dispensedMedications->count();
-        });
+        $statsQuery = $this->buildFilteredPatientRecordsQuery($filters, $user);
+        $totalPeopleServed = (clone $statsQuery)
+            ->distinct('patientrecords.id')
+            ->count('patientrecords.id');
+        $totalProductsDispensed = (clone $statsQuery)
+            ->leftJoin('dispensedmedications', 'dispensedmedications.patientrecord_id', '=', 'patientrecords.id')
+            ->count('dispensedmedications.id');
 
         return view('admin.patientrecords', compact(
             'products',
             'barangays',
             'branches',
             'patientrecords',
-            'patientrecordscard',
             'totalPeopleServed',
             'totalProductsDispensed',
             'filters'
@@ -292,54 +285,84 @@ class PatientRecordsAdminService
 
     public function buildFilteredPatientRecordsQuery(array $filters, User $user): Builder
     {
-        $query = $this->patientRecordsRepository->patientRecordsQuery();
+        $query = $this->patientRecordsRepository->patientRecordsQuery()
+            ->select('patientrecords.*');
         $canAccessAllBranches = $this->branchAccessService->canAccessAllBranches($user);
-        $search = (string) ($filters['search'] ?? '');
-        $searchTokens = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $search = SearchRelevance::normalize($filters['search'] ?? '');
+        $searchTokens = SearchRelevance::tokens($search);
 
         $query
             ->when($canAccessAllBranches && ($filters['branch_filter'] ?? 'all') !== 'all', function (Builder $q) use ($filters) {
-                $q->where('branch_id', (int) $filters['branch_filter']);
+                $q->where('patientrecords.branch_id', (int) $filters['branch_filter']);
             })
             ->when(!$canAccessAllBranches, function (Builder $q) use ($user) {
-                $q->where('branch_id', (int) $user->branch_id);
+                $q->where('patientrecords.branch_id', (int) $user->branch_id);
             })
             ->when($search !== '', function (Builder $q) use ($search, $searchTokens) {
+                $q->leftJoin('barangays', 'barangays.id', '=', 'patientrecords.barangay_id')
+                    ->leftJoin('branches', 'branches.id', '=', 'patientrecords.branch_id');
+
                 $q->where(function (Builder $searchQuery) use ($search, $searchTokens) {
-                    $searchQuery->where('patient_name', 'like', "%{$search}%")
-                        ->orWhere('purok', 'like', "%{$search}%")
-                        ->orWhere('category', 'like', "%{$search}%")
-                        ->orWhereHas('barangay', function (Builder $barangayQuery) use ($search) {
-                            $barangayQuery->where('barangay_name', 'like', "%{$search}%");
-                        })
-                        ->orWhereHas('branch', function (Builder $branchQuery) use ($search) {
-                            $branchQuery->where('name', 'like', "%{$search}%");
-                        });
+                    $containsPattern = SearchRelevance::containsPattern($search);
+
+                    $searchQuery
+                        ->whereRaw(SearchRelevance::lower('patientrecords.patient_name')." LIKE ? ESCAPE '\\'", [$containsPattern])
+                        ->orWhereRaw(SearchRelevance::lower('patientrecords.purok')." LIKE ? ESCAPE '\\'", [$containsPattern])
+                        ->orWhereRaw(SearchRelevance::lower('patientrecords.category')." LIKE ? ESCAPE '\\'", [$containsPattern])
+                        ->orWhereRaw(SearchRelevance::lower('barangays.barangay_name')." LIKE ? ESCAPE '\\'", [$containsPattern])
+                        ->orWhereRaw(SearchRelevance::lower('branches.name')." LIKE ? ESCAPE '\\'", [$containsPattern]);
 
                     if (count($searchTokens) > 1) {
                         $searchQuery->orWhere(function (Builder $tokenQuery) use ($searchTokens) {
                             foreach ($searchTokens as $token) {
-                                $tokenQuery->where('patient_name', 'like', "%{$token}%");
+                                $tokenQuery->whereRaw(SearchRelevance::lower('patientrecords.patient_name')." LIKE ? ESCAPE '\\'", [
+                                    SearchRelevance::containsPattern($token),
+                                ]);
                             }
                         });
                     }
 
                     if (ctype_digit($search)) {
-                        $searchQuery->orWhere('id', (int) $search);
+                        $searchQuery->orWhere('patientrecords.id', (int) $search);
                     }
                 });
+
+                $weights = config('query_relevance.patient_records');
+                $relevance = (new SearchRelevance())
+                    ->exact(SearchRelevance::lower('patientrecords.patient_name'), $search, $weights['patient_name_exact'])
+                    ->prefix(SearchRelevance::lower('patientrecords.patient_name'), $search, $weights['patient_name_prefix'])
+                    ->contains(SearchRelevance::lower('patientrecords.patient_name'), $search, $weights['patient_name_contains'])
+                    ->tokenContains(SearchRelevance::lower('patientrecords.patient_name'), $searchTokens, $weights['patient_name_token'])
+                    ->exact(SearchRelevance::lower('barangays.barangay_name'), $search, $weights['barangay_exact'])
+                    ->prefix(SearchRelevance::lower('barangays.barangay_name'), $search, $weights['barangay_prefix'])
+                    ->contains(SearchRelevance::lower('barangays.barangay_name'), $search, $weights['barangay_contains'])
+                    ->exact(SearchRelevance::lower('branches.name'), $search, $weights['branch_exact'])
+                    ->prefix(SearchRelevance::lower('branches.name'), $search, $weights['branch_prefix'])
+                    ->contains(SearchRelevance::lower('branches.name'), $search, $weights['branch_contains'])
+                    ->exact(SearchRelevance::lower('patientrecords.purok'), $search, $weights['purok_exact'])
+                    ->prefix(SearchRelevance::lower('patientrecords.purok'), $search, $weights['purok_prefix'])
+                    ->contains(SearchRelevance::lower('patientrecords.purok'), $search, $weights['purok_contains'])
+                    ->exact(SearchRelevance::lower('patientrecords.category'), $search, $weights['category_exact']);
+
+                if (ctype_digit($search)) {
+                    $relevance->custom('patientrecords.id = ?', [(int) $search], $weights['id_exact']);
+                }
+
+                $compiled = $relevance->compile();
+                $q->selectRaw($compiled['sql'], $compiled['bindings'])
+                    ->orderByDesc('relevance_score');
             })
             ->when(($filters['category'] ?? 'all') !== 'all', function (Builder $q) use ($filters) {
-                $q->where('category', $filters['category']);
+                $q->where('patientrecords.category', $filters['category']);
             })
             ->when(!empty($filters['barangay_id']), function (Builder $q) use ($filters) {
-                $q->where('barangay_id', (int) $filters['barangay_id']);
+                $q->where('patientrecords.barangay_id', (int) $filters['barangay_id']);
             })
             ->when(!empty($filters['from_date']), function (Builder $q) use ($filters) {
-                $q->whereDate('date_dispensed', '>=', $filters['from_date']);
+                $q->whereDate('patientrecords.date_dispensed', '>=', $filters['from_date']);
             })
             ->when(!empty($filters['to_date']), function (Builder $q) use ($filters) {
-                $q->whereDate('date_dispensed', '<=', $filters['to_date']);
+                $q->whereDate('patientrecords.date_dispensed', '<=', $filters['to_date']);
             });
 
         return $query;

@@ -1,6 +1,4 @@
 @php
-    use Carbon\Carbon;
-
     $createProductState = $permissionView->disabledAttributes('inventory.add', 'register a new product');
     $createProductClasses = $permissionView->disabledClasses('inventory.add');
     $archiveViewState = $permissionView->disabledAttributes('inventory.archive', 'view archived inventory');
@@ -25,7 +23,7 @@
                         <div>
                             <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">In Stock</p>
                             <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">
-                                {{ $inventorycount->where('quantity', '>=', 100)->count() }}
+                                {{ $inventoryStats['in_stock'] ?? 0 }}
                             </p>
                             <p class="text-xs text-green-600 dark:text-green-400 mt-1">Currently in stock</p>
                         </div>
@@ -39,7 +37,7 @@
                         <div>
                             <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Low Stock</p>
                             <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">
-                                {{ $inventorycount->where('quantity', '<', 100)->where('quantity', '>', 0)->count() }}
+                                {{ $inventoryStats['low_stock'] ?? 0 }}
                             </p>
                             <p class="text-xs text-orange-600 dark:text-orange-400 mt-1">Requires attention</p>
                         </div>
@@ -53,7 +51,7 @@
                         <div>
                             <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Expired Stock</p>
                             <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">
-                                {{ $inventorycount->where('expiry_date', '<', Carbon::now())->count() }}
+                                {{ $inventoryStats['expired'] ?? 0 }}
                             </p>
                             <p class="text-xs text-red-600 dark:text-red-400 mt-1">Must be removed</p>
                         </div>
@@ -67,7 +65,7 @@
                         <div>
                             <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Nearly Expired</p>
                             <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">
-                                {{ $inventorycount->where('expiry_date', '>', Carbon::now())->where('expiry_date', '<', Carbon::now()->addDays(30))->count() }}
+                                {{ $inventoryStats['nearly_expired'] ?? 0 }}
                             </p>
                             <p class="text-xs text-yellow-600 dark:text-yellow-400 mt-1">Expires in 30 days</p>
                         </div>

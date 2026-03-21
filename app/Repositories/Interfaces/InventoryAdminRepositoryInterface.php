@@ -22,6 +22,10 @@ interface InventoryAdminRepositoryInterface
 
     public function activeInventoryByBranchQuery(int $branchId): Builder;
 
+    public function buildActiveInventoryByBranchQuery(int $branchId, ?string $search = null, ?string $filter = null): Builder;
+
+    public function getInventoryOverviewStats(?array $branchIds = null): array;
+
     public function paginateArchivedStocksByProduct(int $productId, ?array $branchIds = null, int $perPage = 20): LengthAwarePaginator;
 
     public function createProduct(array $data): Product;

@@ -52,46 +52,26 @@ public function showinventory(Request $request)
     $products = $this->inventoryAdminRepository->getActiveProducts();
     $archiveproducts = $this->inventoryAdminRepository->getArchivedProducts();
     $branches = $this->inventoryAdminRepository->getSupportedBranches($visibleBranchIds);
-    $inventorycount = $this->inventoryAdminRepository->getActiveInventories($visibleBranchIds);
+    $inventoryStats = $this->inventoryAdminRepository->getInventoryOverviewStats($visibleBranchIds);
 
     $branchInventories = [];
 
     foreach ($branches as $branch) {
         $branchId = (int) $branch->id;
-        $query = $this->inventoryAdminRepository->activeInventoryByBranchQuery($branchId);
-
         $searchKey = 'search_branch_'.$branchId;
         $filterKey = 'filter_branch_'.$branchId;
         $pageKey = 'page_branch_'.$branchId;
-
-        if ($request->filled($searchKey)) {
-            $search = strtolower((string) $request->input($searchKey));
-            $query->where(function ($q) use ($search) {
-                $q->whereRaw('LOWER(batch_number) LIKE ?', ["%{$search}%"])
-                    ->orWhereHas('product', fn ($p) => $p
-                        ->whereRaw('LOWER(generic_name) LIKE ?', ["%{$search}%"])
-                        ->orWhereRaw('LOWER(brand_name) LIKE ?', ["%{$search}%"]));
-            });
-        }
-
-        if ($request->filled($filterKey)) {
-            match ($request->input($filterKey)) {
-                'in_stock'       => $query->where('quantity', '>=', 100),
-                'low_stock'      => $query->where('quantity', '>', 0)->where('quantity', '<', 100),
-                'out_of_stock'   => $query->where('quantity', '<=', 0),
-                'nearly_expired' => $query->where('expiry_date', '>', now())->where('expiry_date', '<', now()->addDays(30)),
-                'expired'        => $query->where('expiry_date', '<', now()),
-                default          => null,
-            };
-        }
+        $query = $this->inventoryAdminRepository->buildActiveInventoryByBranchQuery(
+            $branchId,
+            $request->input($searchKey),
+            $request->input($filterKey)
+        );
 
         if ($focusedInventory && $focusBranch === $branchId) {
-            $query->where('id', $focusedInventory->id);
+            $query->where('inventories.id', $focusedInventory->id);
         }
 
-        $branchInventories[$branchId] = $query->with('product')
-            ->orderBy('expiry_date', 'asc')
-            ->paginate(20, ['*'], $pageKey);
+        $branchInventories[$branchId] = $query->paginate(20, ['inventories.*'], $pageKey);
     }
 
     // 4. AJAX Handling
@@ -116,7 +96,7 @@ public function showinventory(Request $request)
         'products' => $products,
         'archiveproducts' => $archiveproducts,
         'branches' => $branches,
-        'inventorycount' => $inventorycount,
+        'inventoryStats' => $inventoryStats,
         'branchInventories' => $branchInventories,
         'focusInventoryId' => $focusedInventory?->id,
         'focusBranch' => $focusBranch,

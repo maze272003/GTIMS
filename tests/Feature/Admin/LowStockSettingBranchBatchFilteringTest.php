@@ -5,6 +5,7 @@ namespace Tests\Feature\Admin;
 use App\Models\Branch;
 use App\Models\Inventory;
 use App\Models\LowStockSetting;
+use App\Models\Permission;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\UserLevel;
@@ -20,6 +21,18 @@ class LowStockSettingBranchBatchFilteringTest extends TestCase
     {
         $level = UserLevel::firstOrCreate(['name' => 'admin']);
         $branch = Branch::factory()->create();
+        $permissionIds = collect([
+            'settings.low_stock',
+            'reports.view',
+            'branches.manage',
+        ])->map(function (string $permissionName) {
+            return Permission::firstOrCreate(
+                ['name' => $permissionName],
+                ['group' => 'test', 'description' => $permissionName]
+            )->id;
+        })->all();
+
+        $level->permissions()->syncWithoutDetaching($permissionIds);
 
         return User::factory()->create([
             'email_verified_at' => now(),

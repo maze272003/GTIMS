@@ -5,6 +5,7 @@ namespace App\Exports;
 use App\Models\Branch;
 use App\Models\Inventory;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -29,19 +30,30 @@ class InventoryExport implements
     WithCustomStartCell, 
     WithEvents
 {
-    protected $branch;
-    protected $filter;
-    protected $search;
-    protected $user;
+    protected ?Builder $query = null;
+    protected ?int $branchId = null;
+    protected ?string $filter;
+    protected ?string $search;
+    protected mixed $user;
     protected string $branchName;
 
-    public function __construct($branch, $filter = null, $search = null)
+    public function __construct(Builder|int|string $queryOrBranch, ?string $branchNameOrFilter = null, ?string $filter = null, ?string $search = null)
     {
-        $this->branch = $branch;
-        $this->filter = $filter;
-        $this->search = $search;
         $this->user = Auth::user();
-        $this->branchName = Branch::query()->find((int) $branch)?->name ?? ('Branch #'.$branch);
+
+        if ($queryOrBranch instanceof Builder) {
+            $this->query = clone $queryOrBranch;
+            $this->branchName = $branchNameOrFilter ?? 'Inventory';
+            $this->filter = $filter;
+            $this->search = $search;
+
+            return;
+        }
+
+        $this->branchId = (int) $queryOrBranch;
+        $this->filter = $branchNameOrFilter;
+        $this->search = $filter;
+        $this->branchName = Branch::query()->find($this->branchId)?->name ?? ('Branch #'.$this->branchId);
     }
 
     public function drawings()
@@ -72,31 +84,9 @@ class InventoryExport implements
 
     public function collection()
     {
-        $query = Inventory::with(['product', 'branch'])
-            ->where('branch_id', $this->branch)
-            ->where('is_archived', 0);
-
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->whereHas('product', function ($pq) {
-                    $pq->where('generic_name', 'like', "%{$this->search}%")
-                       ->orWhere('brand_name', 'like', "%{$this->search}%");
-                })->orWhere('batch_number', 'like', "%{$this->search}%");
-            });
-        }
-
-        if ($this->filter) {
-            match ($this->filter) {
-                'in_stock' => $query->where('quantity', '>=', 100),
-                'low_stock' => $query->where('quantity', '>', 0)->where('quantity', '<', 100),
-                'out_of_stock' => $query->where('quantity', '<=', 0),
-                'nearly_expired' => $query->whereBetween('expiry_date', [now(), now()->addDays(30)]),
-                'expired' => $query->where('expiry_date', '<', now()),
-                default => null,
-            };
-        }
-
-        $items = $query->get()->sortBy('expiry_date');
+        $items = $this->query
+            ? (clone $this->query)->get()
+            : $this->buildLegacyQuery()->get()->sortBy('expiry_date');
 
         $final = collect();
         $grouped = $items->groupBy(fn($item) => Carbon::parse($item->expiry_date)->format('F Y'));
@@ -114,6 +104,35 @@ class InventoryExport implements
         }
 
         return $final->isEmpty() ? collect([(object)['empty' => true]]) : $final;
+    }
+
+    private function buildLegacyQuery(): Builder
+    {
+        $query = Inventory::with(['product', 'branch'])
+            ->where('branch_id', $this->branchId)
+            ->where('is_archived', 0);
+
+        if ($this->search) {
+            $query->where(function ($nestedQuery) {
+                $nestedQuery->whereHas('product', function ($productQuery) {
+                    $productQuery->where('generic_name', 'like', "%{$this->search}%")
+                        ->orWhere('brand_name', 'like', "%{$this->search}%");
+                })->orWhere('batch_number', 'like', "%{$this->search}%");
+            });
+        }
+
+        if ($this->filter) {
+            match ($this->filter) {
+                'in_stock' => $query->where('quantity', '>=', 100),
+                'low_stock' => $query->where('quantity', '>', 0)->where('quantity', '<', 100),
+                'out_of_stock' => $query->where('quantity', '<=', 0),
+                'nearly_expired' => $query->whereBetween('expiry_date', [now(), now()->addDays(30)]),
+                'expired' => $query->where('expiry_date', '<', now()),
+                default => null,
+            };
+        }
+
+        return $query;
     }
 
     public function headings(): array
