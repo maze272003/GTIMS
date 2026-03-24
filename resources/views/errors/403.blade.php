@@ -101,6 +101,8 @@
     </style>
 </head>
 <body>
+    <x-global-preloader />
+
     @php
         $authSessionService = app(\App\Services\AuthSessionService::class);
         $destination = auth()->check() ? $authSessionService->getRedirectDestination(auth()->user()) : null;

@@ -100,6 +100,8 @@
 }
 </style>
 <body class="bg-gradient-to-r from-black/50 to-black flex items-center justify-center min-h-screen p-4">
+    <x-global-preloader />
+
     <div id="logincontainer" class="flex flex-col lg:flex-row rounded-lg bg-white w-full max-w-4xl overflow-hidden shadow-2xl">
         
         <div class="flex flex-col gap-4 w-full lg:w-1/2 p-8 md:p-8">
