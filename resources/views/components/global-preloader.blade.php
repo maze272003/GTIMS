@@ -51,12 +51,14 @@
 
 <div id="gtims-global-preloader" role="status" aria-live="polite" aria-label="Page is loading">
     <div class="gtims-heart" aria-hidden="true">❤</div>
-    <p class="gtims-preloader-text">She's cares</p>
+    <p class="gtims-preloader-text">She cares</p>
 </div>
 
 <script>
+    const PRELOADER_FALLBACK_HIDE_DELAY_MS = 7000;
+
     (function () {
-        var preloader = document.getElementById('gtims-global-preloader');
+        const preloader = document.getElementById('gtims-global-preloader');
         if (!preloader) return;
 
         function hidePreloader() {
@@ -69,6 +71,6 @@
             window.addEventListener('load', hidePreloader, { once: true });
         }
 
-        window.setTimeout(hidePreloader, 7000);
+        window.setTimeout(hidePreloader, PRELOADER_FALLBACK_HIDE_DELAY_MS);
     })();
 </script>
