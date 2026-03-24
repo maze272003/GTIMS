@@ -26,18 +26,28 @@ class NotificationPreferenceRepository extends BaseRepository implements Notific
 
     public function upsertUserPreferences(int $userId, array $notificationTypes, array $input): void
     {
-        foreach ($notificationTypes as $type) {
-            $emailEnabled = (bool) data_get($input, "{$type}.email_enabled", false);
-            $inAppEnabled = (bool) data_get($input, "{$type}.in_app_enabled", true);
-
-            NotificationPreference::updateOrCreate(
-                ['user_id' => $userId, 'type' => $type],
-                [
-                    'email_enabled' => $emailEnabled,
-                    'in_app_enabled' => $inAppEnabled,
-                ]
-            );
+        if ($notificationTypes === []) {
+            return;
         }
+
+        $now = now();
+        $rows = [];
+
+        foreach ($notificationTypes as $type) {
+            $rows[] = [
+                'user_id' => $userId,
+                'type' => $type,
+                'email_enabled' => (bool) data_get($input, "{$type}.email_enabled", false),
+                'in_app_enabled' => (bool) data_get($input, "{$type}.in_app_enabled", true),
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+        }
+
+        NotificationPreference::upsert(
+            $rows,
+            ['user_id', 'type'],
+            ['email_enabled', 'in_app_enabled', 'updated_at']
+        );
     }
 }
-
