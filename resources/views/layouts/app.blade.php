@@ -57,6 +57,8 @@
     </head>
 
     <body class="font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+        <x-global-preloader />
+
         {{-- Offline Banner --}}
         <div id="offline-banner" class="hidden fixed top-0 left-0 right-0 z-[9998] bg-yellow-500 text-yellow-900 text-center text-sm font-medium py-2 px-4" role="alert">
             <i class="fa-solid fa-wifi-slash mr-1"></i> You are offline. Some features may not be available.
