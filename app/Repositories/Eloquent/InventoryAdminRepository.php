@@ -25,12 +25,18 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
 
     public function getActiveProducts(): Collection
     {
-        return Product::where('is_archived', 0)->get();
+        return Product::where('is_archived', 0)
+            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength', 'sku'])
+            ->orderBy('generic_name')
+            ->get();
     }
 
     public function getArchivedProducts(): Collection
     {
-        return Product::where('is_archived', 1)->get();
+        return Product::where('is_archived', 1)
+            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength', 'sku'])
+            ->orderBy('generic_name')
+            ->get();
     }
 
     public function getSupportedBranches(?array $branchIds = null): Collection
@@ -46,6 +52,7 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
     {
         return Inventory::query()
             ->where('is_archived', '!=', 1)
+            ->select(['id', 'product_id', 'branch_id', 'batch_number', 'quantity', 'expiry_date'])
             ->whereHas('branch', fn($query) => $query->where('is_archived', false))
             ->when($branchIds !== null, fn (Builder $query) => $query->whereIn('branch_id', $branchIds))
             ->get();

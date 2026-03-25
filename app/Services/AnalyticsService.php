@@ -7,6 +7,8 @@ use App\Models\LowStockSetting;
 use App\Models\ReorderRule;
 use App\Models\Product;
 use App\Models\Inventory;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AnalyticsService
 {
@@ -175,25 +177,51 @@ class AnalyticsService
 
     public function getStockKPIs(?int $branchId = null): array
     {
-        $products = Product::where('is_archived', false)->get();
+        // Use aggregate SQL queries instead of N+1 loops through products
+        $inventoryQuery = Inventory::query()
+            ->where('is_archived', false)
+            ->whereNotNull('product_id')
+            ->whereHas('product', fn ($q) => $q->where('is_archived', false));
 
-        $totalOnHand = 0;
-        $totalHeld = 0;
-        $totalAvailable = 0;
-
-        foreach ($products as $product) {
-            $onHand = $this->availabilityService->getOnHand($product->id, $branchId);
-            $held = $this->availabilityService->getHeldQuantity($product->id, $branchId);
-            $totalOnHand += $onHand;
-            $totalHeld += $held;
-            $totalAvailable += max(0, $onHand - $held);
+        if ($branchId) {
+            $inventoryQuery->where('branch_id', $branchId);
         }
+
+        // Calculate total on-hand in a single query
+        $totals = (clone $inventoryQuery)
+            ->selectRaw('
+                COALESCE(SUM(COALESCE(onhand_qty, quantity)), 0) as total_on_hand,
+                COALESCE(SUM(COALESCE(hold_qty, 0)), 0) as total_held,
+                COUNT(DISTINCT product_id) as product_count
+            ')
+            ->first();
+
+        // If inventory.hold_qty is not populated, fall back to calculating from hold_items
+        $totalHeld = (int) $totals->total_held;
+        if ($totalHeld === 0) {
+            $holdItemsQuery = DB::table('hold_items')
+                ->join('holds', 'holds.id', '=', 'hold_items.hold_id')
+                ->join('inventories', 'inventories.id', '=', 'hold_items.inventory_id')
+                ->join('products', 'products.id', '=', 'inventories.product_id')
+                ->where('inventories.is_archived', false)
+                ->where('products.is_archived', false)
+                ->whereIn('holds.status', ['pending', 'approved']);
+
+            if ($branchId) {
+                $holdItemsQuery->where('inventories.branch_id', $branchId);
+            }
+
+            $totalHeld = (int) $holdItemsQuery->sum('hold_items.quantity');
+        }
+
+        $totalOnHand = (int) $totals->total_on_hand;
+        $totalAvailable = max(0, $totalOnHand - $totalHeld);
 
         return [
             'total_on_hand' => $totalOnHand,
             'total_held' => $totalHeld,
             'total_available' => $totalAvailable,
-            'product_count' => $products->count(),
+            'product_count' => (int) $totals->product_count,
         ];
     }
 

@@ -54,7 +54,10 @@ class IncomingRequestController extends Controller
 
     public function create()
     {
-        $products = Product::where('is_archived', false)->get();
+        $products = Product::where('is_archived', false)
+            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength'])
+            ->orderBy('generic_name')
+            ->get();
         $branches = $this->branchAccessService->visibleBranches(Auth::user());
         return view('admin.requests.create', compact('products', 'branches'));
     }

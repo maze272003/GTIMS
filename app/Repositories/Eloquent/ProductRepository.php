@@ -16,7 +16,11 @@ class ProductRepository extends BaseRepository implements ProductRepositoryInter
 
     public function getActive(): Collection
     {
-        return $this->model->where('is_archived', false)->get();
+        return $this->model
+            ->where('is_archived', false)
+            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength', 'sku'])
+            ->orderBy('generic_name')
+            ->get();
     }
 
     public function paginateWithSearch(?string $search = null, int $perPage = 20): LengthAwarePaginator

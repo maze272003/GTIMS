@@ -102,22 +102,30 @@ class SystemAnalyticsService
             ->with('product:id,generic_name,brand_name')
             ->get();
 
+        // Pre-calculate ALL held quantities in a single query instead of N queries
+        $heldQuery = DB::table('hold_items')
+            ->join('holds', 'holds.id', '=', 'hold_items.hold_id')
+            ->join('inventories', 'inventories.id', '=', 'hold_items.inventory_id')
+            ->join('products', 'products.id', '=', 'inventories.product_id')
+            ->whereIn('inventories.product_id', $stocks->pluck('product_id')->toArray())
+            ->whereIn('holds.status', ['pending', 'approved'])
+            ->where('products.is_archived', false)
+            ->when($branchId, fn ($q) => $q->where('inventories.branch_id', $branchId))
+            ->groupBy('inventories.product_id')
+            ->select('inventories.product_id', DB::raw('SUM(hold_items.quantity) as total_held'));
+
+        $heldByProduct = collect($heldQuery->get())->keyBy('product_id');
+
         $distribution = [];
         foreach ($stocks as $stock) {
-            $heldQuantity = DB::table('hold_items')
-                ->join('holds', 'holds.id', '=', 'hold_items.hold_id')
-                ->join('inventories', 'inventories.id', '=', 'hold_items.inventory_id')
-                ->where('inventories.product_id', $stock->product_id)
-                ->whereIn('holds.status', ['pending', 'approved'])
-                ->when($branchId, fn ($q) => $q->where('inventories.branch_id', $branchId))
-                ->sum('hold_items.quantity');
+            $heldQuantity = (int) ($heldByProduct->get($stock->product_id)->total_held ?? 0);
 
             $distribution[] = [
                 'product_id' => $stock->product_id,
                 'product_name' => $stock->product->generic_name ?? $stock->product->brand_name ?? 'Unknown',
                 'total_on_hand' => (int) $stock->total_on_hand,
-                'held' => (int) $heldQuantity,
-                'available' => max(0, (int) $stock->total_on_hand - (int) $heldQuantity),
+                'held' => $heldQuantity,
+                'available' => max(0, (int) $stock->total_on_hand - $heldQuantity),
             ];
         }
 
@@ -397,18 +405,38 @@ class SystemAnalyticsService
         $movements = $query->groupBy('product_movements.product_id')
             ->get();
 
+        if ($movements->isEmpty()) {
+            return [
+                'from' => $from->toDateString(),
+                'to' => $to->toDateString(),
+                'data' => [],
+            ];
+        }
+
+        // Eager load all products at once instead of N queries
+        $productIds = $movements->pluck('product_id')->toArray();
+        $products = Product::whereIn('id', $productIds)
+            ->where('is_archived', false)
+            ->get()
+            ->keyBy('id');
+
+        // Pre-calculate ALL current stocks in a single query instead of N queries
+        $stockQuery = Inventory::whereIn('product_id', $productIds)
+            ->where('is_archived', false)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->groupBy('product_id')
+            ->select('product_id', DB::raw('SUM(quantity) as current_stock'));
+
+        $stocksByProduct = collect($stockQuery->get())->keyBy('product_id');
+
         $turnover = [];
         foreach ($movements as $m) {
-            $product = Product::find($m->product_id);
-            if (! $product || $product->is_archived) {
+            $product = $products->get($m->product_id);
+            if (!$product) {
                 continue;
             }
 
-            $currentStock = Inventory::where('product_id', $m->product_id)
-                ->where('is_archived', false)
-                ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-                ->sum('quantity');
-
+            $currentStock = (int) ($stocksByProduct->get($m->product_id)->current_stock ?? 0);
             $avgStock = $currentStock > 0 ? $currentStock : 1;
             $turnoverRate = round((int) $m->total_out / $avgStock, 2);
 
@@ -418,7 +446,7 @@ class SystemAnalyticsService
                 'total_in' => (int) $m->total_in,
                 'total_out' => (int) $m->total_out,
                 'movement_count' => (int) $m->movement_count,
-                'current_stock' => (int) $currentStock,
+                'current_stock' => $currentStock,
                 'turnover_rate' => $turnoverRate,
             ];
         }

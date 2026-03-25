@@ -52,7 +52,10 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
 
     public function getActiveProductsOrdered(): Collection
     {
-        return Product::where('is_archived', 0)->orderBy('generic_name')->get();
+        return Product::where('is_archived', 0)
+            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength', 'sku'])
+            ->orderBy('generic_name')
+            ->get();
     }
 
     public function getAvailableSourceInventoryByBranch(int $branchId): Collection
