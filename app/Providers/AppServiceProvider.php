@@ -2,9 +2,6 @@
 
 namespace App\Providers;
 
-use App\Listeners\LogUserLogin;
-use App\Listeners\LogUserLoginFailed;
-use App\Listeners\LogUserLogout;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\WorkflowDefinition;
@@ -13,14 +10,9 @@ use App\Observers\OrderWorkflowObserver;
 use App\Policies\WorkflowDefinitionPolicy;
 use App\Services\AuthSessionService;
 use App\Support\PermissionView;
-use Illuminate\Auth\Events\Failed;
-use Illuminate\Auth\Events\Login;
-use Illuminate\Auth\Events\Logout;
 use Illuminate\Database\Events\QueryExecuted;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
@@ -119,25 +111,12 @@ class AppServiceProvider extends ServiceProvider
         Inventory::observe(InventoryWorkflowObserver::class);
         Order::observe(OrderWorkflowObserver::class);
 
-        // Explicit event wiring for auth activity listeners.
-        Event::listen(Login::class, LogUserLogin::class);
-        Event::listen(Logout::class, LogUserLogout::class);
-        Event::listen(Failed::class, LogUserLoginFailed::class);
+        // Auth listeners are auto-discovered from app/Listeners.
     }
 
     private function setupQueryMonitoring(): void
     {
         DB::listen(function (QueryExecuted $query): void {
-            $userId = null;
-
-            try {
-                if (Auth::hasUser()) {
-                    $userId = Auth::user()?->getAuthIdentifier();
-                }
-            } catch (\Throwable) {
-                $userId = null;
-            }
-
             $context = [
                 'time_ms' => round($query->time, 2),
                 'sql' => $query->sql,
@@ -145,16 +124,18 @@ class AppServiceProvider extends ServiceProvider
                 'connection' => $query->connectionName,
                 'route' => request()?->route()?->getName(),
                 'url' => app()->runningInConsole() ? null : request()?->fullUrl(),
-                'user_id' => $userId,
             ];
 
-            if ($query->time > 2000) {
+            $warningThreshold = (int) config('database.slow_query_warning_ms', 500);
+            $errorThreshold = (int) config('database.slow_query_error_ms', 2000);
+
+            if ($query->time > $errorThreshold) {
                 Log::error('Very slow query detected.', $context);
-            } elseif ($query->time > 500) {
+            } elseif ($query->time > $warningThreshold) {
                 Log::warning('Slow query detected.', $context);
             }
 
-            if (app()->environment('local', 'staging')) {
+            if (config('database.log_all_queries', false)) {
                 Log::debug('Query executed.', $context);
             }
         });
