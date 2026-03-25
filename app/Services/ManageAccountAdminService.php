@@ -76,7 +76,7 @@ class ManageAccountAdminService
         $user->load(['level', 'branch']);
 
         try {
-            Mail::to($user->email)->send(new NewUserCredentials($user, $rawPassword, $verificationUrl));
+            Mail::to($user->email)->send(new NewUserCredentials($user, $verificationUrl));
         } catch (\Exception $e) {
             \Log::error('Mail Error: '.$e->getMessage());
         }

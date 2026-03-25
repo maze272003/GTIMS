@@ -7,6 +7,7 @@ use App\Repositories\Interfaces\UserRepositoryInterface;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 
 class OtpLoginService
@@ -22,11 +23,13 @@ class OtpLoginService
         $user = $this->userRepository->findByEmailWithRelations($email, ['level']);
 
         if (!$user) {
-            return ['success' => false, 'status' => 422, 'message' => 'User not found.'];
+            // Return generic success to prevent email enumeration
+            return ['success' => true, 'status' => 200, 'message' => 'OTP has been sent to your email if an account exists.'];
         }
 
         if (is_null($user->user_level_id) || is_null($user->level)) {
-            return ['success' => false, 'status' => 403, 'message' => 'You are not authorized to access this application.'];
+            // Return generic success to prevent role enumeration
+            return ['success' => true, 'status' => 200, 'message' => 'OTP has been sent to your email if an account exists.'];
         }
 
         $otp = (string) random_int(100000, 999999);
@@ -48,7 +51,8 @@ class OtpLoginService
 
         if (
             !$user
-            || (string) $user->otp !== (string) $otp
+            || !$user->otp
+            || !Hash::check($otp, $user->otp)
             || !$user->otp_expires_at
             || Carbon::now()->isAfter($user->otp_expires_at)
         ) {

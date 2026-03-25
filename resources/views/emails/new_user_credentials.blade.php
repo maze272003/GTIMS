@@ -71,10 +71,6 @@
                         <span class="value" style="background: none;">{{ $user->email }}</span>
                     </div>
                     <div class="info-row">
-                        <span class="label">Password</span>
-                        <span class="value">{{ $rawPassword }}</span>
-                    </div>
-                    <div class="info-row">
                         <span class="label">Role</span>
                         <span class="value" style="background: none;">{{ ucfirst($user->level->name ?? 'N/A') }}</span>
                     </div>

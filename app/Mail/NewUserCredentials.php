@@ -14,15 +14,12 @@ class NewUserCredentials extends Mailable
     use Queueable, SerializesModels;
 
     public $user;
-    public $rawPassword;
-    public $verificationUrl; // <--- Bagong Property
+    public $verificationUrl;
 
-    // Update Constructor
-    public function __construct($user, $rawPassword, $verificationUrl)
+    public function __construct($user, $verificationUrl)
     {
         $this->user = $user;
-        $this->rawPassword = $rawPassword;
-        $this->verificationUrl = $verificationUrl; // <--- Assign value
+        $this->verificationUrl = $verificationUrl;
     }
 
     public function envelope(): Envelope
