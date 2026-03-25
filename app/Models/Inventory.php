@@ -64,6 +64,57 @@ class Inventory extends Model
             ->withTimestamps();
     }
 
+    /**
+     * Query scope for active (non-archived) inventories.
+     * PERFORMANCE: Use instead of repeated ->where('is_archived', false)
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_archived', false);
+    }
+
+    /**
+     * Query scope for archived inventories.
+     */
+    public function scopeArchived($query)
+    {
+        return $query->where('is_archived', true);
+    }
+
+    /**
+     * Query scope to filter by branch.
+     */
+    public function scopeForBranch($query, $branchId)
+    {
+        return $query->where('branch_id', $branchId);
+    }
+
+    /**
+     * Query scope to filter by product.
+     */
+    public function scopeForProduct($query, $productId)
+    {
+        return $query->where('product_id', $productId);
+    }
+
+    /**
+     * Query scope for items not yet expired.
+     */
+    public function scopeNotExpired($query)
+    {
+        return $query->where('expiry_date', '>', now())
+            ->orWhereNull('expiry_date');
+    }
+
+    /**
+     * Query scope for items near expiry (within 30 days).
+     */
+    public function scopeNearExpiry($query)
+    {
+        return $query->where('expiry_date', '<=', now()->addDays(30))
+            ->where('expiry_date', '>', now());
+    }
+
     public function getAvailableQuantityAttribute(): int
     {
         $onHand = (int) ($this->attributes['onhand_qty'] ?? $this->attributes['quantity'] ?? 0);

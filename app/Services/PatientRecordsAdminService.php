@@ -88,9 +88,24 @@ class PatientRecordsAdminService
         $user = Auth::user(); 
         $branchId = $this->branchAccessService->resolveBranchFilter($user, null);
 
-        // Check inventory first
+        // OPTIMIZATION: Load all inventories once instead of in loop
+        $inventoryIds = collect($validated['medications'])->pluck('name')->toArray();
+        $inventories = \App\Models\Inventory::with('product')
+            ->whereIn('id', $inventoryIds)
+            ->get()
+            ->keyBy('id');
+
+        // Check inventory using cache
         foreach ($validated['medications'] as $med) {
-            $inventory = $this->patientRecordsRepository->findInventoryWithProductOrFail((int) $med['name']);
+            $inventory = $inventories->get((int) $med['name']);
+            
+            if (!$inventory) {
+                return back()->withErrors(
+                    ['medications' => 'Medicine not found.'], 
+                    'adddispensation'
+                )->withInput();
+            }
+            
             $this->branchAccessService->authorizeBranchAccess($user, $inventory->branch_id, 'dispense inventory from another branch');
             if ($inventory->quantity < $med['quantity']) {
                 return back()->withErrors(['medications' => 'Insufficient quantity for ' . ($inventory->product->generic_name ?? 'medicine') . '. Available: ' . $inventory->quantity], 'adddispensation')->withInput();
@@ -119,9 +134,9 @@ class PatientRecordsAdminService
             ],
         ]);
 
-        // Create dispensed medications and deduct inventory
+        // Create dispensed medications and deduct inventory using cached data
         foreach ($validated['medications'] as $med) {
-            $inventory = $this->patientRecordsRepository->findInventoryWithProductOrFail((int) $med['name']);
+            $inventory = $inventories->get((int) $med['name']);
             $this->branchAccessService->authorizeBranchAccess($user, $inventory->branch_id, 'dispense inventory from another branch');
             
             

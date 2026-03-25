@@ -27,6 +27,34 @@ class Product extends Model
         return $this->hasMany(ProductMovement::class);
     }
 
+    /**
+     * Query scope for active (non-archived) products.
+     * PERFORMANCE: Use instead of repeated ->where('is_archived', false)
+     */
+    public function scopeActive($query)
+    {
+        return $query->where('is_archived', false);
+    }
+
+    /**
+     * Query scope for archived products.
+     */
+    public function scopeArchived($query)
+    {
+        return $query->where('is_archived', true);
+    }
+
+    /**
+     * Query scope to filter by generic name, form, and strength.
+     * PERFORMANCE: Common grouping for equivalent products
+     */
+    public function scopeByCharacteristics($query, $genericName, $form, $strength)
+    {
+        return $query->where('generic_name', $genericName)
+            ->where('form', $form)
+            ->where('strength', $strength);
+    }
+
     // Total stock across all active branches
     public function getTotalRhuStockAttribute()
     {

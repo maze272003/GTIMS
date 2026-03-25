@@ -48,6 +48,40 @@ class Hold extends Model
         return $this->hasMany(HoldStatusHistory::class);
     }
 
+    /**
+     * Query scope for active holds (pending or approved).
+     * PERFORMANCE: Used in expiry tracking and availability checks
+     */
+    public function scopeActive($query)
+    {
+        return $query->whereIn('status', ['pending', 'approved']);
+    }
+
+    /**
+     * Query scope for expired holds.
+     * PERFORMANCE: Used when cleaning up expired holds
+     */
+    public function scopeExpired($query)
+    {
+        return $query->where('expires_at', '<=', now());
+    }
+
+    /**
+     * Query scope for holds by status.
+     */
+    public function scopeByStatus($query, $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
+     * Query scope for holds by branch.
+     */
+    public function scopeForBranch($query, $branchId)
+    {
+        return $query->where('branch_id', $branchId);
+    }
+
     public function isExpired(): bool
     {
         return $this->expires_at && $this->expires_at->isPast();

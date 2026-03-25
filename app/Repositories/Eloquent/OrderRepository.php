@@ -53,7 +53,7 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
     public function getActiveProductsOrdered(): Collection
     {
         return Product::where('is_archived', 0)
-            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength', 'sku'])
+            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength'])
             ->orderBy('generic_name')
             ->get();
     }

@@ -26,7 +26,7 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
     public function getActiveProducts(): Collection
     {
         return Product::where('is_archived', 0)
-            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength', 'sku'])
+            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength'])
             ->orderBy('generic_name')
             ->get();
     }
@@ -34,7 +34,7 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
     public function getArchivedProducts(): Collection
     {
         return Product::where('is_archived', 1)
-            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength', 'sku'])
+            ->select(['id', 'generic_name', 'brand_name', 'form', 'strength'])
             ->orderBy('generic_name')
             ->get();
     }
