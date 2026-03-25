@@ -3,35 +3,25 @@
 namespace App\Services;
 
 use App\Exports\PatientRecordsExport;
-use App\Models\Inventory;
-use App\Models\Patientrecords;
 use App\Models\User;
-use App\Repositories\Interfaces\PatientRecordsRepositoryInterface;
 use App\Support\SearchRelevance;
-use Barryvdh\DomPDF\Facade\Pdf;
-use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Database\Eloquent\Builder;
+use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
-use RuntimeException;
-use Throwable;
+use App\Repositories\Interfaces\PatientRecordsRepositoryInterface;
 
 class PatientRecordsAdminService
 {
-    private const MAX_INVENTORY_DEDUCTION_RETRIES = 3;
-
     public function __construct(
         protected PatientRecordsRepositoryInterface $patientRecordsRepository,
         protected BranchAccessService $branchAccessService
-    ) {}
+    ) {
+    }
 
     public function showpatientrecords(Request $request)
     {
@@ -80,10 +70,10 @@ class PatientRecordsAdminService
             'barangay_id' => 'required|exists:barangays,id',
             'purok' => 'required|string|max:255',
             'category' => 'required|in:Adult,Child,Senior',
-            'date-dispensed' => 'required|date|before_or_equal:today',
-            'medications' => 'required|array|min:1|max:50',
-            'medications.*.name' => 'required|integer',
-            'medications.*.quantity' => 'required|integer|min:1|max:9999',
+            'date-dispensed' => 'required|date',
+            'medications' => 'required|array|min:1',
+            'medications.*.name' => 'required|exists:inventories,id',
+            'medications.*.quantity' => 'required|integer|min:1',
         ], [
             'patient-name.required' => 'Patient name is required.',
             'barangay_id.required' => 'Barangay is required.',
@@ -95,326 +85,94 @@ class PatientRecordsAdminService
             'medications.*.quantity.required' => 'Quantity is required.',
         ]);
 
-        /** @var User|null $user */
         $user = Auth::user();
-        if (! $user) {
-            abort(403, 'Authentication required.');
-        }
-
         $branchId = $this->branchAccessService->resolveBranchFilter($user, null);
 
-        Log::info('patient-records.adddispensation.started', [
-            'user_id' => $user->id,
-            'branch_id' => $branchId,
-            'medications_count' => count($validated['medications']),
-        ]);
-
-        try {
-            /** @var Patientrecords $newRecord */
-            $newRecord = DB::transaction(function () use ($validated, $user, $branchId): Patientrecords {
-                $inventories = $this->loadAndLockInventories($validated['medications'], $user);
-                $this->validateMedicationInventory($inventories, $validated['medications']);
-
-                $patientRecord = $this->patientRecordsRepository->createPatientRecord([
-                    'patient_name' => trim($validated['patient-name']),
-                    'barangay_id' => $this->safeIntCast($validated['barangay_id']),
-                    'purok' => trim($validated['purok']),
-                    'category' => $validated['category'],
-                    'date_dispensed' => $validated['date-dispensed'],
-                    'branch_id' => $branchId,
-                ]);
-
-                $this->patientRecordsRepository->createHistoryLog([
-                    'action' => 'RECORD ADDED',
-                    'description' => sprintf(
-                        'Recorded medication dispensation for patient %s (Record #: %d) at %s.',
-                        $patientRecord->patient_name,
-                        $patientRecord->id,
-                        $user->branch?->name ?? 'Branch ID '.$user->branch_id
-                    ),
-                    'user_id' => $user->id,
-                    'user_name' => $user->name ?? 'System',
-                    'metadata' => [
-                        'patientrecord_id' => $patientRecord->id,
-                        'branch_id' => $branchId,
-                        'medication_count' => count($validated['medications']),
-                    ],
-                ]);
-
-                foreach ($validated['medications'] as $medication) {
-                    $inventoryId = $this->safeIntCast($medication['name']);
-                    $quantity = $this->safeIntCast($medication['quantity']);
-
-                    $this->processIndividualMedication(
-                        $inventories->get($inventoryId),
-                        $quantity,
-                        $patientRecord,
-                        $this->safeIntCast($validated['barangay_id']),
-                        $user
-                    );
-                }
-
-                return $patientRecord;
-            }, self::MAX_INVENTORY_DEDUCTION_RETRIES);
-
-            Log::info('patient-records.adddispensation.completed', [
-                'user_id' => $user->id,
-                'patient_record_id' => $newRecord->id,
-                'branch_id' => $branchId,
-            ]);
-
-            return to_route('admin.patientrecords')->with('success', 'Dispensation recorded successfully.');
-        } catch (ValidationException $exception) {
-            $exception->errorBag = 'adddispensation';
-
-            Log::notice('patient-records.adddispensation.validation_failed', [
-                'user_id' => $user->id,
-                'errors' => $exception->errors(),
-            ]);
-
-            throw $exception;
-        } catch (ModelNotFoundException $exception) {
-            Log::warning('patient-records.adddispensation.inventory_missing', [
-                'user_id' => $user->id,
-                'error' => $exception->getMessage(),
-            ]);
-
-            return back()
-                ->withErrors(['medications' => $exception->getMessage()], 'adddispensation')
-                ->withInput();
-        } catch (Throwable $exception) {
-            Log::error('patient-records.adddispensation.failed', [
-                'user_id' => $user->id,
-                'branch_id' => $branchId,
-                'error' => $exception->getMessage(),
-                'exception' => $exception::class,
-            ]);
-
-            return back()
-                ->withErrors(['medications' => 'System error while processing the dispensation.'], 'adddispensation')
-                ->withInput();
-        }
-    }
-
-    /**
-     * Load and lock all requested inventories inside the active transaction.
-     *
-     * @param  array<int, array{name:mixed, quantity:mixed}>  $medications
-     * @return Collection<int, Inventory>
-     *
-     * @throws ModelNotFoundException
-     * @throws ValidationException
-     */
-    private function loadAndLockInventories(array $medications, User $user): Collection
-    {
-        $inventoryIds = collect($medications)
-            ->pluck('name')
-            ->map(fn (mixed $inventoryId): int => $this->safeIntCast($inventoryId))
-            ->filter(fn (int $inventoryId): bool => $inventoryId > 0)
-            ->unique()
-            ->values();
-
-        if ($inventoryIds->isEmpty()) {
-            throw ValidationException::withMessages([
-                'medications' => 'At least one valid medication inventory is required.',
-            ])->errorBag('adddispensation');
-        }
-
-        $inventories = Inventory::query()
-            ->with('product')
-            ->active()
-            ->whereIn('id', $inventoryIds->all())
-            ->lockForUpdate()
+        // OPTIMIZATION: Load all inventories once instead of in loop
+        $inventoryIds = collect($validated['medications'])->pluck('name')->toArray();
+        $inventories = \App\Models\Inventory::with('product')
+            ->whereIn('id', $inventoryIds)
             ->get()
-            ->keyBy(fn (Inventory $inventory): int => (int) $inventory->id);
+            ->keyBy('id');
 
-        if ($inventories->count() !== $inventoryIds->count()) {
-            $missingIds = $inventoryIds
-                ->diff($inventories->keys()->map(fn ($id) => (int) $id))
-                ->values()
-                ->all();
+        // Check inventory using cache
+        foreach ($validated['medications'] as $med) {
+            $inventory = $inventories->get((int) $med['name']);
 
-            throw new ModelNotFoundException(
-                'Medicine inventory not found or archived: '.implode(', ', $missingIds)
-            );
-        }
-
-        foreach ($inventories as $inventory) {
-            $this->branchAccessService->authorizeBranchAccess(
-                $user,
-                $inventory->branch_id,
-                'dispense inventory from another branch'
-            );
-        }
-
-        return $inventories;
-    }
-
-    /**
-     * Validate requested medication quantities against locked inventory rows.
-     *
-     * @param  Collection<int, Inventory>  $inventories
-     * @param  array<int, array{name:mixed, quantity:mixed}>  $medications
-     *
-     * @throws ValidationException
-     */
-    private function validateMedicationInventory(Collection $inventories, array $medications): void
-    {
-        $validationErrors = [];
-
-        foreach ($medications as $medication) {
-            $inventoryId = $this->safeIntCast($medication['name']);
-            $inventory = $inventories->get($inventoryId);
-
-            if (! $inventory) {
-                $validationErrors[] = "Medicine inventory {$inventoryId} was not found.";
-
-                continue;
+            if (!$inventory) {
+                return back()->withErrors(
+                    ['medications' => 'Medicine not found.'],
+                    'adddispensation'
+                )->withInput();
             }
 
-            $requestedQty = $this->safeFloatCast($medication['quantity']);
-            $onHandQty = $this->safeIntCast($inventory->onhand_qty ?? $inventory->quantity ?? 0);
-            $holdQty = $this->safeIntCast($inventory->hold_qty ?? 0);
-            $availableQty = $onHandQty - $holdQty;
-            $productName = $inventory->product->generic_name ?? 'Unknown medicine';
-
-            if ($requestedQty <= 0) {
-                $validationErrors[] = "{$productName}: Quantity must be positive.";
-            }
-
-            if ($requestedQty > 9999) {
-                $validationErrors[] = "{$productName}: Quantity exceeds the maximum allowed.";
-            }
-
-            if ($availableQty < 0) {
-                $validationErrors[] = "{$productName}: Inventory state is corrupted. Available stock is negative.";
-            }
-
-            if ($requestedQty > $availableQty) {
-                $validationErrors[] = sprintf(
-                    '%s: Insufficient stock. Requested %d, available %d.',
-                    $productName,
-                    (int) $requestedQty,
-                    $availableQty
-                );
+            $this->branchAccessService->authorizeBranchAccess($user, $inventory->branch_id, 'dispense inventory from another branch');
+            if ($inventory->quantity < $med['quantity']) {
+                return back()->withErrors(['medications' => 'Insufficient quantity for ' . ($inventory->product->generic_name ?? 'medicine') . '. Available: ' . $inventory->quantity], 'adddispensation')->withInput();
             }
         }
 
-        if ($validationErrors !== []) {
-            throw ValidationException::withMessages([
-                'medications' => implode(' ', $validationErrors),
-            ])->errorBag('adddispensation');
-        }
-    }
+        // Create PatientRecord
+        $newRecord = $this->patientRecordsRepository->createPatientRecord([
+            'patient_name' => $validated['patient-name'],
+            'barangay_id' => $validated['barangay_id'],
+            'purok' => $validated['purok'],
+            'category' => $validated['category'],
+            'date_dispensed' => $validated['date-dispensed'],
+            'branch_id' => $branchId,
+        ]);
 
-    /**
-     * Persist the stock deduction, movement log, and dispensed medication row.
-     *
-     * @throws RuntimeException
-     */
-    private function processIndividualMedication(
-        ?Inventory $inventory,
-        int $quantity,
-        Patientrecords $patientRecord,
-        int $barangayId,
-        User $user
-    ): void {
-        if (! $inventory) {
-            throw new RuntimeException('Medication inventory could not be loaded for processing.');
-        }
-
-        $quantityBefore = $this->safeIntCast($inventory->onhand_qty ?? $inventory->quantity ?? 0);
-        $quantityAfter = $quantityBefore - $quantity;
-
-        if ($quantityAfter < 0) {
-            throw new RuntimeException(
-                "Cannot deduct {$quantity} units from inventory #{$inventory->id} with {$quantityBefore} available."
-            );
-        }
-
-        $inventory->onhand_qty = $quantityAfter;
-        $inventory->quantity = $quantityAfter;
-        $inventory->save();
-
-        $this->patientRecordsRepository->createProductMovement([
-            'product_id' => $inventory->product_id,
-            'inventory_id' => $inventory->id,
+        // === HISTORY LOG ===
+        $this->patientRecordsRepository->createHistoryLog([
+            'action' => 'RECORD ADDED',
+            'description' => "Recorded medication dispensation for patient {$newRecord->patient_name} (Record #: {$newRecord->id}) at " . ($user->branch->name ?? 'Branch ID ' . $user->branch_id) . ".",
             'user_id' => $user->id,
-            'type' => 'OUT',
-            'quantity' => $quantity,
-            'quantity_before' => $quantityBefore,
-            'quantity_after' => $quantityAfter,
-            'description' => sprintf(
-                'Dispensed to Patient: %s (Record: #%d)',
-                $patientRecord->patient_name,
-                $patientRecord->id
-            ),
+            'user_name' => $user->name ?? 'System',
+            'metadata' => [
+                'patientrecord_id' => $newRecord->id,
+                'branch_id' => $branchId
+            ],
         ]);
 
-        $this->patientRecordsRepository->createDispensedMedication([
-            'patientrecord_id' => $patientRecord->id,
-            'barangay_id' => $barangayId,
-            'batch_number' => trim((string) ($inventory->batch_number ?? 'N/A')),
-            'generic_name' => trim((string) ($inventory->product->generic_name ?? 'N/A')),
-            'brand_name' => trim((string) ($inventory->product->brand_name ?? 'N/A')),
-            'strength' => trim((string) ($inventory->product->strength ?? 'N/A')),
-            'form' => trim((string) ($inventory->product->form ?? 'N/A')),
-            'quantity' => $quantity,
-        ]);
+        // Create dispensed medications and deduct inventory using cached data
+        foreach ($validated['medications'] as $med) {
+            $inventory = $inventories->get((int) $med['name']);
+            $this->branchAccessService->authorizeBranchAccess($user, $inventory->branch_id, 'dispense inventory from another branch');
 
-        Log::info('patient-records.adddispensation.medication_processed', [
-            'patient_record_id' => $patientRecord->id,
-            'inventory_id' => $inventory->id,
-            'product_id' => $inventory->product_id,
-            'quantity_before' => $quantityBefore,
-            'quantity_after' => $quantityAfter,
-        ]);
-    }
 
-    /**
-     * Cast a numeric value to int while rejecting non-numeric input.
-     *
-     * @throws RuntimeException
-     */
-    private function safeIntCast(mixed $value): int
-    {
-        if ($value === null) {
-            return 0;
-        }
+            $quantity_before = $inventory->quantity;
+            $quantity_to_deduct = $med['quantity'];
+            $quantity_after = $quantity_before - $quantity_to_deduct;
 
-        if (! is_numeric($value)) {
-            throw new RuntimeException('Cannot convert a non-numeric value to int.');
-        }
+            // Deduct inventory
+            $inventory->quantity = $quantity_after;
+            $inventory->save();
 
-        $floatValue = (float) $value;
-        $intValue = (int) $floatValue;
+            // Log Product Movement
+            $this->patientRecordsRepository->createProductMovement([
+                'product_id'      => $inventory->product_id,
+                'inventory_id'    => $inventory->id,
+                'user_id'         => $user->id,
+                'type'            => 'OUT',
+                'quantity'        => $quantity_to_deduct,
+                'quantity_before' => $quantity_before,
+                'quantity_after'  => $quantity_after,
+                'description'     => "Dispensed to Patient: {$newRecord->patient_name} (Record: #{$newRecord->id})",
+            ]);
 
-        if (fmod($floatValue, 1.0) !== 0.0) {
-            Log::warning('patient-records.safe_int_cast_precision_loss', [
-                'original' => $value,
-                'cast_result' => $intValue,
+            $this->patientRecordsRepository->createDispensedMedication([
+                'patientrecord_id' => $newRecord->id,
+                'barangay_id' => $validated['barangay_id'],
+                'batch_number' => $inventory->batch_number ?? 'N/A',
+                'generic_name' => $inventory->product->generic_name ?? 'N/A',
+                'brand_name' => $inventory->product->brand_name ?? 'N/A',
+                'strength' => $inventory->product->strength ?? 'N/A',
+                'form' => $inventory->product->form ?? 'N/A',
+                'quantity' => $med['quantity'],
             ]);
         }
 
-        return $intValue;
-    }
-
-    /**
-     * Cast a numeric value to float while rejecting non-numeric input.
-     *
-     * @throws RuntimeException
-     */
-    private function safeFloatCast(mixed $value): float
-    {
-        if ($value === null) {
-            return 0.0;
-        }
-
-        if (! is_numeric($value)) {
-            throw new RuntimeException('Cannot convert a non-numeric value to float.');
-        }
-
-        return (float) $value;
+        return to_route('admin.patientrecords')->with('success', 'Dispensation recorded successfully.');
     }
 
     public function updatePatientRecord(Request $request)
@@ -441,7 +199,7 @@ class PatientRecordsAdminService
 
         // capture old values before updating
         $old = $record->only(['patient_name', 'barangay_id', 'purok', 'category', 'date_dispensed']);
-        $old['barangay_name'] = $record->barangay->barangay_name;
+        $old["barangay_name"] = $record->barangay->barangay_name;
 
         // Update the patient record
         $record->update([
@@ -453,7 +211,7 @@ class PatientRecordsAdminService
         ]);
 
         // HISTORY LOG: UPDATE
-        $oldDate = Carbon::parse($old['date_dispensed'])->format('F d, Y');
+        $oldDate = Carbon::parse($old["date_dispensed"])->format('F d, Y');
         $newDate = Carbon::parse($record->date_dispensed)->format('F d, Y');
         $time = Carbon::parse($record->created_at)->format('h:i A');
 
@@ -505,8 +263,8 @@ class PatientRecordsAdminService
             'date' => Carbon::now()->format('F d, Y'),
             'filters' => $filters,
             'filter_labels' => [
-                'branch' => ! $canAccessAllBranches
-                    ? ($user->branch->name ?? ('Branch ID '.$user->branch_id))
+                'branch' => !$canAccessAllBranches
+                    ? ($user->branch->name ?? ('Branch ID ' . $user->branch_id))
                     : ($filters['branch_filter'] === 'all'
                         ? 'All Branches'
                         : ($branches->firstWhere('id', (int) $filters['branch_filter'])->name ?? 'Unknown Branch')),
@@ -518,9 +276,8 @@ class PatientRecordsAdminService
 
         $pdf->setPaper('A4', 'landscape');
 
-        return $pdf->download('patient_records_'.Carbon::now()->format('Ymd_His').'.pdf');
+        return $pdf->download('patient_records_' . Carbon::now()->format('Ymd_His') . '.pdf');
     }
-
     public function exportExcel(Request $request)
     {
         $user = Auth::user();
@@ -537,7 +294,7 @@ class PatientRecordsAdminService
 
         return Excel::download(
             new PatientRecordsExport($query, $user, $filters),
-            'patient_records_'.Carbon::now()->format('Ymd_His').'.xlsx'
+            'patient_records_' . Carbon::now()->format('Ymd_His') . '.xlsx'
         );
     }
 
@@ -553,7 +310,7 @@ class PatientRecordsAdminService
             ->when($canAccessAllBranches && ($filters['branch_filter'] ?? 'all') !== 'all', function (Builder $q) use ($filters) {
                 $q->where('patientrecords.branch_id', (int) $filters['branch_filter']);
             })
-            ->when(! $canAccessAllBranches, function (Builder $q) use ($user) {
+            ->when(!$canAccessAllBranches, function (Builder $q) use ($user) {
                 $q->where('patientrecords.branch_id', (int) $user->branch_id);
             })
             ->when($search !== '', function (Builder $q) use ($search, $searchTokens) {
@@ -586,7 +343,7 @@ class PatientRecordsAdminService
                 });
 
                 $weights = config('query_relevance.patient_records');
-                $relevance = (new SearchRelevance)
+                $relevance = (new SearchRelevance())
                     ->exact(SearchRelevance::lower('patientrecords.patient_name'), $search, $weights['patient_name_exact'])
                     ->prefix(SearchRelevance::lower('patientrecords.patient_name'), $search, $weights['patient_name_prefix'])
                     ->contains(SearchRelevance::lower('patientrecords.patient_name'), $search, $weights['patient_name_contains'])
@@ -613,13 +370,13 @@ class PatientRecordsAdminService
             ->when(($filters['category'] ?? 'all') !== 'all', function (Builder $q) use ($filters) {
                 $q->where('patientrecords.category', $filters['category']);
             })
-            ->when(! empty($filters['barangay_id']), function (Builder $q) use ($filters) {
+            ->when(!empty($filters['barangay_id']), function (Builder $q) use ($filters) {
                 $q->where('patientrecords.barangay_id', (int) $filters['barangay_id']);
             })
-            ->when(! empty($filters['from_date']), function (Builder $q) use ($filters) {
+            ->when(!empty($filters['from_date']), function (Builder $q) use ($filters) {
                 $q->whereDate('patientrecords.date_dispensed', '>=', $filters['from_date']);
             })
-            ->when(! empty($filters['to_date']), function (Builder $q) use ($filters) {
+            ->when(!empty($filters['to_date']), function (Builder $q) use ($filters) {
                 $q->whereDate('patientrecords.date_dispensed', '<=', $filters['to_date']);
             });
 

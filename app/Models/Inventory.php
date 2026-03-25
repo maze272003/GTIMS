@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Inventory extends Model
 {
@@ -17,7 +18,7 @@ class Inventory extends Model
         'onhand_qty',
         'hold_qty',
         'expiry_date',
-        'is_archived'
+        'is_archived',
     ];
 
     protected $casts = [
@@ -25,7 +26,6 @@ class Inventory extends Model
         'onhand_qty' => 'integer',
         'hold_qty' => 'integer',
     ];
-
 
     public function product()
     {
@@ -68,7 +68,7 @@ class Inventory extends Model
      * Query scope for active (non-archived) inventories.
      * PERFORMANCE: Use instead of repeated ->where('is_archived', false)
      */
-    public function scopeActive($query)
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_archived', false);
     }
@@ -76,7 +76,7 @@ class Inventory extends Model
     /**
      * Query scope for archived inventories.
      */
-    public function scopeArchived($query)
+    public function scopeArchived(Builder $query): Builder
     {
         return $query->where('is_archived', true);
     }
@@ -84,7 +84,15 @@ class Inventory extends Model
     /**
      * Query scope to filter by branch.
      */
-    public function scopeForBranch($query, $branchId)
+    public function scopeForBranch(Builder $query, int $branchId): Builder
+    {
+        return $this->scopeInBranch($query, $branchId);
+    }
+
+    /**
+     * Query scope to filter by branch.
+     */
+    public function scopeInBranch(Builder $query, int $branchId): Builder
     {
         return $query->where('branch_id', $branchId);
     }
@@ -92,7 +100,7 @@ class Inventory extends Model
     /**
      * Query scope to filter by product.
      */
-    public function scopeForProduct($query, $productId)
+    public function scopeForProduct(Builder $query, int $productId): Builder
     {
         return $query->where('product_id', $productId);
     }
@@ -100,19 +108,50 @@ class Inventory extends Model
     /**
      * Query scope for items not yet expired.
      */
-    public function scopeNotExpired($query)
+    public function scopeNotExpired(Builder $query): Builder
     {
-        return $query->where('expiry_date', '>', now())
-            ->orWhereNull('expiry_date');
+        return $query->where(function (Builder $expiryQuery): void {
+            $expiryQuery
+                ->whereNull('expiry_date')
+                ->orWhereDate('expiry_date', '>=', now()->toDateString());
+        });
     }
 
     /**
      * Query scope for items near expiry (within 30 days).
      */
-    public function scopeNearExpiry($query)
+    public function scopeNearExpiry(Builder $query): Builder
     {
-        return $query->where('expiry_date', '<=', now()->addDays(30))
-            ->where('expiry_date', '>', now());
+        return $this->scopeExpiringSoon($query, 30);
+    }
+
+    /**
+     * Query scope for batches with stock available after holds.
+     */
+    public function scopeWithAvailableStock(Builder $query): Builder
+    {
+        return $query->whereRaw('COALESCE(onhand_qty, quantity) - COALESCE(hold_qty, 0) > 0');
+    }
+
+    /**
+     * Query scope for items expiring within the provided number of days.
+     */
+    public function scopeExpiringSoon(Builder $query, int $days = 30): Builder
+    {
+        return $query
+            ->whereNotNull('expiry_date')
+            ->whereDate('expiry_date', '>=', now()->toDateString())
+            ->whereDate('expiry_date', '<=', now()->addDays($days)->toDateString());
+    }
+
+    /**
+     * Query scope for expired inventory batches.
+     */
+    public function scopeExpired(Builder $query): Builder
+    {
+        return $query
+            ->whereNotNull('expiry_date')
+            ->whereDate('expiry_date', '<', now()->toDateString());
     }
 
     public function getAvailableQuantityAttribute(): int

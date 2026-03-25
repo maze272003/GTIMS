@@ -2,8 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Product extends Model
 {
@@ -14,7 +15,7 @@ class Product extends Model
         'generic_name',
         'form',
         'strength',
-        'is_archived'
+        'is_archived',
     ];
 
     public function inventories()
@@ -31,7 +32,7 @@ class Product extends Model
      * Query scope for active (non-archived) products.
      * PERFORMANCE: Use instead of repeated ->where('is_archived', false)
      */
-    public function scopeActive($query)
+    public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_archived', false);
     }
@@ -39,16 +40,33 @@ class Product extends Model
     /**
      * Query scope for archived products.
      */
-    public function scopeArchived($query)
+    public function scopeArchived(Builder $query): Builder
     {
         return $query->where('is_archived', true);
+    }
+
+    /**
+     * Query scope for active products that still have at least one active,
+     * non-expired inventory batch.
+     */
+    public function scopeActiveAndNotExpired(Builder $query): Builder
+    {
+        return $query->active()->whereHas('inventories', function (Builder $inventoryQuery): void {
+            $inventoryQuery
+                ->active()
+                ->where(function (Builder $expiryQuery): void {
+                    $expiryQuery
+                        ->whereNull('expiry_date')
+                        ->orWhereDate('expiry_date', '>=', now()->toDateString());
+                });
+        });
     }
 
     /**
      * Query scope to filter by generic name, form, and strength.
      * PERFORMANCE: Common grouping for equivalent products
      */
-    public function scopeByCharacteristics($query, $genericName, $form, $strength)
+    public function scopeByCharacteristics(Builder $query, string $genericName, string $form, string $strength): Builder
     {
         return $query->where('generic_name', $genericName)
             ->where('form', $form)
@@ -59,16 +77,16 @@ class Product extends Model
     public function getTotalRhuStockAttribute()
     {
         return $this->inventories()
-            ->whereHas('branch', fn($q) => $q->active())
+            ->whereHas('branch', fn ($q) => $q->active())
             ->sum('quantity');
     }
 
     // Load inventories from active branches only
-    public function scopeWithRhuInventory($query)
+    public function scopeWithRhuInventory(Builder $query): Builder
     {
         return $query->with([
-            'inventories' => fn($inventoryQuery) => $inventoryQuery
-                ->whereHas('branch', fn($branchQuery) => $branchQuery->active())
+            'inventories' => fn ($inventoryQuery) => $inventoryQuery
+                ->whereHas('branch', fn ($branchQuery) => $branchQuery->active())
                 ->with('branch'),
         ]);
     }

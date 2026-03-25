@@ -5,23 +5,27 @@ namespace App\Providers;
 use App\Listeners\LogUserLogin;
 use App\Listeners\LogUserLoginFailed;
 use App\Listeners\LogUserLogout;
-use App\Services\AuthSessionService;
-use App\Support\PermissionView;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\WorkflowDefinition;
 use App\Observers\InventoryWorkflowObserver;
 use App\Observers\OrderWorkflowObserver;
 use App\Policies\WorkflowDefinitionPolicy;
+use App\Services\AuthSessionService;
+use App\Support\PermissionView;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
+use Illuminate\Database\Events\QueryExecuted;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -46,6 +50,8 @@ class AppServiceProvider extends ServiceProvider
         if ($shouldForceHttps) {
             URL::forceScheme('https');
         }
+
+        $this->setupQueryMonitoring();
         // $this->registerPolicies();
 
         /**
@@ -72,12 +78,12 @@ class AppServiceProvider extends ServiceProvider
         // Gate::define('can-access-admin-panel', function (User $user) {
         //     // Pwedeng pumasok basta 'superadmin', 'admin', O 'encoder'
         //     return $user->level && in_array($user->level->name, [
-        //         'superadmin', 
+        //         'superadmin',
         //         'admin',
         //         'encoder'
         //     ]);
         // });
-        
+
         // (Wala na dito 'yung 'be-admin' at 'be-encoder' GATES
         // dahil pinalitan na natin ng 'can-access-admin-panel')
 
@@ -87,7 +93,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Blade::if('hasanypermission', function (...$permissions) {
-            if (!auth()->check()) {
+            if (! auth()->check()) {
                 return false;
             }
 
@@ -95,7 +101,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Blade::if('hasallpermissions', function (...$permissions) {
-            if (!auth()->check()) {
+            if (! auth()->check()) {
                 return false;
             }
 
@@ -117,5 +123,40 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(Login::class, LogUserLogin::class);
         Event::listen(Logout::class, LogUserLogout::class);
         Event::listen(Failed::class, LogUserLoginFailed::class);
+    }
+
+    private function setupQueryMonitoring(): void
+    {
+        DB::listen(function (QueryExecuted $query): void {
+            $userId = null;
+
+            try {
+                if (Auth::hasUser()) {
+                    $userId = Auth::user()?->getAuthIdentifier();
+                }
+            } catch (\Throwable) {
+                $userId = null;
+            }
+
+            $context = [
+                'time_ms' => round($query->time, 2),
+                'sql' => $query->sql,
+                'bindings' => $query->bindings,
+                'connection' => $query->connectionName,
+                'route' => request()?->route()?->getName(),
+                'url' => app()->runningInConsole() ? null : request()?->fullUrl(),
+                'user_id' => $userId,
+            ];
+
+            if ($query->time > 2000) {
+                Log::error('Very slow query detected.', $context);
+            } elseif ($query->time > 500) {
+                Log::warning('Slow query detected.', $context);
+            }
+
+            if (app()->environment('local', 'staging')) {
+                Log::debug('Query executed.', $context);
+            }
+        });
     }
 }
