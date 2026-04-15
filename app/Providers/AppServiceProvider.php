@@ -34,54 +34,43 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        $shouldForceHttps = app()->environment('production')
-            || request()->isSecure()
-            || request()->header('X-Forwarded-Proto') === 'https'
+        $this->registerOctaneSafeHttpsRedirect();
+
+        $this->setupQueryMonitoring();
+
+        $this->registerBladeDirectives();
+
+        $this->registerViewComposers();
+
+        $this->registerPolicies();
+
+        $this->registerModelObservers();
+    }
+
+    private function registerOctaneSafeHttpsRedirect(): void
+    {
+        if ($this->app->runningInConsole()) {
+            return;
+        }
+
+        $shouldForceHttps = $this->app->environment('production')
+            || ($this->app['request'] && $this->app['request']->isSecure())
+            || ($this->app['request'] && $this->app['request']->header('X-Forwarded-Proto') === 'https')
             || str_starts_with((string) config('app.url'), 'https://');
 
         if ($shouldForceHttps) {
             URL::forceScheme('https');
         }
+    }
 
-        $this->setupQueryMonitoring();
-        // $this->registerPolicies();
-
-        /**
-         * Gate para sa mga feature na SUPERADMIN LANG ang pwedeng gumamit
-         * (Tulad ng 'manage accounts')
-         */
-        // Gate::define('be-superadmin', function (User $user) {
-        //     // Check kung 'yung name sa level niya ay 'superadmin'
-        //     return $user->level && $user->level->name == 'superadmin';
-        // });
-        // Gate::define('be-admin', function (User $user) {
-        //     // Check kung 'yung name sa level niya ay 'admin'
-        //     return $user->level && $user->level->name == 'admin';
-        // });
-        // Gate::define('be-encoder', function (User $user) {
-        //     // Check kung 'yung name sa level niya ay 'encoder'
-        //     return $user->level && $user->level->name == 'encoder';
-        // });
-
-        // /**
-        //  * Gate para sa LAHAT ng pwedeng pumasok sa shared admin panel
-        //  * (superadmin, admin, AT encoder)
-        //  */
-        // Gate::define('can-access-admin-panel', function (User $user) {
-        //     // Pwedeng pumasok basta 'superadmin', 'admin', O 'encoder'
-        //     return $user->level && in_array($user->level->name, [
-        //         'superadmin',
-        //         'admin',
-        //         'encoder'
-        //     ]);
-        // });
-
-        // (Wala na dito 'yung 'be-admin' at 'be-encoder' GATES
-        // dahil pinalitan na natin ng 'can-access-admin-panel')
-
-        // Register Blade directive for permission-based rendering
+    private function registerBladeDirectives(): void
+    {
         Blade::if('haspermission', function (string $permission) {
-            return auth()->check() && auth()->user()->hasPermission($permission);
+            if (! auth()->check()) {
+                return false;
+            }
+
+            return auth()->user()->hasPermission($permission);
         });
 
         Blade::if('hasanypermission', function (...$permissions) {
@@ -89,7 +78,8 @@ class AppServiceProvider extends ServiceProvider
                 return false;
             }
 
-            return (new PermissionView(auth()->user(), app(AuthSessionService::class)))->hasAny($permissions);
+            $authSessionService = app(AuthSessionService::class);
+            return (new PermissionView(auth()->user(), $authSessionService))->hasAny($permissions);
         });
 
         Blade::if('hasallpermissions', function (...$permissions) {
@@ -97,33 +87,48 @@ class AppServiceProvider extends ServiceProvider
                 return false;
             }
 
-            return (new PermissionView(auth()->user(), app(AuthSessionService::class)))->hasAll($permissions);
+            $authSessionService = app(AuthSessionService::class);
+            return (new PermissionView(auth()->user(), $authSessionService))->hasAll($permissions);
         });
+    }
 
+    private function registerViewComposers(): void
+    {
         View::composer('*', function ($view) {
-            $view->with('permissionView', new PermissionView(auth()->user(), app(AuthSessionService::class)));
+            if (! auth()->check()) {
+                return;
+            }
+
+            $authSessionService = app(AuthSessionService::class);
+            $view->with('permissionView', new PermissionView(auth()->user(), $authSessionService));
         });
+    }
 
-        // Register the Workflow policy
+    private function registerPolicies(): void
+    {
         Gate::policy(WorkflowDefinition::class, WorkflowDefinitionPolicy::class);
+    }
 
-        // Register model observers for workflow event-driven triggers
+    private function registerModelObservers(): void
+    {
         Inventory::observe(InventoryWorkflowObserver::class);
         Order::observe(OrderWorkflowObserver::class);
-
-        // Auth listeners are auto-discovered from app/Listeners.
     }
 
     private function setupQueryMonitoring(): void
     {
         DB::listen(function (QueryExecuted $query): void {
+            if ($this->app->runningInConsole() && ! $this->app->runningUnitTests()) {
+                return;
+            }
+
             $context = [
                 'time_ms' => round($query->time, 2),
                 'sql' => $query->sql,
                 'bindings' => $query->bindings,
                 'connection' => $query->connectionName,
-                'route' => request()?->route()?->getName(),
-                'url' => app()->runningInConsole() ? null : request()?->fullUrl(),
+                'route' => $this->app['request']?->route()?->getName(),
+                'url' => $this->app['request']?->fullUrl(),
             ];
 
             $warningThreshold = (int) config('database.slow_query_warning_ms', 500);
