@@ -564,16 +564,16 @@ class PatientRecordsAdminService
                     $containsPattern = SearchRelevance::containsPattern($search);
 
                     $searchQuery
-                        ->whereRaw(SearchRelevance::lower('patientrecords.patient_name')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                        ->orWhereRaw(SearchRelevance::lower('patientrecords.purok')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                        ->orWhereRaw(SearchRelevance::lower('patientrecords.category')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                        ->orWhereRaw(SearchRelevance::lower('barangays.barangay_name')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                        ->orWhereRaw(SearchRelevance::lower('branches.name')." LIKE ? ESCAPE '\\'", [$containsPattern]);
+                        ->whereRaw(SearchRelevance::lower('patientrecords.patient_name')." LIKE ? ESCAPE '!'", [$containsPattern])
+                        ->orWhereRaw(SearchRelevance::lower('patientrecords.purok')." LIKE ? ESCAPE '!'", [$containsPattern])
+                        ->orWhereRaw(SearchRelevance::lower('patientrecords.category')." LIKE ? ESCAPE '!'", [$containsPattern])
+                        ->orWhereRaw(SearchRelevance::lower('barangays.barangay_name')." LIKE ? ESCAPE '!'", [$containsPattern])
+                        ->orWhereRaw(SearchRelevance::lower('branches.name')." LIKE ? ESCAPE '!'", [$containsPattern]);
 
                     if (count($searchTokens) > 1) {
                         $searchQuery->orWhere(function (Builder $tokenQuery) use ($searchTokens) {
                             foreach ($searchTokens as $token) {
-                                $tokenQuery->whereRaw(SearchRelevance::lower('patientrecords.patient_name')." LIKE ? ESCAPE '\\'", [
+                                $tokenQuery->whereRaw(SearchRelevance::lower('patientrecords.patient_name')." LIKE ? ESCAPE '!'", [
                                     SearchRelevance::containsPattern($token),
                                 ]);
                             }

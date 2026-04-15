@@ -79,11 +79,11 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
 
             $query->where(function (Builder $searchQuery) use ($containsPattern, $searchTokens) {
                 $searchQuery
-                    ->whereRaw(SearchRelevance::lower('inventories.batch_number')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('products.generic_name')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('products.brand_name')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('products.form')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('products.strength')." LIKE ? ESCAPE '\\'", [$containsPattern]);
+                    ->whereRaw(SearchRelevance::lower('inventories.batch_number')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('products.generic_name')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('products.brand_name')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('products.form')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('products.strength')." LIKE ? ESCAPE '!'", [$containsPattern]);
 
                 if (count($searchTokens) > 1) {
                     $searchQuery->orWhere(function (Builder $tokenQuery) use ($searchTokens) {
@@ -92,9 +92,9 @@ class InventoryAdminRepository implements InventoryAdminRepositoryInterface
 
                             $tokenQuery->where(function (Builder $fieldQuery) use ($tokenPattern) {
                                 $fieldQuery
-                                    ->whereRaw(SearchRelevance::lower('inventories.batch_number')." LIKE ? ESCAPE '\\'", [$tokenPattern])
-                                    ->orWhereRaw(SearchRelevance::lower('products.generic_name')." LIKE ? ESCAPE '\\'", [$tokenPattern])
-                                    ->orWhereRaw(SearchRelevance::lower('products.brand_name')." LIKE ? ESCAPE '\\'", [$tokenPattern]);
+                                    ->whereRaw(SearchRelevance::lower('inventories.batch_number')." LIKE ? ESCAPE '!'", [$tokenPattern])
+                                    ->orWhereRaw(SearchRelevance::lower('products.generic_name')." LIKE ? ESCAPE '!'", [$tokenPattern])
+                                    ->orWhereRaw(SearchRelevance::lower('products.brand_name')." LIKE ? ESCAPE '!'", [$tokenPattern]);
                             });
                         }
                     });

@@ -41,12 +41,12 @@ class ProductMovementRepository extends BaseRepository implements ProductMovemen
 
             $query->where(function (Builder $searchQuery) use ($search, $searchTokens, $containsPattern) {
                 $searchQuery
-                    ->whereRaw(SearchRelevance::lower('product_movements.description')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('inventories.batch_number')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('products.generic_name')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('products.brand_name')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('users.name')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('branches.name')." LIKE ? ESCAPE '\\'", [$containsPattern]);
+                    ->whereRaw(SearchRelevance::lower('product_movements.description')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('inventories.batch_number')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('products.generic_name')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('products.brand_name')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('users.name')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('branches.name')." LIKE ? ESCAPE '!'", [$containsPattern]);
 
                 if (in_array($search, ['in', 'out'], true)) {
                     $searchQuery->orWhereRaw(SearchRelevance::lower('product_movements.type').' = ?', [$search]);
@@ -59,10 +59,10 @@ class ProductMovementRepository extends BaseRepository implements ProductMovemen
 
                             $tokenQuery->where(function (Builder $fieldQuery) use ($tokenPattern) {
                                 $fieldQuery
-                                    ->whereRaw(SearchRelevance::lower('product_movements.description')." LIKE ? ESCAPE '\\'", [$tokenPattern])
-                                    ->orWhereRaw(SearchRelevance::lower('products.generic_name')." LIKE ? ESCAPE '\\'", [$tokenPattern])
-                                    ->orWhereRaw(SearchRelevance::lower('products.brand_name')." LIKE ? ESCAPE '\\'", [$tokenPattern])
-                                    ->orWhereRaw(SearchRelevance::lower('inventories.batch_number')." LIKE ? ESCAPE '\\'", [$tokenPattern]);
+                                    ->whereRaw(SearchRelevance::lower('product_movements.description')." LIKE ? ESCAPE '!'", [$tokenPattern])
+                                    ->orWhereRaw(SearchRelevance::lower('products.generic_name')." LIKE ? ESCAPE '!'", [$tokenPattern])
+                                    ->orWhereRaw(SearchRelevance::lower('products.brand_name')." LIKE ? ESCAPE '!'", [$tokenPattern])
+                                    ->orWhereRaw(SearchRelevance::lower('inventories.batch_number')." LIKE ? ESCAPE '!'", [$tokenPattern]);
                             });
                         }
                     });

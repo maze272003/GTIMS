@@ -42,9 +42,9 @@ class HistoryLogRepository extends BaseRepository implements HistoryLogRepositor
 
             $query->where(function (Builder $searchQuery) use ($search, $searchTokens, $containsPattern) {
                 $searchQuery
-                    ->whereRaw(SearchRelevance::lower('history_logs.action')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('history_logs.description')." LIKE ? ESCAPE '\\'", [$containsPattern])
-                    ->orWhereRaw(SearchRelevance::lower('history_logs.user_name')." LIKE ? ESCAPE '\\'", [$containsPattern]);
+                    ->whereRaw(SearchRelevance::lower('history_logs.action')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('history_logs.description')." LIKE ? ESCAPE '!'", [$containsPattern])
+                    ->orWhereRaw(SearchRelevance::lower('history_logs.user_name')." LIKE ? ESCAPE '!'", [$containsPattern]);
 
                 if (count($searchTokens) > 1) {
                     $searchQuery->orWhere(function (Builder $tokenQuery) use ($searchTokens) {
@@ -53,8 +53,8 @@ class HistoryLogRepository extends BaseRepository implements HistoryLogRepositor
 
                             $tokenQuery->where(function (Builder $fieldQuery) use ($tokenPattern) {
                                 $fieldQuery
-                                    ->whereRaw(SearchRelevance::lower('history_logs.description')." LIKE ? ESCAPE '\\'", [$tokenPattern])
-                                    ->orWhereRaw(SearchRelevance::lower('history_logs.user_name')." LIKE ? ESCAPE '\\'", [$tokenPattern]);
+                                    ->whereRaw(SearchRelevance::lower('history_logs.description')." LIKE ? ESCAPE '!'", [$tokenPattern])
+                                    ->orWhereRaw(SearchRelevance::lower('history_logs.user_name')." LIKE ? ESCAPE '!'", [$tokenPattern]);
                             });
                         }
                     });

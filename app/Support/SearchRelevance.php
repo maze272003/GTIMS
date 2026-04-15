@@ -67,7 +67,7 @@ class SearchRelevance
             return $this;
         }
 
-        return $this->addFragment("{$expression} LIKE ? ESCAPE '\\'", [self::prefixPattern($value)], $weight);
+        return $this->addFragment("{$expression} LIKE ? ESCAPE '!'", [self::prefixPattern($value)], $weight);
     }
 
     public function contains(string $expression, string $value, int $weight): self
@@ -76,7 +76,7 @@ class SearchRelevance
             return $this;
         }
 
-        return $this->addFragment("{$expression} LIKE ? ESCAPE '\\'", [self::containsPattern($value)], $weight);
+        return $this->addFragment("{$expression} LIKE ? ESCAPE '!'", [self::containsPattern($value)], $weight);
     }
 
     /**
@@ -134,6 +134,6 @@ class SearchRelevance
 
     private static function escapeLike(string $value): string
     {
-        return addcslashes($value, '\\%_');
+        return addcslashes($value, '%_!');
     }
 }
