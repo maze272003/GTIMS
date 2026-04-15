@@ -1512,20 +1512,27 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             "<p>Provide one clear predictive recommendation for managing stock for <strong>{$productName}</strong>.</p>";
     }
 
-    // ===== Ollama settings =====
-    $baseUrl = rtrim(env('OLLAMA_BASE_URL', 'https://ai-api.hostcluster.site'), '/');
-    $model   = env('OLLAMA_MODEL', 'qwen3:0.6b'); // choice #1
+    $apiKey = config('services.gemini.api_key');
+    $baseUrl = rtrim(config('services.gemini.base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
+    $model = config('services.gemini.model', 'gemini-2.5-flash');
 
-    $endpoint = $baseUrl . '/api/generate';
+    if (!$apiKey) {
+        Log::error('GEMINI_API_KEY is not configured for seasonal trend analysis.');
+        return response()->json(['error' => 'AI analysis is not configured on the server.'], 500);
+    }
 
-    // Ollama request payload
+    $endpoint = "{$baseUrl}/models/{$model}:generateContent";
+
     $payload = [
-        'model'  => $model,
-        'prompt' => $userQuery,
-        'stream' => false,
-
-        // Optional tuning (safe defaults)
-        'options' => [
+        'contents' => [
+            [
+                'role' => 'user',
+                'parts' => [
+                    ['text' => $userQuery],
+                ],
+            ],
+        ],
+        'generationConfig' => [
             'temperature' => 0.3,
         ],
     ];
@@ -1533,39 +1540,43 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
     try {
         $response = Http::timeout(90)
             ->acceptJson()
+            ->withHeaders([
+                'x-goog-api-key' => $apiKey,
+            ])
             ->post($endpoint, $payload);
 
         if (!$response->successful()) {
-            Log::error('Ollama API request failed', [
+            Log::error('Gemini API request failed', [
                 'status' => $response->status(),
                 'body'   => $response->json(),
             ]);
 
-            // Some proxies return text not json
-            $raw = $response->body();
+            $raw = data_get($response->json(), 'error.message', $response->body());
             return response()->json([
                 'error' => 'AI service failed: ' . ($raw ?: 'Unknown error')
             ], $response->status());
         }
 
-        // Standard Ollama response: { response: "...", ... }
-        $text = data_get($response->json(), 'response');
+        $parts = data_get($response->json(), 'candidates.0.content.parts', []);
+        $text = collect($parts)
+            ->pluck('text')
+            ->filter()
+            ->implode("\n");
 
         if (!$text) {
-            Log::error('Ollama returned no response text', ['body' => $response->json()]);
+            Log::error('Gemini returned no response text', ['body' => $response->json()]);
             return response()->json(['error' => 'No valid response received from AI service.'], 500);
         }
 
-        // Clean up any accidental markdown fences or bullets (defensive)
         $text = preg_replace('/```[\s\S]*?```/m', '', $text);
         $text = str_replace(['**', '*'], '', $text);
 
         return response()->json(['analysis' => trim($text)]);
     } catch (\Illuminate\Http\Client\ConnectionException $e) {
-        Log::error('Connection Error calling Ollama API: ' . $e->getMessage());
+        Log::error('Connection error calling Gemini API: ' . $e->getMessage());
         return response()->json(['error' => 'Could not connect to AI analysis service.'], 503);
     } catch (\Exception $e) {
-        Log::error('Error calling Ollama API: ' . $e->getMessage());
+        Log::error('Error calling Gemini API: ' . $e->getMessage());
         return response()->json(['error' => 'Unexpected error while contacting AI analysis service.'], 500);
     }
 }
