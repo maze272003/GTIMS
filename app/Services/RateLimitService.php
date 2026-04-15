@@ -44,10 +44,12 @@ class RateLimitService
         }
 
         if ($identifiersConfig['fallback_to_ip'] ?? true) {
-            return "ip:{$request->ip() ?? 'unknown'}";
+            $ip = $request->ip();
+            return "ip:" . ($ip ?? 'unknown');
         }
 
-        return "ip:{$request->ip() ?? 'unknown'}";
+        $ip = $request->ip();
+        return "ip:" . ($ip ?? 'unknown');
     }
 
     private function getClientIp($request): ?string

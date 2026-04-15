@@ -29,8 +29,12 @@ Route::get('/', function () {
     return view('auth.login');
 });
 
-Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])->middleware('throttle:5,1')->name('otp.send');
-Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])->middleware('throttle:5,1')->name('otp.verify');
+Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])
+    ->middleware('throttle:5,1', 'rate.limit:otp')
+    ->name('otp.send');
+Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])
+    ->middleware('throttle:5,1', 'rate.limit:otp')
+    ->name('otp.verify');
 Route::get('/verify-account/{id}', [ManageaccountController::class, 'verifyAccount'])
     ->name('account.verify')
     ->middleware('signed');
@@ -68,9 +72,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     //
     // ---- ITO NA ANG MALINIS NA VERSION GAMIT ANG MGA GINAWA NATING MIDDLEWARE ----
     //
-    Route::prefix('admin')
+Route::prefix('admin')
           ->name('admin.')
-          ->middleware(['level.all', 'admin.permission']) // L1, L2, L3, L4 CAN ENTER THIS BLOCK
+          ->middleware(['level.all', 'admin.permission', 'rate.limit:admin'])
           ->group(function () {
 
         // == A. BASE ACCESS ROUTES (Para sa lahat ng nakapasa sa level.all) ==
@@ -90,12 +94,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
         Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
         Route::put('/patientrecords', [PatientRecordsController::class, 'updatePatientRecord'])->name('patientrecords.update');
-        Route::get('/patientrecords/export-pdf', [PatientRecordsController::class, 'exportPdf'])->name('patientrecords.exportPdf');
+        Route::get('/patientrecords/export-pdf', [PatientRecordsController::class, 'exportPdf'])
+            ->middleware('rate.limit:export')
+            ->name('patientrecords.exportPdf');
         Route::get('/patientrecords/export-excel', [PatientRecordsController::class, 'exportExcel'])
+            ->middleware('rate.limit:export')
             ->name('patientrecords.exportExcel');
 
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
-        Route::post('/inventory/export', [InventoryExportController::class, 'export'])->name('inventory.export');
+        Route::post('/inventory/export', [InventoryExportController::class, 'export'])
+            ->middleware('rate.limit:export')
+            ->name('inventory.export');
 
         // == B. ADMIN/SUPERADMIN ROUTES (Level 1, 2 ONLY) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.admin (L1, L2)

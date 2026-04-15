@@ -40,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'level.finance'    => \App\Http\Middleware\CheckFinanceAccess::class,
             'admin.permission' => \App\Http\Middleware\EnsureAdminRoutePermission::class,
             'permission'       => \App\Http\Middleware\CheckPermission::class,
+            'rate.limit'       => \App\Http\Middleware\RateLimitMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
