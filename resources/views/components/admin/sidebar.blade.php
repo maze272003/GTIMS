@@ -11,28 +11,49 @@
     {{-- Main Navigation Links --}}
     <ul id="sidebar-scroll" class="flex flex-col flex-1 min-h-0 mt-6 space-y-5 overflow-y-auto overflow-x-hidden pr-1 scroll-smooth">
         @auth
+            @php
+                $showOverviewGroup = auth()->user()->hasPermission('dashboard.view');
+                $showManagementGroup =
+                    auth()->user()->hasPermission('orders.view') ||
+                    auth()->user()->hasPermission('inventory.view') ||
+                    auth()->user()->hasPermission('movements.view') ||
+                    auth()->user()->hasPermission('patients.view') ||
+                    auth()->user()->hasPermission('holds.view') ||
+                    auth()->user()->hasPermission('requests.view') ||
+                    auth()->user()->hasPermission('suppliers.view');
+                $showAdministrationGroup =
+                    auth()->user()->hasPermission('settings.low_stock') ||
+                    auth()->user()->hasPermission('notifications.manage') ||
+                    auth()->user()->hasPermission('historylog.view') ||
+                    auth()->user()->hasPermission('branches.manage') ||
+                    auth()->user()->hasPermission('users.manage') ||
+                    auth()->user()->hasPermission('settings.roles');
+            @endphp
 
-            <li class="space-y-2">
-                <p class="nav-text hidden lg:block md:hidden px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-                    Overview
-                </p>
-                <ul class="space-y-2">
-                    @haspermission('dashboard.view')
-                        <li>
-                            <a href="{{ route('admin.dashboard') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                                <i class="fa-regular fa-house-chimney nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                                <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Dashboard</span>
-                            </a>
-                        </li>
-                    @endhaspermission
-                </ul>
-            </li>
+            @if($showOverviewGroup)
+                <li class="space-y-2">
+                    <p class="nav-text hidden lg:block md:hidden px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                        Overview
+                    </p>
+                    <ul class="space-y-2">
+                        @haspermission('dashboard.view')
+                            <li>
+                                <a href="{{ route('admin.dashboard') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                                    <i class="fa-regular fa-house-chimney nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Dashboard</span>
+                                </a>
+                            </li>
+                        @endhaspermission
+                    </ul>
+                </li>
+            @endif
 
-            <li class="space-y-2">
-                <p class="nav-text hidden lg:block md:hidden px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-                    Management
-                </p>
-                <ul class="space-y-2">
+            @if($showManagementGroup)
+                <li class="space-y-2">
+                    <p class="nav-text hidden lg:block md:hidden px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                        Management
+                    </p>
+                    <ul class="space-y-2">
                     @haspermission('orders.view')
                         <li>
                             <a href="{{ route('admin.orders.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.orders.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
@@ -111,14 +132,16 @@
                         </a>
                     </li>
                     @endhaspermission
-                </ul>
-            </li>
+                    </ul>
+                </li>
+            @endif
 
-            <li class="space-y-2">
-                <p class="nav-text hidden lg:block md:hidden px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
-                    Administration
-                </p>
-                <ul class="space-y-2">
+            @if($showAdministrationGroup)
+                <li class="space-y-2">
+                    <p class="nav-text hidden lg:block md:hidden px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                        Administration
+                    </p>
+                    <ul class="space-y-2">
                     @haspermission('settings.low_stock')
                     <li>
                         <a href="{{ route('admin.lowstock.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.lowstock.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
@@ -172,8 +195,9 @@
                         </a>
                     </li>
                     @endhaspermission
-                </ul>
-            </li>
+                    </ul>
+                </li>
+            @endif
 
 
         @endauth
