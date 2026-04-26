@@ -98,7 +98,7 @@
                     <li>
                         <a href="{{ route('admin.requests.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.requests.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
                             <i class="fa-regular fa-inbox nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Requests</span>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Incoming Requests</span>
                         </a>
                     </li>
                     @endhaspermission
