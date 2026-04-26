@@ -24,4 +24,9 @@ class Dispensedmedication extends Model
     {
         return $this->belongsTo(Patientrecords::class, 'patientrecord_id');
     }
+
+    public function barangay()
+    {
+        return $this->belongsTo(Barangay::class);
+    }
 }

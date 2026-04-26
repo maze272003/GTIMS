@@ -8,6 +8,7 @@ use App\Repositories\Interfaces\UserRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Route;
 
 class AuthSessionService
 {
@@ -25,57 +26,59 @@ class AuthSessionService
         /** @var User $user */
         $user = Auth::user();
 
-        return $this->getRedirectUrl($user) ?? route('admin.dashboard');
+        return $this->getRedirectUrl($user);
     }
 
     public function getRedirectUrl(User $user): ?string
     {
-        if (is_null($user->level)) {
+        return $this->getRedirectDestination($user)['url'] ?? null;
+    }
+
+    public function getRedirectDestination(?User $user): ?array
+    {
+        if (!$user || is_null($user->level)) {
             return null;
         }
 
-        if ($user->hasPermission('dashboard.view')) {
-            return route('admin.dashboard');
-        }
+        foreach ($this->redirectPriorityMap() as $destination) {
+            if (!Route::has($destination['route'])) {
+                continue;
+            }
 
-        if ($user->hasPermission('orders.view')) {
-            return route('admin.orders.index');
-        }
-        else if ($user->hasPermission('holds.view')) {
-            return route('admin.holds.index');
-        }
-        else if ($user->hasPermission('inventories.view')) {
-            return route('admin.inventories.index');
-        }
-        else if ($user->hasPermission('requests.view')) {
-            return route('admin.requests.index');
-        }
-        else if ($user->hasPermission('suppliers.view')) {
-            return route('admin.suppliers.index');
-        }
-        else if ($user->hasPermission('reports.view')) {
-            return route('admin.reports.index');
-        }
-        else if ($user->hasPermission('users.view')) {
-            return route('admin.users.index');
-        }
-        else if ($user->hasPermission('settings.view')) {
-            return route('admin.settings.index');
-        }
-        else if ($user->hasPermission('notifications.view')) {
-            return route('admin.notifications.index');
-        }
-        else if ($user->hasPermission('logs.view')) {
-            return route('admin.logs.index');
-        }
-        else if ($user->hasPermission('audit_trails.view')) {
-            return route('admin.audit-trails.index');
-        }
-        else if ($user->hasPermission('profile.view')) {
-            return route('profile.show');
+            foreach ($destination['permissions'] as $permission) {
+                if ($user->hasPermission($permission)) {
+                    return [
+                        'label' => $destination['label'],
+                        'route' => $destination['route'],
+                        'url' => route($destination['route']),
+                        'permissions' => $destination['permissions'],
+                    ];
+                }
+            }
         }
 
         return null;
+    }
+
+    public function getForbiddenMessage(?User $user, ?string $subject = null): string
+    {
+        $baseMessage = 'This page or action cannot be accessed with your account. Please contact the superadmin for assistance.';
+
+        if (!$user) {
+            return $baseMessage;
+        }
+
+        $destination = $this->getRedirectDestination($user);
+
+        $message = $subject
+            ? 'You do not have permission to '.$subject.'. '.$baseMessage
+            : $baseMessage;
+
+        if (!$destination) {
+            return $message;
+        }
+
+        return $message.' You can continue to '.$destination['label'].' instead.';
     }
 
     public function canAccessApplication(User $user): array
@@ -123,5 +126,27 @@ class AuthSessionService
 
         $this->userRepository->updateLoginMetadata($user->id, $currentIp);
     }
-}
 
+    protected function redirectPriorityMap(): array
+    {
+        return [
+            ['label' => 'Dashboard', 'route' => 'admin.dashboard', 'permissions' => ['dashboard.view']],
+            ['label' => 'Orders', 'route' => 'admin.orders.index', 'permissions' => ['orders.view']],
+            ['label' => 'Inventory', 'route' => 'admin.inventory', 'permissions' => ['inventory.view']],
+            ['label' => 'Product Movement', 'route' => 'admin.movements', 'permissions' => ['movements.view']],
+            ['label' => 'Records', 'route' => 'admin.patientrecords', 'permissions' => ['patients.view']],
+            ['label' => 'Holds / Pullout', 'route' => 'admin.holds.index', 'permissions' => ['holds.view']],
+            ['label' => 'Requests', 'route' => 'admin.requests.index', 'permissions' => ['requests.view']],
+            ['label' => 'Suppliers', 'route' => 'admin.suppliers.index', 'permissions' => ['suppliers.view']],
+            ['label' => 'Analytics', 'route' => 'admin.analytics.overview', 'permissions' => ['reports.view']],
+            ['label' => 'Low Stock Settings', 'route' => 'admin.lowstock.index', 'permissions' => ['settings.low_stock']],
+            ['label' => 'Notifications', 'route' => 'admin.notifications.index', 'permissions' => ['notifications.manage']],
+            ['label' => 'History Logs', 'route' => 'admin.historylog', 'permissions' => ['historylog.view']],
+            ['label' => 'Audit Logs', 'route' => 'admin.audit.index', 'permissions' => ['audit.view']],
+            ['label' => 'Branches', 'route' => 'admin.branches.index', 'permissions' => ['branches.manage']],
+            ['label' => 'Automation', 'route' => 'admin.workflows.index', 'permissions' => ['workflows.view']],
+            ['label' => 'Manage Accounts', 'route' => 'admin.manageaccount', 'permissions' => ['users.manage']],
+            ['label' => 'User Permissions', 'route' => 'admin.roles.index', 'permissions' => ['settings.roles']],
+        ];
+    }
+}

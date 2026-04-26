@@ -11,14 +11,10 @@
                     </p>
                     <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Request Management</h2>
                 </div>
-                <a href="{{ route('admin.requests.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition-all duration-200">
+                <a href="{{ route('admin.requests.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition-all duration-200">
                     <i class="fa-solid fa-plus mr-2"></i> Create Request
                 </a>
             </div>
-
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
 
             {{-- Filters --}}
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-6">
@@ -43,14 +39,14 @@
                     </div>
                     <div class="flex-1">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Branch</label>
-                        <select name="branch" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
+                        <select name="branch_id" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-sm text-gray-900 dark:text-white">
                             <option value="">All Branches</option>
                             @foreach($branches ?? [] as $branch)
-                                <option value="{{ $branch->id }}" {{ request('branch') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
+                                <option value="{{ $branch->id }}" {{ request('branch_id') == $branch->id ? 'selected' : '' }}>{{ $branch->name }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-4 py-2.5 rounded-lg text-sm transition">
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-lg text-sm transition">
                         <i class="fa-solid fa-filter mr-1"></i> Filter
                     </button>
                     <a href="{{ route('admin.requests.index') }}" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2.5 rounded-lg text-sm transition hover:bg-gray-300 dark:hover:bg-gray-600">
@@ -81,24 +77,30 @@
                                     <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ $request->branch->name ?? '-' }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ $request->department ?? '-' }}</td>
                                     <td class="px-6 py-4 text-sm">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                            @if($request->priority === 'urgent') bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300
-                                            @elseif($request->priority === 'high') bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300
-                                            @elseif($request->priority === 'normal') bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300
-                                            @else bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 @endif">
-                                            {{ ucfirst($request->priority) }}
-                                        </span>
+                                        @if($request->priority === 'urgent')
+                                            <x-badge variant="danger">{{ ucfirst($request->priority) }}</x-badge>
+                                        @elseif($request->priority === 'high')
+                                            <x-badge variant="warning">{{ ucfirst($request->priority) }}</x-badge>
+                                        @elseif($request->priority === 'normal')
+                                            <x-badge variant="info">{{ ucfirst($request->priority) }}</x-badge>
+                                        @else
+                                            <x-badge variant="default">{{ ucfirst($request->priority) }}</x-badge>
+                                        @endif
                                     </td>
                                     <td class="px-6 py-4 text-sm">
-                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                            @if($request->status === 'approved') bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300
-                                            @elseif($request->status === 'submitted') bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
-                                            @elseif($request->status === 'under_review') bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300
-                                            @elseif($request->status === 'denied') bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300
-                                            @elseif($request->status === 'fulfilled') bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300
-                                            @else bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 @endif">
-                                            {{ ucwords(str_replace('_', ' ', $request->status)) }}
-                                        </span>
+                                        @if($request->status === 'approved')
+                                            <x-badge variant="success">{{ ucwords(str_replace('_', ' ', $request->status)) }}</x-badge>
+                                        @elseif($request->status === 'submitted')
+                                            <x-badge variant="warning">{{ ucwords(str_replace('_', ' ', $request->status)) }}</x-badge>
+                                        @elseif($request->status === 'under_review')
+                                            <x-badge variant="info">{{ ucwords(str_replace('_', ' ', $request->status)) }}</x-badge>
+                                        @elseif($request->status === 'denied')
+                                            <x-badge variant="danger">{{ ucwords(str_replace('_', ' ', $request->status)) }}</x-badge>
+                                        @elseif($request->status === 'fulfilled')
+                                            <x-badge variant="primary">{{ ucwords(str_replace('_', ' ', $request->status)) }}</x-badge>
+                                        @else
+                                            <x-badge variant="default">{{ ucwords(str_replace('_', ' ', $request->status)) }}</x-badge>
+                                        @endif
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ $request->requester->name ?? '-' }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{{ $request->created_at->format('M d, Y H:i') }}</td>

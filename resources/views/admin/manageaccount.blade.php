@@ -9,13 +9,6 @@
 
             <div id="toast-container" class="fixed top-24 right-5 z-50 flex flex-col gap-3 pointer-events-none"></div>
 
-            @if(session('success'))
-                <script>document.addEventListener('DOMContentLoaded', () => showToast("{{ session('success') }}", 'success'));</script>
-            @endif
-            @if($errors->any())
-                <script>document.addEventListener('DOMContentLoaded', () => showToast("Please check the form for errors.", 'error'));</script>
-            @endif
-
             <nav class="flex mb-6" aria-label="Breadcrumb">
                 <ol class="inline-flex items-center space-x-1 md:space-x-3">
                     <li class="inline-flex items-center">
@@ -51,7 +44,7 @@
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fa-solid fa-search text-gray-400 group-focus-within:text-blue-500 transition-colors"></i>
                     </div>
-                    <input type="text" id="searchInput" class="block w-full pl-10 pr-10 py-3 border border-gray-200 dark:border-gray-700 rounded-xl leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm transition-all duration-200" placeholder="Search by name, email, or role...">
+                    <input type="text" id="searchInput" value="{{ request('search') }}" class="block w-full pl-10 pr-10 py-3 border border-gray-200 dark:border-gray-700 rounded-xl leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 shadow-sm transition-all duration-200" placeholder="Search by name, email, or role...">
                     <div id="search-spinner" class="absolute inset-y-0 right-0 pr-3 flex items-center hidden">
                         <i class="fa-solid fa-circle-notch fa-spin text-blue-500"></i>
                     </div>

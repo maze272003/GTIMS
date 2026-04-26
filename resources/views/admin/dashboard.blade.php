@@ -1,7 +1,7 @@
 @php
   use Carbon\Carbon;
   // Get validated inputs from controller, default to empty array if not passed
-  $filterInputs = $inputs ?? []; 
+  $filterInputs = $inputs ?? [];
 @endphp
 <x-app-layout>
 <body class="bg-gray-50 dark:bg-gray-900">
@@ -23,68 +23,42 @@
       {{-- 1. KPI CARDS --}}
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {{-- Total Stock --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Total Stock (Items)</p>
-              <p class="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">
-                {{ number_format($kpiCards['totalStockItems']) }}
-              </p>
-            </div>
-            <div class="bg-blue-100 p-4 rounded-full">
-              <i class="fa-regular fa-boxes-stacked text-2xl text-blue-600"></i>
-            </div>
-          </div>
-        </div>
+        <x-stat-card
+          label="Total Stock (Items)"
+          :value="number_format($kpiCards['totalStockItems'])"
+          icon="fa-regular fa-boxes-stacked"
+          icon-bg="bg-blue-100 dark:bg-blue-900/30"
+          icon-color="text-blue-600 dark:text-blue-400"
+        />
         {{-- Low Stock --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Low Stock Products</p>
-              <p class="text-3xl font-bold text-orange-600 mt-2">
-                {{ $kpiCards['lowStockProducts'] }}
-              </p>
-            </div>
-            <div class="bg-orange-100 p-4 rounded-full">
-              <i class="fa-regular fa-exclamation text-2xl text-orange-600"></i>
-            </div>
-          </div>
-        </div>
+        <x-stat-card
+          label="Low Stock Products"
+          :value="$kpiCards['lowStockProducts']"
+          icon="fa-regular fa-exclamation"
+          icon-bg="bg-orange-100 dark:bg-orange-900/30"
+          icon-color="text-orange-600 dark:text-orange-400"
+        />
         {{-- Expiring Soon --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Batches Expiring Soon</p>
-              <p class="text-3xl font-bold text-yellow-600 mt-2">
-                {{ $kpiCards['expiringIn30Days'] }}
-              </p>
-            </div>
-            <div class="bg-yellow-100 p-4 rounded-full">
-              <i class="fa-regular fa-clock text-2xl text-yellow-600"></i>
-            </div>
-          </div>
-        </div>
+        <x-stat-card
+          label="Batches Expiring Soon"
+          :value="$kpiCards['expiringIn30Days']"
+          icon="fa-regular fa-clock"
+          icon-bg="bg-yellow-100 dark:bg-yellow-900/30"
+          icon-color="text-yellow-600 dark:text-yellow-400"
+        />
         {{-- Patients Today --}}
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
-          <div class="flex items-center justify-between">
-            <div>
-              <p class="text-sm text-gray-600 dark:text-gray-400 font-medium">Patients Today</p>
-              <p class="text-3xl font-bold text-green-600 mt-2">
-                {{ $kpiCards['patientsToday'] }}
-              </p>
-            </div>
-            <div class="bg-green-100 p-4 rounded-full">
-              <i class="fa-regular fa-user-group text-2xl text-green-600"></i>
-            </div>
-          </div>
-        </div>
+        <x-stat-card
+          label="Patients Today"
+          :value="$kpiCards['patientsToday']"
+          icon="fa-regular fa-user-group"
+          icon-bg="bg-green-100 dark:bg-green-900/30"
+          icon-color="text-green-600 dark:text-green-400"
+        />
       </div>
       {{-- End KPI Cards --}}
 
-
-      {{-- 2. PREDICTIVE FORECAST & URGENT ACTIONS --}}
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        
+
         {{-- STOCK DEPLETION FORECAST --}}
         <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
             {{-- Header with Filter --}}
@@ -126,7 +100,7 @@
                 </tr>
               </thead>
               {{-- Added ID for AJAX update --}}
-              <tbody id="forecast-table-body"> 
+              <tbody id="forecast-table-body">
                 {{-- Render partial for initial load and for AJAX updates --}}
                 @include('admin.partials._forecast_table_body', ['forecast' => $forecast])
               </tbody>
@@ -195,7 +169,7 @@
             {{-- Updated link to use AJAX clear function --}}
           <a href="#" id="clear-drilldown-ajax" class="px-3 py-1 text-xs font-medium text-blue-700 bg-white border border-blue-600 rounded-full hover:bg-blue-100 dark:bg-gray-700 dark:text-blue-300 dark:border-blue-400 dark:hover:bg-gray-600">Clear Drill-Down</a>
         </div>
-        
+
         {{-- Main Filter Form --}}
         <form id="dashboard-filter-form" action="{{ route('admin.dashboard') }}" method="GET">
           {{-- Hidden field for drill-down (retains value) --}}
@@ -203,11 +177,11 @@
           {{-- Hidden field for forecast days (to persist it) --}}
           <input type="hidden" name="forecast_days" value="{{ $inputs['forecast_days'] ?? 90 }}">
 
-          
+
           <div class="p-6">
             {{-- Increased to 4 columns to accommodate the new filter --}}
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"> 
-              
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
               {{-- Timespan --}}
               <div>
                 <label for="filter_timespan" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time Period</label>
@@ -246,7 +220,7 @@
                   @endforeach
                 </select>
               </div>
-              
+
               {{-- Product Filter --}}
               <div>
                 <label for="filter_product_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product</label>
@@ -272,7 +246,7 @@
 
             </div>
           </div>
-          
+
           {{-- Custom Date Range (hidden by default) --}}
           <div id="custom_dates_container" class="p-6 pt-0 {{ ($filterInputs['filter_timespan'] ?? '30d') == 'custom' ? '' : 'hidden' }}">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -360,7 +334,7 @@
           {{-- Title updates dynamically --}}
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1">
             <h3 id="patientVisitChartTitle" class="text-lg font-semibold text-gray-900 dark:text-gray-100">Patient Visit Trend</h3>
-            
+
             {{-- ADDED TOGGLE --}}
             <div id="patientVisitChartToggle" class="mt-2 sm:mt-0 flex items-center p-1 bg-gray-100 dark:bg-gray-700 rounded-lg">
               <button data-type="line" class="chart-toggle active-toggle">
@@ -378,13 +352,13 @@
             <canvas id="patientVisitChart"></canvas>
           </div>
         </div>
-        
+
       </div>
       {{-- End Patient Charts --}}
 
       {{-- 5. NEW: SEASONAL & HOTSPOT ANALYSIS --}}
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        
+
         {{-- Product Seasonal Trend --}}
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
             {{-- Added ID to form, removed action/method --}}
@@ -397,7 +371,7 @@
              @endforeach
              {{-- Persist forecast filter too --}}
              <input type="hidden" name="forecast_days" value="{{ $inputs['forecast_days'] ?? 90 }}">
-            
+
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
               <div>
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Product Seasonal Trend</h3>
@@ -424,7 +398,7 @@
                   <option value="">None</option>
                   @foreach($filter_products as $product)
                       {{-- Avoid comparing a product with itself --}}
-                    @if( ($selectedSeasonalProduct->id ?? null) != $product->id) 
+                    @if( ($selectedSeasonalProduct->id ?? null) != $product->id)
                       <option value="{{ $product->id }}" @selected( ($filterInputs['compare_product_id'] ?? '') == $product->id)>
                         {{ $product->generic_name }}
                       </option>
@@ -434,11 +408,11 @@
               </div>
             </div>
           </form>
-          
+
           <div id="seasonal-chart-anchor" class="relative chart-container mt-4"> {{-- Constrained Height --}}
             <canvas id="seasonalChart"></canvas>
           </div>
-          
+
           <div class="mt-4 text-center">
             <button id="get-ai-analysis" class="inline-flex items-center px-4 py-2 text-sm text-white bg-purple-600 rounded-lg hover:bg-purple-700 disabled:opacity-50">
               <i class="fa-regular fa-stars mr-2"></i>
@@ -470,6 +444,129 @@
         </div>
       </div>
       {{-- End New Analytics --}}
+
+      {{-- SYSTEM OBSERVABILITY DASHBOARD --}}
+      <div class="mt-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+        <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <i class="fa-regular fa-wave-pulse text-blue-600 mr-2"></i>System Observability
+            </h3>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Real-time monitoring for throughput, latency, error signals, and workflow bottlenecks.</p>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+            <span class="inline-flex items-center px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-pulse"></span>
+              Auto-refresh: 60s
+            </span>
+            <span id="observability-generated-at" class="font-medium">
+              Updated: {{ data_get($observability ?? [], 'generated_at', now()->format('Y-m-d H:i:s')) }}
+            </span>
+          </div>
+        </div>
+
+        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div class="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 p-4">
+            <p class="text-xs uppercase tracking-wide text-blue-700 dark:text-blue-300">Operations</p>
+            <p id="obs-operations-total" class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ number_format(data_get($observability ?? [], 'summary.operations_total', 0)) }}</p>
+            <p class="text-xs text-blue-700 dark:text-blue-300"><span id="obs-operations-per-hour">{{ number_format((float) data_get($observability ?? [], 'summary.operations_per_hour', 0), 2) }}</span> / hour</p>
+          </div>
+          <div class="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-900/20 dark:border-rose-800 p-4">
+            <p class="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-300">Error Signals</p>
+            <p id="obs-error-events" class="text-2xl font-bold text-rose-900 dark:text-rose-100">{{ number_format(data_get($observability ?? [], 'summary.error_events', 0)) }}</p>
+            <p class="text-xs text-rose-700 dark:text-rose-300"><span id="obs-error-rate">{{ number_format((float) data_get($observability ?? [], 'summary.error_rate', 0), 2) }}</span>% event rate</p>
+          </div>
+          <div class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-4">
+            <p class="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300">Request Latency</p>
+            <p id="obs-cycle-hours" class="text-2xl font-bold text-amber-900 dark:text-amber-100">{{ number_format((float) data_get($observability ?? [], 'summary.avg_cycle_time_hours', 0), 2) }}</p>
+            <p class="text-xs text-amber-700 dark:text-amber-300">Avg cycle hours</p>
+          </div>
+          <div class="rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:border-violet-800 p-4">
+            <p class="text-xs uppercase tracking-wide text-violet-700 dark:text-violet-300">Workflow Bottlenecks</p>
+            <p id="obs-stale-open-requests" class="text-2xl font-bold text-violet-900 dark:text-violet-100">{{ number_format(data_get($observability ?? [], 'summary.stale_open_requests', 0)) }}</p>
+            <p class="text-xs text-violet-700 dark:text-violet-300">Stale requests (48h+)</p>
+          </div>
+        </div>
+
+        <div class="p-4 pt-0 grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Operational Throughput</h4>
+            <div class="relative chart-container !h-72">
+              <canvas id="observabilityThroughputChart"></canvas>
+            </div>
+          </div>
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Request Stage Latency</h4>
+            <div class="relative chart-container !h-72">
+              <canvas id="observabilityLatencyChart"></canvas>
+            </div>
+          </div>
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Error Tracking Trend</h4>
+            <div class="relative chart-container !h-72">
+              <canvas id="observabilityErrorChart"></canvas>
+            </div>
+          </div>
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Open Queue By Status</h4>
+            <div class="relative chart-container !h-72">
+              <canvas id="observabilityBottleneckChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 pt-0 grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-200">Top Error Categories</div>
+            <div class="max-h-52 overflow-y-auto">
+              <table class="w-full text-sm">
+                <thead class="sticky top-0 bg-white dark:bg-gray-800 text-xs uppercase text-gray-500 dark:text-gray-400">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Category</th>
+                    <th class="px-4 py-2 text-right">Count</th>
+                  </tr>
+                </thead>
+                <tbody id="obs-top-errors-body" class="divide-y divide-gray-100 dark:divide-gray-700">
+                  @forelse(data_get($observability ?? [], 'errors.top_categories', []) as $row)
+                    <tr>
+                      <td class="px-4 py-2 text-gray-700 dark:text-gray-200">{{ data_get($row, 'label', 'unknown') }}</td>
+                      <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">{{ (int) data_get($row, 'count', 0) }}</td>
+                    </tr>
+                  @empty
+                    <tr><td class="px-4 py-3 text-gray-500" colspan="2">No error categories found for the selected period.</td></tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div class="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-200">Aging Open Requests</div>
+            <div class="max-h-52 overflow-y-auto">
+              <table class="w-full text-sm">
+                <thead class="sticky top-0 bg-white dark:bg-gray-800 text-xs uppercase text-gray-500 dark:text-gray-400">
+                  <tr>
+                    <th class="px-4 py-2 text-left">Request</th>
+                    <th class="px-4 py-2 text-left">Status</th>
+                    <th class="px-4 py-2 text-right">Age (hours)</th>
+                  </tr>
+                </thead>
+                <tbody id="obs-aging-requests-body" class="divide-y divide-gray-100 dark:divide-gray-700">
+                  @forelse(data_get($observability ?? [], 'bottlenecks.top_aging_requests', []) as $row)
+                    <tr>
+                      <td class="px-4 py-2 text-gray-700 dark:text-gray-200">#{{ data_get($row, 'id') }} - {{ data_get($row, 'department', '-') }}</td>
+                      <td class="px-4 py-2 text-gray-700 dark:text-gray-200">{{ ucfirst((string) data_get($row, 'status', '')) }} ({{ data_get($row, 'priority', '-') }})</td>
+                      <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">{{ (int) data_get($row, 'age_hours', 0) }}</td>
+                    </tr>
+                  @empty
+                    <tr><td class="px-4 py-3 text-gray-500" colspan="3">No open requests currently detected.</td></tr>
+                  @endforelse
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      {{-- END SYSTEM OBSERVABILITY DASHBOARD --}}
     </main>
     {{-- @else --}}
             {{-- UNAUTHORIZED VIEW (Added this else block) --}}
@@ -511,7 +608,7 @@
 
   {{-- ADDED: Zoom Plugin --}}
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js"></script>
-  
+
   {{-- ADDED: Register Zoom Plugin --}}
   <script>
     Chart.register(window.ChartZoom);
@@ -642,7 +739,7 @@
         labels: @json($consumptionLabels),
         data: @json($consumptionData),
         // This is the active product ID's name (either drilldown or filter_product_id)
-        productName: @json($drilldown_product_name) 
+        productName: @json($drilldown_product_name)
       },
       topProducts: {
         labels: @json($topProducts->keys()),
@@ -666,6 +763,7 @@
         compareData: @json($compareData),
         compareName: @json($compareSeasonalProduct->generic_name ?? null),
       },
+      observability: @json($observability ?? []),
       // Initial Filter Labels
       filterLabels: {
           timespan: @json($filterTimespanLabel),
@@ -676,7 +774,7 @@
           drilldownProduct: @json($drilldown_product_name)
       }
     };
-    
+
     // Store chart instances
     window.myCharts = {};
     // Store original configurations
@@ -703,16 +801,31 @@ const distinctPieColors = [
     ];
 
     const pieColors = Object.values(distinctPieColors); // Use consistent colors for pie chart
-    
+
     const consumptionLineColor = 'rgb(34, 197, 94)'; // green-600
     const topProductsBarColor = 'rgba(59, 130, 246, 0.7)'; // blue-600 with alpha
-    
+
     // NEW: Patient Visit Color
     const patientVisitColor = 'rgb(234, 179, 8)'; // yellow-500
-    
+
     const seasonalColor1 = 'rgb(168, 85, 247)'; // purple-600
     const seasonalColor2 = 'rgb(234, 179, 8)'; // yellow-500 (same as patient visit, but used in different chart)
-    
+
+    const observabilityColors = {
+      throughputCombined: 'rgb(37, 99, 235)',
+      throughputMovement: 'rgb(16, 185, 129)',
+      throughputRequest: 'rgb(245, 158, 11)',
+      throughputAudit: 'rgb(139, 92, 246)',
+      latencyCycle: 'rgb(217, 119, 6)',
+      latencyApproval: 'rgb(59, 130, 246)',
+      latencyFulfillment: 'rgb(236, 72, 153)',
+      errorCombined: 'rgb(220, 38, 38)',
+      errorAudit: 'rgb(249, 115, 22)',
+      errorRequest: 'rgb(234, 179, 8)',
+      errorHistory: 'rgb(168, 85, 247)',
+      bottleneck: 'rgb(14, 165, 233)',
+    };
+
     // --- CSRF Token for AJAX ---
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
@@ -727,9 +840,9 @@ const distinctPieColors = [
         // 1. Get the CURRENT data from the live chart instance
         // This data was updated by your AJAX calls
         const currentData = chart.config.data;
-        
+
         // 2. Clone the ORIGINAL config (this preserves scales, plugins, onClick handlers, etc.)
-        const newConfig = JSON.parse(JSON.stringify(originalConfig)); 
+        const newConfig = JSON.parse(JSON.stringify(originalConfig));
 
         // 3. Inject the CURRENT, up-to-date data into the new config
         // We must clone currentData to avoid any weird reference issues
@@ -740,8 +853,8 @@ const distinctPieColors = [
         newConfig.options.onClick = originalConfig.options.onClick; // Reset click handler
 
         if (newType === 'pie' || newType === 'doughnut') {
-            newConfig.options.indexAxis = 'x'; 
-            newConfig.options.scales = {}; 
+            newConfig.options.indexAxis = 'x';
+            newConfig.options.scales = {};
             newConfig.options.plugins.legend.display = true;
             newConfig.options.onClick = null; // Disable click for pie
 
@@ -752,17 +865,17 @@ const distinctPieColors = [
                 newConfig.data.datasets[0].borderColor = '#ffffff';
                 newConfig.data.datasets[0].borderWidth = 1;
                 newConfig.data.datasets[0].hoverOffset = 4;
-                delete newConfig.data.datasets[0].tension; 
-                delete newConfig.data.datasets[0].fill; 
+                delete newConfig.data.datasets[0].tension;
+                delete newConfig.data.datasets[0].fill;
             }
         } else { // Adjustments for bar/line
-            newConfig.options.indexAxis = originalConfig.options.indexAxis || 'x'; 
+            newConfig.options.indexAxis = originalConfig.options.indexAxis || 'x';
             newConfig.options.scales = JSON.parse(JSON.stringify(originalConfig.options.scales)) || { x: { beginAtZero: true }, y: { beginAtZero: true } };
-            newConfig.options.plugins.legend.display = false; 
+            newConfig.options.plugins.legend.display = false;
 
             if (newConfig.data.datasets && newConfig.data.datasets.length > 0) {
                 const dataset = newConfig.data.datasets[0];
-                
+
                 // UPDATED: Handle colors for multiple charts
                 let lineColor, barColor, barBgColor;
                 if (chartId === 'consumptionChart') {
@@ -800,27 +913,27 @@ const distinctPieColors = [
         const ctx = document.getElementById(chartId).getContext('2d');
         window.myCharts[chartId] = new Chart(ctx, newConfig);
     }
-    
+
     // --- DRILL-DOWN FUNCTION (NOW AJAX) ---
   async function handleDrillDown(productId) {
       showLoader('consumptionChart');
       showLoader('barangayChart');
-      showLoader('patientVisitChart'); 
-      showLoader('hotspots-table-body'); 
-      document.getElementById('drilldown_product_id').value = productId; 
-      
+      showLoader('patientVisitChart');
+      showLoader('hotspots-table-body');
+      document.getElementById('drilldown_product_id').value = productId;
+
       // Also clear the main product filter if a drilldown is initiated
       document.getElementById('filter_product_id').value = '';
-      
+
       const form = document.getElementById('dashboard-filter-form');
       const formData = new FormData(form);
       if (productId) {
-          formData.set('drilldown_product_id', productId); 
+          formData.set('drilldown_product_id', productId);
       } else {
           formData.delete('drilldown_product_id'); // Ensure it's not sent if null
       }
       formData.append('ajax_update', 'main_charts'); // Explicitly set update type
-      
+
       const queryString = new URLSearchParams(formData).toString();
       const url = `${form.action}?${queryString}`;
 
@@ -840,60 +953,65 @@ const distinctPieColors = [
           if (window.myCharts.consumptionChart) {
               window.myCharts.consumptionChart.data.labels = data.consumptionLabels;
               window.myCharts.consumptionChart.data.datasets[0].data = data.consumptionData;
-              
+
               const title = data.drilldownProductName ? `Dispensation Trend for ${data.drilldownProductName} (Items)` : 'Dispensation Trend (Items)';
               document.getElementById('consumptionChartTitle').textContent = title; // Update h3 title
-              
+
               updateChartSubtitle('consumptionChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
               window.myCharts.consumptionChart.update();
           }
 
           // 2. Update Barangay Chart (Stacked)
           if (window.myCharts.barangayChart) {
-               window.myCharts.barangayChart.data.labels = data.barangay.labels; 
-               const stackedData = data.barangay.stackedData; 
+               window.myCharts.barangayChart.data.labels = data.barangay.labels;
+               const stackedData = data.barangay.stackedData;
                const categories = Object.keys(stackedData);
-               
+
                // Rebuild datasets
                window.myCharts.barangayChart.data.datasets = categories.map(category => ({
                    label: category,
                    data: stackedData[category],
                    backgroundColor: categoryColors[category] || '#cccccc'
                }));
-               
+
                updateChartSubtitle('barangayChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
                window.myCharts.barangayChart.update();
           }
 
           // 3. Update Patient Visit Trend Chart
           if (window.myCharts.patientVisitChart) {
-               window.myCharts.patientVisitChart.data.labels = data.patientVisit.labels; 
-               window.myCharts.patientVisitChart.data.datasets[0].data = data.patientVisit.data; 
-               
+               window.myCharts.patientVisitChart.data.labels = data.patientVisit.labels;
+               window.myCharts.patientVisitChart.data.datasets[0].data = data.patientVisit.data;
+
                // Update title dynamically
                let title = 'Patient Visit Trend';
                if (data.filterBarangayLabel !== 'All Barangays') {
                    title += ` in ${data.filterBarangayLabel}`;
                }
                document.getElementById('patientVisitChartTitle').textContent = title; // Update h3 title
-               
+
                updateChartSubtitle('patientVisitChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
                window.myCharts.patientVisitChart.update();
           }
-          
+
           // 4. Update Hotspots Table Body
           document.getElementById('hotspots-table-body').innerHTML = data.hotspotsHtml;
           updateChartSubtitle('hotspotsSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
-          
+
           // 5. Update Drilldown Indicator Bar
           updateDrilldownIndicator(data.drilldownProductName);
-          
+
            // Update filter labels stored in JS (Including product label)
            initialChartData.filterLabels.timespan = data.filterTimespanLabel;
            initialChartData.filterLabels.barangay = data.filterBarangayLabel;
            initialChartData.filterLabels.branch = data.filterBranchLabel; // <--- UPDATE BRANCH
-           initialChartData.filterLabels.product = data.drilldownProductName ?? 'All Products'; 
+           initialChartData.filterLabels.product = data.drilldownProductName ?? 'All Products';
            initialChartData.filterLabels.drilldownProduct = data.drilldownProductName;
+
+           // Update observability widgets using the same filter context
+           if (data.observability) {
+              applyObservabilityPayload(data.observability);
+           }
 
            // Update URL
            window.history.pushState({}, '', url);
@@ -903,11 +1021,11 @@ const distinctPieColors = [
     } finally {
            hideLoader('consumptionChart');
            hideLoader('barangayChart');
-           hideLoader('patientVisitChart'); 
+           hideLoader('patientVisitChart');
            hideLoader('hotspots-table-body');
     }
   }
-    
+
     // --- Helper to show/hide loader ---
     function showLoader(elementId) {
         let loader = document.getElementById(`${elementId}-loader`);
@@ -927,7 +1045,7 @@ const distinctPieColors = [
             parentContainer.appendChild(loader);
         }
         loader.style.display = 'block';
-        
+
         // Optionally hide the content while loading
         if (document.getElementById(elementId)?.tagName === 'CANVAS') {
             document.getElementById(elementId).style.opacity = '0.3';
@@ -947,11 +1065,11 @@ const distinctPieColors = [
              contentElement.style.opacity = '1';
         }
     }
-      
+
     // --- Helper to update drilldown indicator ---
     function updateDrilldownIndicator(productName) {
         let indicator = document.querySelector('.drilldown-indicator');
-        
+
         if (indicator && productName) {
             document.getElementById('drilldown-indicator-name').textContent = productName;
             indicator.style.display = 'flex'; // Ensure it's visible
@@ -959,7 +1077,7 @@ const distinctPieColors = [
             indicator.style.display = 'none'; // Hide if no product name
         }
     }
-      
+
     // --- Function to clear drilldown via AJAX ---
     async function clearDrilldown() {
         document.getElementById('drilldown_product_id').value = ''; // Clear hidden input
@@ -968,19 +1086,19 @@ const distinctPieColors = [
            document.getElementById('filter_product_id').value = '';
         }
         // Use the same AJAX logic as handleDrillDown, but with a null product ID
-        await handleDrillDown(null); 
+        await handleDrillDown(null);
         // Hide the indicator bar
         const indicator = document.querySelector('.drilldown-indicator');
         if (indicator) indicator.style.display = 'none';
     }
-      
+
     // --- Function to clear ALL filters (including drilldown) and reload ---
     function clearAllFilters() {
         // Construct base URL without any query parameters
         const baseUrl = window.location.origin + window.location.pathname;
         window.location.href = baseUrl; // Reload the page with default filters
     }
-      
+
       // --- Helper function to update chart subtitles ---
     function updateChartSubtitle(elementId, timespan, barangay, drilldown) {
       const element = document.getElementById(elementId);
@@ -989,14 +1107,14 @@ const distinctPieColors = [
           // Show drilldown product name if active (takes precedence over main filter)
           if (drilldown) {
               productFilter = `, Product: ${drilldown}`;
-          } 
+          }
           // If no drilldown, check if the main product filter is set and display it
           else if (document.getElementById('filter_product_id')?.value) {
              const productSelect = document.getElementById('filter_product_id');
              const selectedOption = productSelect.options[productSelect.selectedIndex];
              productFilter = `, Product: ${selectedOption.textContent.trim()}`;
           }
-          
+
           // NEW: Get Branch Name from Dropdown or Initial Data
           let branchFilter = '';
           const branchSelect = document.getElementById('filter_branch');
@@ -1013,8 +1131,137 @@ const distinctPieColors = [
               subtitle += `, ${barangay}`;
           }
           subtitle += productFilter;
-          
+
           element.textContent = subtitle + '.';
+      }
+    }
+
+    function formatNumber(value, decimals = 0) {
+      const numericValue = Number(value || 0);
+      return numericValue.toLocaleString(undefined, {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
+    }
+
+    function renderObservabilityRows(containerId, rows, emptyColSpan, formatter) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        container.innerHTML = `<tr><td class="px-4 py-3 text-gray-500" colspan="${emptyColSpan}">No records available.</td></tr>`;
+        return;
+      }
+
+      container.innerHTML = rows.map((row) => formatter(row)).join('');
+    }
+
+    function applyObservabilityPayload(payload) {
+      if (!payload || typeof payload !== 'object') return;
+
+      initialChartData.observability = payload;
+
+      const summary = payload.summary || {};
+      const throughput = payload.throughput || {};
+      const latency = payload.latency || {};
+      const errors = payload.errors || {};
+      const bottlenecks = payload.bottlenecks || {};
+
+      const generatedAtEl = document.getElementById('observability-generated-at');
+      if (generatedAtEl && payload.generated_at) {
+        generatedAtEl.textContent = `Updated: ${payload.generated_at}`;
+      }
+
+      const cardMap = [
+        ['obs-operations-total', formatNumber(summary.operations_total)],
+        ['obs-operations-per-hour', formatNumber(summary.operations_per_hour, 2)],
+        ['obs-error-events', formatNumber(summary.error_events)],
+        ['obs-error-rate', formatNumber(summary.error_rate, 2)],
+        ['obs-cycle-hours', formatNumber(summary.avg_cycle_time_hours, 2)],
+        ['obs-stale-open-requests', formatNumber(summary.stale_open_requests)],
+      ];
+      cardMap.forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      });
+
+      if (window.myCharts.observabilityThroughputChart) {
+        window.myCharts.observabilityThroughputChart.data.labels = throughput.labels || [];
+        window.myCharts.observabilityThroughputChart.data.datasets[0].data = throughput.combined || [];
+        window.myCharts.observabilityThroughputChart.data.datasets[1].data = throughput.movements || [];
+        window.myCharts.observabilityThroughputChart.data.datasets[2].data = throughput.requests || [];
+        window.myCharts.observabilityThroughputChart.data.datasets[3].data = throughput.audit_events || [];
+        window.myCharts.observabilityThroughputChart.update();
+      }
+
+      if (window.myCharts.observabilityLatencyChart) {
+        window.myCharts.observabilityLatencyChart.data.labels = latency.labels || [];
+        window.myCharts.observabilityLatencyChart.data.datasets[0].data = latency.cycle_hours || [];
+        window.myCharts.observabilityLatencyChart.data.datasets[1].data = latency.approval_hours || [];
+        window.myCharts.observabilityLatencyChart.data.datasets[2].data = latency.fulfillment_hours || [];
+        window.myCharts.observabilityLatencyChart.update();
+      }
+
+      if (window.myCharts.observabilityErrorChart) {
+        window.myCharts.observabilityErrorChart.data.labels = errors.labels || [];
+        window.myCharts.observabilityErrorChart.data.datasets[0].data = errors.combined || [];
+        window.myCharts.observabilityErrorChart.data.datasets[1].data = errors.audit_failed || [];
+        window.myCharts.observabilityErrorChart.data.datasets[2].data = errors.request_denied || [];
+        window.myCharts.observabilityErrorChart.data.datasets[3].data = errors.history_failed || [];
+        window.myCharts.observabilityErrorChart.update();
+      }
+
+      if (window.myCharts.observabilityBottleneckChart) {
+        window.myCharts.observabilityBottleneckChart.data.labels = bottlenecks.status_labels || [];
+        window.myCharts.observabilityBottleneckChart.data.datasets[0].data = bottlenecks.status_counts || [];
+        window.myCharts.observabilityBottleneckChart.update();
+      }
+
+      renderObservabilityRows(
+        'obs-top-errors-body',
+        errors.top_categories || [],
+        2,
+        (row) => `
+          <tr>
+            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">${row.label || 'unknown'}</td>
+            <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">${formatNumber(row.count || 0)}</td>
+          </tr>
+        `
+      );
+
+      renderObservabilityRows(
+        'obs-aging-requests-body',
+        bottlenecks.top_aging_requests || [],
+        3,
+        (row) => `
+          <tr>
+            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">#${row.id || '-'} - ${row.department || '-'}</td>
+            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">${row.status || '-'} (${row.priority || '-'})</td>
+            <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">${formatNumber(row.age_hours || 0)}</td>
+          </tr>
+        `
+      );
+    }
+
+    async function refreshObservabilityWidget() {
+      const form = document.getElementById('dashboard-filter-form');
+      if (!form) return;
+
+      const formData = new FormData(form);
+      formData.append('ajax_update', 'observability');
+      const queryString = new URLSearchParams(formData).toString();
+      const url = `${form.action}?${queryString}`;
+
+      try {
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        });
+        if (!response.ok) throw new Error('Failed to refresh observability metrics.');
+        const data = await response.json();
+        applyObservabilityPayload(data.observability || {});
+      } catch (error) {
+        // Quiet fail: dashboard should remain usable even if refresh fails.
       }
     }
 
@@ -1023,7 +1270,7 @@ const distinctPieColors = [
         const form = document.getElementById('forecast-filter-form');
         const formData = new FormData(form);
         formData.append('ajax_update', 'forecast'); // Signal to backend
-        
+
         // Also append filter_branch from main form to forecast query
         const branchVal = document.getElementById('filter_branch').value;
         if(branchVal) formData.append('filter_branch', branchVal);
@@ -1039,9 +1286,9 @@ const distinctPieColors = [
                 headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
             });
             if (!response.ok) throw new Error('Network response was not ok');
-            
+
             const data = await response.json(); // Expecting { forecastHtml: '...' }
-            
+
             if (data.forecastHtml) {
                 document.getElementById('forecast-table-body').innerHTML = data.forecastHtml;
                 // Persist the new forecast_days value in the *main* filter form
@@ -1063,11 +1310,11 @@ const distinctPieColors = [
         const form = document.getElementById('dashboard-filter-form');
         const formData = new FormData(form);
         formData.append('ajax_update', 'main_charts'); // Signal to backend
-        
+
         // If a new filter_product_id is selected, clear any active drilldown
         const selectedProductId = document.getElementById('filter_product_id').value;
         const drilldownProductId = document.getElementById('drilldown_product_id').value;
-        
+
         if (selectedProductId && selectedProductId !== drilldownProductId) {
              document.getElementById('drilldown_product_id').value = ''; // Clear drilldown
              formData.delete('drilldown_product_id'); // Ensure cleared in form data
@@ -1076,7 +1323,7 @@ const distinctPieColors = [
              document.getElementById('drilldown_product_id').value = '';
              formData.delete('drilldown_product_id');
         }
-        
+
         const queryString = new URLSearchParams(formData).toString();
         const url = `${form.action}?${queryString}`;
 
@@ -1121,14 +1368,14 @@ const distinctPieColors = [
                 window.myCharts.barangayChart.data.labels = data.barangay.labels;
                 const stackedData = data.barangay.stackedData;
                 const categories = Object.keys(stackedData);
-                
+
                 // Rebuild datasets
                 window.myCharts.barangayChart.data.datasets = categories.map(category => ({
                     label: category,
                     data: stackedData[category],
                     backgroundColor: categoryColors[category] || '#cccccc'
                 }));
-                
+
                 updateChartSubtitle('barangayChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
                 window.myCharts.barangayChart.update();
             }
@@ -1145,7 +1392,7 @@ const distinctPieColors = [
                 updateChartSubtitle('patientVisitChartSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
                 window.myCharts.patientVisitChart.update();
             }
-            
+
             // 5. Update Hotspots Table
             document.getElementById('hotspots-table-body').innerHTML = data.hotspotsHtml;
             updateChartSubtitle('hotspotsSubtitle', data.filterTimespanLabel, data.filterBarangayLabel, data.drilldownProductName);
@@ -1157,6 +1404,10 @@ const distinctPieColors = [
             initialChartData.filterLabels.product = data.filterProductLabel;
             initialChartData.filterLabels.drilldownProduct = data.drilldownProductName;
             updateDrilldownIndicator(data.drilldownProductName);
+
+            if (data.observability) {
+                applyObservabilityPayload(data.observability);
+            }
 
             // Update URL
             window.history.pushState({}, '', url);
@@ -1172,7 +1423,7 @@ const distinctPieColors = [
             hideLoader('hotspots-table-body');
         }
     }
-    
+
     // --- NEW: AJAX FOR SEASONAL CHART FILTER ---
     async function handleSeasonalFilterSubmit() {
         const form = document.getElementById('seasonal-filter-form');
@@ -1186,7 +1437,7 @@ const distinctPieColors = [
                 formData.append(key, value);
             }
         });
-        
+
         const queryString = new URLSearchParams(formData).toString();
         const url = `{{ route('admin.dashboard') }}?${queryString}#seasonal-chart-anchor`;
 
@@ -1205,7 +1456,7 @@ const distinctPieColors = [
             initialChartData.seasonal = data.seasonal;
 
             const seasonalCtx = document.getElementById('seasonalChart').getContext('2d');
-            
+
             // Destroy old chart if it exists
             if (window.myCharts.seasonalChart) {
                 window.myCharts.seasonalChart.destroy();
@@ -1252,7 +1503,7 @@ const distinctPieColors = [
                  window.originalChartConfigs.seasonalChart = JSON.parse(JSON.stringify(seasonalConfig));
             } else {
                  // Draw "No data" message
-                 const ctx = seasonalCtx.getContext('2d'); 
+                 const ctx = seasonalCtx.getContext('2d');
                  ctx.clearRect(0, 0, seasonalCtx.canvas.width, seasonalCtx.canvas.height); // Clear old chart
                  ctx.font = "16px Arial"; ctx.fillStyle = "#aaa"; ctx.textAlign = "center";
                  ctx.fillText("No seasonal data for selected product(s)", seasonalCtx.canvas.width / 2, seasonalCtx.canvas.height / 2);
@@ -1281,7 +1532,7 @@ const distinctPieColors = [
 
 
     document.addEventListener('DOMContentLoaded', function () {
-    
+
       // Filter toggle logic for custom dates
       // --- START: New Timespan & Grouping Logic ---
         // Get all the elements we need
@@ -1320,7 +1571,7 @@ const distinctPieColors = [
                     groupingSelect.value = 'day';
                 }
             }
-            
+
             // 3. Handle the custom dates visibility
             if (customDates) {
                 if (selectedTimespan === 'custom') {
@@ -1334,20 +1585,20 @@ const distinctPieColors = [
         // Add the listener to the timespan select
         if (timespanSelect) {
             timespanSelect.addEventListener('change', updateGroupingOptions);
-            
+
             // IMPORTANT: Run it once on page load to set the initial state
             updateGroupingOptions();
         }
         // --- END: New Timespan & Grouping Logic ---
 
       // Set initial chart data
-      
+
       // --- CHART INITIALIZATION ---
-      
+
       // 1. Consumption Chart (Line)
       const consumptionCtx = document.getElementById('consumptionChart').getContext('2d');
       const consumptionConfig = {
-        type: 'line', 
+        type: 'line',
         data: {
           labels: initialChartData.consumption.labels,
           datasets: [{
@@ -1362,12 +1613,12 @@ const distinctPieColors = [
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { 
+          plugins: {
             legend: { display: false },
             title: {
                  display: false, // Title is now the H3 tag
                  text: '...', // Kept for config, but H3 is used
-                 padding: { bottom: 5 } 
+                 padding: { bottom: 5 }
             },
             tooltip: {
                 mode: 'index',
@@ -1387,22 +1638,22 @@ const distinctPieColors = [
             }
             // END Zoom
           },
-          scales: { 
-              y: { beginAtZero: true, title: { display: true, text: 'Quantity' } }, 
-              x: { ticks: { autoSkip: true, maxRotation: 0 } } 
-          }, 
+          scales: {
+              y: { beginAtZero: true, title: { display: true, text: 'Quantity' } },
+              x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          },
           animation: { duration: 1000, easing: 'easeOutQuad' }
         }
       };
       // Set initial H3 title
       document.getElementById('consumptionChartTitle').textContent = initialChartData.consumption.productName ? `Dispensation Trend for ${initialChartData.consumption.productName} (Items)` : 'Dispensation Trend (Items)';
       window.myCharts.consumptionChart = new Chart(consumptionCtx, consumptionConfig);
-      window.originalChartConfigs.consumptionChart = JSON.parse(JSON.stringify(consumptionConfig)); 
+      window.originalChartConfigs.consumptionChart = JSON.parse(JSON.stringify(consumptionConfig));
 
       // 2. Top Products Chart (Bar)
       const topProductsCtx = document.getElementById('topProductsChart').getContext('2d');
       const topProductsConfig = {
-        type: 'bar', 
+        type: 'bar',
         data: {
           labels: initialChartData.topProducts.labels,
           datasets: [{
@@ -1417,8 +1668,8 @@ const distinctPieColors = [
           indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
-          scales: { x: { beginAtZero: true, title: { display: true, text: 'Total Quantity Dispensed' } }, y: { ticks: { autoSkip: false } } }, 
-          plugins: { 
+          scales: { x: { beginAtZero: true, title: { display: true, text: 'Total Quantity Dispensed' } }, y: { ticks: { autoSkip: false } } },
+          plugins: {
               legend: { display: false },
               title: { display: false } // No title needed here usually
           },
@@ -1431,7 +1682,7 @@ const distinctPieColors = [
                       const index = firstPoint.index;
                       const clickedItem = initialChartData.topProducts.drilldown[index];
                       if (clickedItem && clickedItem.id) {
-                          handleDrillDown(clickedItem.id); 
+                          handleDrillDown(clickedItem.id);
                       }
                   }
               }
@@ -1439,7 +1690,7 @@ const distinctPieColors = [
         }
       };
       window.myCharts.topProductsChart = new Chart(topProductsCtx, topProductsConfig);
-      window.originalChartConfigs.topProductsChart = JSON.parse(JSON.stringify(topProductsConfig)); 
+      window.originalChartConfigs.topProductsChart = JSON.parse(JSON.stringify(topProductsConfig));
 
 
       // 3. Barangay Chart (STACKED Bar)
@@ -1455,32 +1706,32 @@ const distinctPieColors = [
             }))
           },
           options: {
-            indexAxis: 'x', 
+            indexAxis: 'x',
             responsive: true,
             maintainAspectRatio: false,
-            scales: { 
-              y: { 
-                  beginAtZero: true, 
+            scales: {
+              y: {
+                  beginAtZero: true,
                   stacked: true, // Enable stacking
-                  title: { display: true, text: 'Number of Patients' } 
-              }, 
-              x: { 
+                  title: { display: true, text: 'Number of Patients' }
+              },
+              x: {
                   stacked: true, // Enable stacking
                   ticks: { autoSkip: false } // Show all barangay labels
-              } 
+              }
             },
-            plugins: { 
-              legend: { 
+            plugins: {
+              legend: {
                   display: true, // Show legend for categories
-                  position: 'bottom' 
+                  position: 'bottom'
               },
-                title: { display: false } 
+                title: { display: false }
             },
               animation: { duration: 1000, easing: 'easeOutQuad' }
           }
         };
       window.myCharts.barangayChart = new Chart(barangayCtx, barangayConfig);
-      window.originalChartConfigs.barangayChart = JSON.parse(JSON.stringify(barangayConfig)); 
+      window.originalChartConfigs.barangayChart = JSON.parse(JSON.stringify(barangayConfig));
 
       // 4. NEW: Patient Visit Trend Chart (Line)
       const patientVisitCtx = document.getElementById('patientVisitChart').getContext('2d');
@@ -1502,10 +1753,10 @@ const distinctPieColors = [
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { 
+          plugins: {
             legend: { display: false },
-              title: { 
-                  display: false, 
+              title: {
+                  display: false,
                   text: '...',
                   padding: { bottom: 5 }
               },
@@ -1525,10 +1776,10 @@ const distinctPieColors = [
                 }
               }
           },
-          scales: { 
-              y: { beginAtZero: true, title: { display: true, text: 'Number of Patients' } }, 
-              x: { ticks: { autoSkip: true, maxRotation: 0 } } 
-          }, 
+          scales: {
+              y: { beginAtZero: true, title: { display: true, text: 'Number of Patients' } },
+              x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          },
           animation: { duration: 1000, easing: 'easeOutQuad' }
         }
       };
@@ -1550,7 +1801,7 @@ const distinctPieColors = [
           responsive: true,
           maintainAspectRatio: false,
           scales: { y: { beginAtZero: true, title: { display: true, text: 'Quantity Dispensed' } }, x: { ticks: { autoSkip: true, maxRotation: 0 } } },
-          plugins: { 
+          plugins: {
             legend: { display: true },
             tooltip: {
                 mode: 'index',
@@ -1567,7 +1818,7 @@ const distinctPieColors = [
                     mode: 'x',
                 }
             }
-          }, 
+          },
           animation: { duration: 1000, easing: 'easeOutQuad' }
         }
       };
@@ -1598,24 +1849,213 @@ const distinctPieColors = [
            window.myCharts.seasonalChart = new Chart(seasonalCtx, seasonalConfig);
            window.originalChartConfigs.seasonalChart = JSON.parse(JSON.stringify(seasonalConfig)); // Store original
         } else {
-           const ctx = seasonalCtx.getContext('2d'); 
+           const ctx = seasonalCtx.getContext('2d');
            ctx.font = "16px Arial"; ctx.fillStyle = "#aaa"; ctx.textAlign = "center";
            ctx.fillText("No seasonal data for selected product(s)", seasonalCtx.canvas.width / 2, seasonalCtx.canvas.height / 2);
         }
-      
+
+      // 6. Observability Throughput Chart
+      const obsThroughputCtx = document.getElementById('observabilityThroughputChart').getContext('2d');
+      const obsThroughputConfig = {
+        type: 'line',
+        data: {
+          labels: initialChartData.observability?.throughput?.labels || [],
+          datasets: [
+            {
+              label: 'Combined Throughput',
+              data: initialChartData.observability?.throughput?.combined || [],
+              borderColor: observabilityColors.throughputCombined,
+              backgroundColor: 'rgba(37, 99, 235, 0.15)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Stock Movements',
+              data: initialChartData.observability?.throughput?.movements || [],
+              borderColor: observabilityColors.throughputMovement,
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              fill: false,
+              tension: 0.25
+            },
+            {
+              label: 'Requests',
+              data: initialChartData.observability?.throughput?.requests || [],
+              borderColor: observabilityColors.throughputRequest,
+              backgroundColor: 'rgba(245, 158, 11, 0.1)',
+              fill: false,
+              tension: 0.25
+            },
+            {
+              label: 'Audit Events',
+              data: initialChartData.observability?.throughput?.audit_events || [],
+              borderColor: observabilityColors.throughputAudit,
+              backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              fill: false,
+              tension: 0.25
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Events' } },
+            x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          }
+        }
+      };
+      window.myCharts.observabilityThroughputChart = new Chart(obsThroughputCtx, obsThroughputConfig);
+      window.originalChartConfigs.observabilityThroughputChart = JSON.parse(JSON.stringify(obsThroughputConfig));
+
+      // 7. Observability Latency Chart
+      const obsLatencyCtx = document.getElementById('observabilityLatencyChart').getContext('2d');
+      const obsLatencyConfig = {
+        type: 'bar',
+        data: {
+          labels: initialChartData.observability?.latency?.labels || [],
+          datasets: [
+            {
+              label: 'Cycle Hours',
+              data: initialChartData.observability?.latency?.cycle_hours || [],
+              backgroundColor: 'rgba(217, 119, 6, 0.75)',
+              borderColor: observabilityColors.latencyCycle,
+              borderWidth: 1
+            },
+            {
+              label: 'Approval Hours',
+              data: initialChartData.observability?.latency?.approval_hours || [],
+              backgroundColor: 'rgba(59, 130, 246, 0.75)',
+              borderColor: observabilityColors.latencyApproval,
+              borderWidth: 1
+            },
+            {
+              label: 'Fulfillment Hours',
+              data: initialChartData.observability?.latency?.fulfillment_hours || [],
+              backgroundColor: 'rgba(236, 72, 153, 0.75)',
+              borderColor: observabilityColors.latencyFulfillment,
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Hours' } },
+            x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          }
+        }
+      };
+      window.myCharts.observabilityLatencyChart = new Chart(obsLatencyCtx, obsLatencyConfig);
+      window.originalChartConfigs.observabilityLatencyChart = JSON.parse(JSON.stringify(obsLatencyConfig));
+
+      // 8. Observability Error Chart
+      const obsErrorCtx = document.getElementById('observabilityErrorChart').getContext('2d');
+      const obsErrorConfig = {
+        type: 'line',
+        data: {
+          labels: initialChartData.observability?.errors?.labels || [],
+          datasets: [
+            {
+              label: 'Combined Error Signals',
+              data: initialChartData.observability?.errors?.combined || [],
+              borderColor: observabilityColors.errorCombined,
+              backgroundColor: 'rgba(220, 38, 38, 0.15)',
+              fill: true,
+              tension: 0.3
+            },
+            {
+              label: 'Audit Failed',
+              data: initialChartData.observability?.errors?.audit_failed || [],
+              borderColor: observabilityColors.errorAudit,
+              fill: false,
+              tension: 0.25
+            },
+            {
+              label: 'Requests Denied',
+              data: initialChartData.observability?.errors?.request_denied || [],
+              borderColor: observabilityColors.errorRequest,
+              fill: false,
+              tension: 0.25
+            },
+            {
+              label: 'History Fail/Error',
+              data: initialChartData.observability?.errors?.history_failed || [],
+              borderColor: observabilityColors.errorHistory,
+              fill: false,
+              tension: 0.25
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Events' } },
+            x: { ticks: { autoSkip: true, maxRotation: 0 } }
+          }
+        }
+      };
+      window.myCharts.observabilityErrorChart = new Chart(obsErrorCtx, obsErrorConfig);
+      window.originalChartConfigs.observabilityErrorChart = JSON.parse(JSON.stringify(obsErrorConfig));
+
+      // 9. Observability Bottleneck Chart
+      const obsBottleneckCtx = document.getElementById('observabilityBottleneckChart').getContext('2d');
+      const obsBottleneckConfig = {
+        type: 'bar',
+        data: {
+          labels: initialChartData.observability?.bottlenecks?.status_labels || [],
+          datasets: [
+            {
+              label: 'Open Requests',
+              data: initialChartData.observability?.bottlenecks?.status_counts || [],
+              backgroundColor: 'rgba(14, 165, 233, 0.75)',
+              borderColor: observabilityColors.bottleneck,
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { mode: 'index', intersect: false }
+          },
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Requests' } },
+            x: { ticks: { autoSkip: false, maxRotation: 0 } }
+          }
+        }
+      };
+      window.myCharts.observabilityBottleneckChart = new Chart(obsBottleneckCtx, obsBottleneckConfig);
+      window.originalChartConfigs.observabilityBottleneckChart = JSON.parse(JSON.stringify(obsBottleneckConfig));
+
       // --- TOGGLE BUTTONS ---
       document.querySelectorAll('.chart-toggle').forEach(button => {
         button.addEventListener('click', (e) => {
           const btn = e.currentTarget;
           const newType = btn.dataset.type;
           const parent = btn.parentElement;
-          
+
           let chartId;
           if (parent.id === 'consumptionChartToggle') {
               chartId = 'consumptionChart';
           } else if (parent.id === 'topProductsChartToggle') {
               chartId = 'topProductsChart';
-          } else if (parent.id === 'patientVisitChartToggle') { 
+          } else if (parent.id === 'patientVisitChartToggle') {
               chartId = 'patientVisitChart';
           }
 
@@ -1644,7 +2084,7 @@ const distinctPieColors = [
            if (!initialChartData.seasonal.productName || !initialChartData.seasonal.data || initialChartData.seasonal.data.length === 0) {
                return; // Prevent running if disabled
            }
-           
+
         aiButton.disabled = true;
         aiButtonText.textContent = 'Analyzing...';
         aiResponseContent.innerHTML = '<p>Loading analysis...</p>';
@@ -1655,13 +2095,13 @@ const distinctPieColors = [
           const dataForBackend = initialChartData.seasonal.labels && initialChartData.seasonal.data ? initialChartData.seasonal.labels.map((label, index) => {
             return { label: label, data: initialChartData.seasonal.data[index] ?? 0 };
           }) : [];
-          
+
           const compareForBackend = initialChartData.seasonal.compareName && initialChartData.seasonal.labels && initialChartData.seasonal.compareData ? initialChartData.seasonal.labels.map((label, index) => {
                // Ensure compareData has a value for the index, default to 0
                const compareValue = (initialChartData.seasonal.compareData && index < initialChartData.seasonal.compareData.length) ? initialChartData.seasonal.compareData[index] : 0;
             return { label: label, data: compareValue };
           }) : [];
-          
+
           const payload = {
             product_name: initialChartData.seasonal.productName,
             seasonal_data: dataForBackend,
@@ -1669,7 +2109,7 @@ const distinctPieColors = [
             compare_data: compareForBackend
             // No need to send _token in body for POST via fetch if using X-CSRF-TOKEN header
           };
-          
+
           const response = await fetch("{{ route('admin.ai.analysis') }}", {
             method: 'POST',
             headers: {
@@ -1709,16 +2149,18 @@ const distinctPieColors = [
       closeAiModal.addEventListener('click', () => {
         aiModal.classList.add('hidden');
       });
-      
+
         // Initial Drilldown Indicator Update on page load
         updateDrilldownIndicator(initialChartData.consumption.productName);
-        
+
         // Initial Subtitle Updates
         updateChartSubtitle('consumptionChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
         updateChartSubtitle('topProductsChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.product === 'All Products' ? null : initialChartData.filterLabels.product); // Uses main product filter if no drilldown
         updateChartSubtitle('barangayChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
-        updateChartSubtitle('patientVisitChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct); 
+        updateChartSubtitle('patientVisitChartSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
         updateChartSubtitle('hotspotsSubtitle', initialChartData.filterLabels.timespan, initialChartData.filterLabels.barangay, initialChartData.filterLabels.drilldownProduct);
+        applyObservabilityPayload(initialChartData.observability || {});
+        setInterval(refreshObservabilityWidget, 60000);
 
         // Event Listener for AJAX Clear Drilldown
           const clearAjaxButton = document.getElementById('clear-drilldown-ajax');
@@ -1730,7 +2172,7 @@ const distinctPieColors = [
           }
 
         // NEW: ADD AJAX EVENT LISTENERS
-        
+
         // 1. Forecast Filter
         document.getElementById('forecast_days_select').addEventListener('change', handleForecastFilterUpdate);
 

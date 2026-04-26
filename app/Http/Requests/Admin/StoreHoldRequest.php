@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreHoldRequest extends FormRequest
 {
@@ -14,7 +15,10 @@ class StoreHoldRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'branch_id'            => ['required', 'exists:branches,id'],
+            'branch_id'            => [
+                'required',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
             'barangay_id'          => ['nullable', 'exists:barangays,id'],
             'type'                 => ['required', 'in:reservation,quarantine,recall'],
             'reason_code'          => ['required', 'string', 'max:255'],

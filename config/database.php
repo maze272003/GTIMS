@@ -18,6 +18,12 @@ return [
 
     'default' => env('DB_CONNECTION', 'sqlite'),
 
+    'log_all_queries' => env('DB_LOG_ALL_QUERIES', false),
+
+    'slow_query_warning_ms' => env('DB_SLOW_QUERY_WARNING_MS', 500),
+
+    'slow_query_error_ms' => env('DB_SLOW_QUERY_ERROR_MS', 2000),
+
     /*
     |--------------------------------------------------------------------------
     | Database Connections

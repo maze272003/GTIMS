@@ -199,10 +199,22 @@ document.addEventListener('DOMContentLoaded', function () {
             if(errorMsg) errorMsg.classList.add('hidden');
             if(confirmBtn) confirmBtn.disabled = false;
 
-            // Auto-select destination (Assuming 1=RHU1, 2=RHU2)
+            // Auto-select first available destination branch that differs from source.
             const destSelect = document.getElementById('destination_branch');
-            if(destSelect) {
-                destSelect.value = (branchId == 1) ? 2 : 1;
+            if (destSelect) {
+                const sourceBranchId = String(branchId);
+                let firstAvailable = null;
+
+                Array.from(destSelect.options).forEach(option => {
+                    option.disabled = option.value === sourceBranchId;
+                    if (!option.disabled && !firstAvailable) {
+                        firstAvailable = option;
+                    }
+                });
+
+                if (firstAvailable) {
+                    destSelect.value = firstAvailable.value;
+                }
             }
 
             // Real-time validation for transfer input

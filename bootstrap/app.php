@@ -37,7 +37,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'level.doctor'     => \App\Http\Middleware\CheckDoctorAccess::class,
             'level.mayor'      => \App\Http\Middleware\CheckMayorAccess::class,
             'level.finance'    => \App\Http\Middleware\CheckFinanceAccess::class,
+            'admin.permission' => \App\Http\Middleware\EnsureAdminRoutePermission::class,
             'permission'       => \App\Http\Middleware\CheckPermission::class,
+            'rate.limit'       => \App\Http\Middleware\RateLimitMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -57,5 +59,20 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return $render403($exception);
+        });
+
+        $exceptions->report(function (\Throwable $e) {
+            if (app()->bound('log')) {
+                try {
+                    app('log')->error('Unhandled exception', [
+                        'exception' => get_class($e),
+                        'message' => $e->getMessage(),
+                        'file' => $e->getFile(),
+                        'line' => $e->getLine(),
+                    ]);
+                } catch (\Throwable) {
+                    // Silently ignore logging errors during early bootstrap
+                }
+            }
         });
     })->create();

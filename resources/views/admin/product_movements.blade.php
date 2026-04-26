@@ -104,8 +104,11 @@
                                 <!-- NEW: Branch Filter -->
                                 <select name="branch_id" class="py-3 border rounded-lg text-sm dark:text-gray-300 dark:bg-gray-700">
                                     <option value="">All Branches</option>
-                                    <option value="1" @selected(request('branch_id')==1)>RHU 1</option>
-                                    <option value="2" @selected(request('branch_id')==2)>RHU 2</option>
+                                    @foreach($branches as $branch)
+                                        <option value="{{ $branch->id }}" @selected((string) request('branch_id') === (string) $branch->id)>
+                                            {{ $branch->name }}
+                                        </option>
+                                    @endforeach
                                 </select>
 
                                 <select name="user_id" class="py-3 border rounded-lg text-sm dark:text-gray-300 dark:bg-gray-700">

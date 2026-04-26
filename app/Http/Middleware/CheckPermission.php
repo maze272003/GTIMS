@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\AuthSessionService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,7 +22,7 @@ class CheckPermission
     public function handle(Request $request, Closure $next, string ...$permissions): Response
     {
         if (!auth()->check()) {
-            abort(403, 'Access Denied. Authentication required.');
+            abort(403, 'This page cannot be accessed because your session is not authorized. Please sign in again.');
         }
 
         $user = auth()->user();
@@ -32,6 +33,6 @@ class CheckPermission
             }
         }
 
-        abort(403, 'Access Denied. You do not have the required permission.');
+        abort(403, app(AuthSessionService::class)->getForbiddenMessage($user));
     }
 }

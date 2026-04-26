@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Permission;
+use App\Models\User;
 use App\Models\UserLevel;
 use Illuminate\Database\Seeder;
 
@@ -49,6 +50,7 @@ class PermissionSeeder extends Seeder
             // Settings
             ['name' => 'settings.low_stock', 'group' => 'Settings', 'description' => 'Manage low stock settings'],
             ['name' => 'settings.roles', 'group' => 'Settings', 'description' => 'Manage role permissions'],
+            ['name' => 'branches.manage', 'group' => 'Settings', 'description' => 'Manage branch lifecycle and archival'],
 
             // Reports
             ['name' => 'reports.view', 'group' => 'Reports', 'description' => 'View reports and analytics'],
@@ -62,6 +64,14 @@ class PermissionSeeder extends Seeder
 
             // Notifications
             ['name' => 'notifications.manage', 'group' => 'Notifications', 'description' => 'Manage notification preferences'],
+
+            // Workflows / Automation Builder
+            ['name' => 'workflows.view', 'group' => 'Workflows', 'description' => 'View automation workflows'],
+            ['name' => 'workflows.create', 'group' => 'Workflows', 'description' => 'Create automation workflows'],
+            ['name' => 'workflows.edit', 'group' => 'Workflows', 'description' => 'Edit automation workflows'],
+            ['name' => 'workflows.publish', 'group' => 'Workflows', 'description' => 'Publish automation workflows'],
+            ['name' => 'workflows.run', 'group' => 'Workflows', 'description' => 'Run automation workflows'],
+            ['name' => 'workflows.delete', 'group' => 'Workflows', 'description' => 'Delete automation workflows'],
 
             // Users
             ['name' => 'users.view', 'group' => 'Users', 'description' => 'View users'],
@@ -94,6 +104,7 @@ class PermissionSeeder extends Seeder
         // Admin gets most permissions except role management and user management
         if ($admin) {
             $adminPerms = Permission::where('name', '!=', 'settings.roles')
+                ->where('name', '!=', 'branches.manage')
                 ->where('name', '!=', 'users.manage')
                 ->pluck('id')->toArray();
             $admin->permissions()->sync($adminPerms);
@@ -137,5 +148,14 @@ class PermissionSeeder extends Seeder
             ])->pluck('id')->toArray();
             $finance->permissions()->sync($financePerms);
         }
+
+        User::query()
+            ->with('level.permissions')
+            ->get()
+            ->each(function (User $user) {
+                $permissionIds = $user->level?->permissions?->pluck('id')->all() ?? [];
+                $user->permissions()->sync($permissionIds);
+                $user->forceFill(['uses_custom_permissions' => true])->save();
+            });
     }
 }

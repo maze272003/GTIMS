@@ -1,0 +1,27 @@
+.bx.fa-solid,
+.bx.fa-regular,
+.bx.fa-light,
+.bx.fa-thin,
+.bx.fa-duotone,
+.bx.fas,
+.bx.far,
+.bx.fal,
+.bx.fat,
+.bx.fab,
+.bx[class*="fa-"] {
+    display: inline-block;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+.bx.fa-lg {
+    font-size: 1.33333333em;
+}
+
+.bx.fa-xl {
+    font-size: 1.5em;
+}
+
+.bx.fa-spin {
+    transform-origin: center center;
+}

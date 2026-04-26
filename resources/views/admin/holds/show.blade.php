@@ -17,7 +17,6 @@
                     @if($hold->status === 'pending')
                         <form action="{{ route('admin.holds.approve', $hold) }}" method="POST" class="inline">
                             @csrf
-                            @method('PUT')
                             <button type="button"
                                 class="approve-btn bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm flex items-center gap-2">
                                 <i class="fa-solid fa-check"></i> Approve
@@ -34,6 +33,15 @@
                                 <i class="fa-solid fa-unlock"></i> Release
                             </button>
                         </form>
+
+                        <form action="{{ route('admin.holds.cancel', $hold) }}" method="POST" class="inline">
+                            @csrf
+                            @method('PUT')
+                            <button type="button"
+                                class="cancel-btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm flex items-center gap-2">
+                                <i class="fa-solid fa-ban"></i> Cancel
+                            </button>
+                        </form>
                     @endif
 
                     <a href="{{ route('admin.holds.index') }}"
@@ -42,10 +50,6 @@
                     </a>
                 </div>
             </div>
-
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
 
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -61,23 +65,26 @@
 
                     <div>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Type</p>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            @if($hold->type === 'reservation') bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300
-                            @elseif($hold->type === 'quarantine') bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
-                            @else bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 @endif">
-                            {{ ucfirst($hold->type) }}
-                        </span>
+                        @if($hold->type === 'reservation')
+                            <x-badge variant="info">{{ ucfirst($hold->type) }}</x-badge>
+                        @elseif($hold->type === 'quarantine')
+                            <x-badge variant="warning">{{ ucfirst($hold->type) }}</x-badge>
+                        @else
+                            <x-badge variant="danger">{{ ucfirst($hold->type) }}</x-badge>
+                        @endif
                     </div>
 
                     <div>
                         <p class="text-sm text-gray-500 dark:text-gray-400">Status</p>
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                            @if($hold->status === 'approved') bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300
-                            @elseif($hold->status === 'pending') bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300
-                            @elseif($hold->status === 'released') bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300
-                            @else bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 @endif">
-                            {{ ucfirst($hold->status) }}
-                        </span>
+                        @if($hold->status === 'approved')
+                            <x-badge variant="success">{{ ucfirst($hold->status) }}</x-badge>
+                        @elseif($hold->status === 'pending')
+                            <x-badge variant="warning">{{ ucfirst($hold->status) }}</x-badge>
+                        @elseif($hold->status === 'released')
+                            <x-badge variant="info">{{ ucfirst($hold->status) }}</x-badge>
+                        @else
+                            <x-badge variant="default">{{ ucfirst($hold->status) }}</x-badge>
+                        @endif
                     </div>
 
                     <div>
@@ -143,7 +150,8 @@
                                             data-batch="{{ $inv->batch_number ?? '-' }}"
                                             data-branch="{{ $hold->branch->name ?? '-' }}"
                                             data-held="{{ $item->quantity ?? '-' }}"
-                                            data-qty="{{ $inv->quantity ?? '-' }}"
+                                            data-qty="{{ $inv?->available_quantity ?? 0 }}"
+                                            data-onhand="{{ $inv?->onhand_qty ?? $inv?->quantity ?? 0 }}"
                                             data-expiry="{{ $inv?->expiry_date ? \Carbon\Carbon::parse($inv->expiry_date)->format('M d, Y') : 'N/A' }}"
                                             data-location="{{ $hold->barangay->barangay_name ?? '-' }}"
                                             data-remarks="{{ $inv->remarks ?? '-' }}"
@@ -243,6 +251,10 @@
                     <p id="modalQty" class="font-semibold text-gray-900 dark:text-white"></p>
                 </div>
                 <div>
+                    <p class="text-gray-500 dark:text-gray-400">On-hand Qty</p>
+                    <p id="modalOnhand" class="font-semibold text-gray-900 dark:text-white"></p>
+                </div>
+                <div>
                     <p class="text-gray-500 dark:text-gray-400">Expiry</p>
                     <p id="modalExpiry" class="font-semibold text-gray-900 dark:text-white"></p>
                 </div>
@@ -304,6 +316,25 @@
             });
         });
 
+        document.querySelectorAll('.cancel-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const form = this.closest('form');
+                Swal.fire({
+                    title: 'Cancel Hold?',
+                    text: 'This will cancel the hold and release reserved quantities.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Cancel Hold',
+                    cancelButtonText: 'Back'
+                }).then(r => {
+                    if (r.isConfirmed) {
+                        Swal.fire({ title: 'Processing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                        form.submit();
+                    }
+                });
+            });
+        });
+
         const modal = document.getElementById('batchModal');
         const closeX = document.getElementById('closeBatchModal');
         const closeBtn = document.getElementById('closeBatchModalBtn');
@@ -314,6 +345,7 @@
             document.getElementById('modalBranch').textContent = btn.dataset.branch || '-';
             document.getElementById('modalHeld').textContent = btn.dataset.held || '-';
             document.getElementById('modalQty').textContent = btn.dataset.qty || '-';
+            document.getElementById('modalOnhand').textContent = btn.dataset.onhand || '-';
             document.getElementById('modalExpiry').textContent = btn.dataset.expiry || '-';
             document.getElementById('modalLocation').textContent = btn.dataset.location || '-';
             document.getElementById('modalRemarks').textContent = btn.dataset.remarks || '-';

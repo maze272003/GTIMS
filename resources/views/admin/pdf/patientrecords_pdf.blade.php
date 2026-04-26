@@ -28,9 +28,12 @@
 
     {{-- <div class="meta">
         <strong>Filters Applied:</strong> 
-        Date: {{ $filters['from'] ? $filters['from'] : 'Start' }} to {{ $filters['to'] ? $filters['to'] : 'Current' }}
-        @if($filters['category']) | Category: {{ $filters['category'] }} @endif
-    </div> --}}
+        Date Dispensed: {{ $filters['from_date'] ?? 'Start' }} to {{ $filters['to_date'] ?? 'Current' }}
+        | Branch: {{ $filter_labels['branch'] ?? 'All Branches' }}
+        | Barangay: {{ $filter_labels['barangay'] ?? 'All Barangays' }}
+        @if(($filters['category'] ?? 'all') !== 'all') | Category: {{ $filters['category'] }} @endif
+        @if(!empty($filters['search'])) | Search: "{{ $filters['search'] }}" @endif
+    </div>
 
     <table>
         <thead>

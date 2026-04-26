@@ -5,6 +5,7 @@ namespace App\Repositories\Eloquent;
 use App\Models\User;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Hash;
 
 class UserRepository extends BaseRepository implements UserRepositoryInterface
 {
@@ -42,7 +43,7 @@ class UserRepository extends BaseRepository implements UserRepositoryInterface
     {
         /** @var User $user */
         $user = $this->model->findOrFail($userId);
-        $user->otp = $otp;
+        $user->otp = $otp ? Hash::make($otp) : null;
         $user->otp_expires_at = $expiresAt;
 
         return (bool) $user->save();

@@ -20,6 +20,10 @@
                 </tr>
             @else
                 @foreach ($patientrecords as $patientrecord)
+                @php
+                    $editRecordState = $permissionView->disabledAttributes('patients.manage', 'edit patient records');
+                    $editRecordClasses = $permissionView->disabledClasses('patients.manage');
+                @endphp
                 {{-- Note: I retained your data attributes here --}}
                 <tr data-record-id="{{ $patientrecord->id }}"
                     data-patient-name="{{ $patientrecord->patient_name }}"
@@ -74,16 +78,14 @@
                         <button type="button" class="view-medications-btn bg-blue-100 text-blue-700 p-2 rounded hover:bg-blue-600 hover:text-white transition">
                             <i class="fa-regular fa-eye mr-1"></i> View
                         </button>
-                        @if (auth()->user()->hasPermission('patients.manage'))
-                            @if(auth()->user()->hasPermission('patients.manage') || auth()->user()->branch_id == $patientrecord->branch_id)
-                                <button class="editrecordbtn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
-                                    <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
-                                </button>
-                                {{-- <button class="deleterecordbtn bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 p-2 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-red-600 dark:hover:bg-red-800 hover:text-white font-semibold text-sm" data-record-id="{{ $patientrecord->id }}">
-                                    <i class="fa-regular fa-trash mr-1"></i>Delete
-                                </button> --}}
-                            @endif
-                        @endif
+                        <button
+                            type="button"
+                            {!! $editRecordState !!}
+                            class="editrecordbtn bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 p-2 rounded-xl hover:-translate-y-1 hover:shadow-md transition-all duration-200 hover:bg-green-600 dark:hover:bg-green-800 hover:text-white font-semibold text-sm {{ $editRecordClasses }}"
+                            data-record-id="{{ $patientrecord->id }}"
+                        >
+                            <i class="fa-regular fa-pen-to-square mr-1"></i>Edit
+                        </button>
                     </td>
                 </tr>
             @empty

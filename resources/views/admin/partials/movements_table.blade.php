@@ -21,8 +21,8 @@
                     <span class="block text-xs text-gray-500">{{ $move->created_at->format('h:i A') }}</span>
                 </td>
                 <td class="px-6 py-4 font-semibold">
-                    <span class="px-3 py-1 text-xs rounded-full w-full whitespace-nowrap {{ $move->inventory?->branch_id == 1 ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800' }}">
-                        {{ $move->inventory?->getBranchNameAttribute() ?? 'N/A' }}
+                    <span class="px-3 py-1 text-xs rounded-full w-full whitespace-nowrap bg-gray-100 text-gray-700">
+                        {{ $move->inventory?->branch?->name ?? 'N/A' }}
                     </span>
                 </td>
                 <td class="px-6 py-4">

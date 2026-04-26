@@ -17,14 +17,22 @@ class OtpLoginController extends Controller
     public function sendOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+            return response()->json(['success' => false, 'message' => 'Please provide a valid email address.'], 422);
         }
 
         $result = $this->otpLoginService->sendOtp((string) $request->email);
+
+        // Return generic message to prevent email enumeration
+        if (!$result['success']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to send OTP. Please check your email address or try again later.',
+            ], $result['status']);
+        }
 
         return response()->json(
             array_intersect_key($result, array_flip(['success', 'message', 'redirect_url'])),
@@ -35,12 +43,12 @@ class OtpLoginController extends Controller
     public function verifyOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email|exists:users,email',
+            'email' => 'required|email',
             'otp' => 'required|numeric|digits:6',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['success' => false, 'message' => $validator->errors()->first()], 422);
+            return response()->json(['success' => false, 'message' => 'Please provide valid credentials.'], 422);
         }
 
         $result = $this->otpLoginService->verifyOtp($request, (string) $request->email, (string) $request->otp);

@@ -10,13 +10,16 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Artisan::command('jm', function () {
-    // server start
-    passthru('php artisan serve');
+    $this->call('serve');
 })->purpose('start the server');
 
 Artisan::command('holds:expire', function () {
     $count = app(HoldService::class)->expireHolds();
     $this->info("Expired {$count} holds.");
 })->purpose('Expire holds that have passed their expiry date');
+
+// Workflow automation scheduler
+Schedule::command('workflows:run-scheduled')->everyMinute()->withoutOverlapping();
+Schedule::command('workflows:retry-failed --limit=10')->everyFiveMinutes()->withoutOverlapping();
 
 Schedule::command('holds:expire')->hourly();

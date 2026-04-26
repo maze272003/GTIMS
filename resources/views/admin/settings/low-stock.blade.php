@@ -13,10 +13,6 @@
                 </h2>
             </div>
 
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
-
             @if (session('error'))
                 <div class="mb-4 p-3 rounded border border-red-200 bg-red-50 text-red-700">
                     {{ session('error') }}
@@ -165,7 +161,7 @@
                             </select>
                         </div>
                         <div class="flex gap-2 lg:col-span-4">
-                            <button type="submit" class="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm">
+                            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm transition shadow-sm">
                                 <i class="fa-solid fa-filter mr-1"></i> Apply Filters
                             </button>
                             <a href="{{ route('admin.lowstock.index') }}" class="bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-4 py-2 rounded-lg text-sm transition hover:bg-gray-300 dark:hover:bg-gray-600">
@@ -193,6 +189,8 @@
                                     $current = (int)($item['current_stock'] ?? 0);
                                     $thr = (int)($item['threshold'] ?? $globalThreshold ?? 100);
                                     $def = max(0, $thr - $current);
+                                    $thresholdSource = (string)($item['threshold_source'] ?? 'global_default');
+                                    $thresholdSourceLabel = ucwords(str_replace('_', ' ', $thresholdSource));
                                 @endphp
 
                                 <tr class="hover:bg-gray-50 dark:hover:bg-gray-750 transition">
@@ -215,7 +213,10 @@
                                         {{ $current }}
                                     </td>
                                     <td class="px-4 py-3 text-sm text-center text-gray-700 dark:text-gray-300">
-                                        {{ $thr }}
+                                        <div>{{ $thr }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                            {{ $thresholdSourceLabel }}
+                                        </div>
                                     </td>
                                     <td class="px-4 py-3 text-sm text-center">
                                         <span class="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 text-xs font-medium px-2.5 py-0.5 rounded-full">

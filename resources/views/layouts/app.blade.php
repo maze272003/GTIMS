@@ -5,35 +5,49 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <meta name="user-level" content="{{ auth()->check() ? auth()->user()->user_level_id : '' }}">
-        <meta name="user-permissions" content="{{ auth()->check() ? auth()->user()->level?->permissions->pluck('name')->implode(',') : '' }}">
+        <meta name="user-permissions" content="{{ implode(',', $permissionView->names()) }}">
+        <meta name="user-default-access-url" content="{{ $permissionView->destination()['url'] ?? '' }}">
         <title>{{ $title ?? 'General Tinio - Inventory System' }}</title>
 
-        <script src="https://cdn.tailwindcss.com"></script>
-        <link rel="stylesheet" href="https://site-assets.fontawesome.com/releases/v7.1.0/css/all.css">
+        {{-- Prevent light-theme flash before CSS/JS loads by applying saved theme immediately --}}
+        <script>
+            (function () {
+                try {
+                    var savedTheme = localStorage.getItem('theme');
+                    var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    var useDark = savedTheme ? savedTheme === 'dark' : prefersDark;
+                    var root = document.documentElement;
+
+                    if (useDark) root.classList.add('dark');
+                    else root.classList.remove('dark');
+
+                    root.style.colorScheme = useDark ? 'dark' : 'light';
+                } catch (e) {
+                    // Ignore localStorage/matchMedia access errors and keep default theme
+                }
+            })();
+        </script>
+        <style>
+            html { background-color: #f9fafb; }
+            html.dark { background-color: #111827; }
+        </style>
+
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <link rel="stylesheet" href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css">
+        <link rel="stylesheet" href="{{ asset('css/icon-compat.css') }}">
         <link rel="icon" type="image/png" href="{{ asset('images/gtlogo.png') }}">
         <link rel="stylesheet" href="{{ asset('css/style.css') }}">
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-        <script src="{{ asset('js/gtims-notify.js') }}"></script>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.4.0/dist/driver.css">
-        <script src="https://cdn.jsdelivr.net/npm/driver.js@1.4.0/dist/driver.js.iife.js"></script>
+        <script src="{{ asset('js/icon-compat.js') }}" defer></script>
+        <script src="{{ asset('js/gtims-notify.js') }}" defer></script>
+        <script src="{{ asset('js/permission-ui.js') }}" defer></script>
         <script src="{{ asset('js/tour.js') }}" defer></script>
+        <script src="{{ asset('js/user-permissions.js') }}" defer></script>
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-        <script>
-            tailwind.config = {
-                darkMode: 'class',
-                theme: {
-                    extend: {
-                        fontFamily: { sans: ['Poppins', 'sans-serif'] },
-                    },
-                },
-            }
-        </script>
 
         <style>
             body, html, input, button, select, textarea {
@@ -43,6 +57,8 @@
     </head>
 
     <body class="font-sans antialiased bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+        <x-global-preloader />
+
         {{-- Offline Banner --}}
         <div id="offline-banner" class="hidden fixed top-0 left-0 right-0 z-[9998] bg-yellow-500 text-yellow-900 text-center text-sm font-medium py-2 px-4" role="alert">
             <i class="fa-solid fa-wifi-slash mr-1"></i> You are offline. Some features may not be available.
@@ -62,6 +78,11 @@
 
         {{ $slot }}
 
+        {{-- Auto-render session flash messages as toasts --}}
+        <x-toast />
+
+        @stack('scripts')
+
         {{-- Logout Form (required for auto logout) --}}
         <form id="logout-form" action="{{ route('logout') }}" method="POST" class="hidden">
             @csrf
@@ -71,15 +92,19 @@
         <script>
             // @deprecated Use window.hasPermission() instead of window.currentUserLevel for access checks
             window.currentUserLevel = {{ auth()->check() ? auth()->user()->user_level_id : 'null' }};
-            window.userPermissions = '{{ auth()->check() ? auth()->user()->level?->permissions->pluck("name")->implode(",") : "" }}'.split(',');
+            window.permissionContext = {
+                permissions: @json($permissionView->names()),
+                redirectDestination: @json($permissionView->destination()),
+            };
+            window.userPermissions = window.permissionContext.permissions;
             window.hasPermission = function(perm) { return window.userPermissions.indexOf(perm) !== -1; };
         </script>
 
         {{-- Auto Logout (Idle Warning + Countdown) --}}
         <script>
             // ====== CONFIG (seconds) ======
-            const SECONDS_BEFORE_WARNING = 50; // idle seconds before showing warning
-            const SECONDS_TO_COUNTDOWN  = 50; // countdown seconds before auto logout
+            const SECONDS_BEFORE_WARNING = 2000; // idle seconds before showing warning
+            const SECONDS_TO_COUNTDOWN  = 200; // countdown seconds before auto logout
 
             let idleTimer = null;
             let isLoggingOut = false;

@@ -11,14 +11,15 @@
                     </p>
                     <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Supplier Management</h2>
                 </div>
-                <a href="{{ route('admin.suppliers.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition-all duration-200">
-                    <i class="fa-solid fa-plus mr-2"></i> Add Supplier
-                </a>
+                <div class="flex items-center gap-2">
+                    <a href="{{ route('admin.suppliers.exportExcel') }}" class="inline-flex items-center justify-center px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg shadow-sm font-medium text-sm transition-all duration-200">
+                        <i class="fa-solid fa-file-excel mr-2 text-green-600 dark:text-green-400"></i> Export Excel
+                    </a>
+                    <a href="{{ route('admin.suppliers.create') }}" class="inline-flex items-center justify-center px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm font-medium text-sm transition-all duration-200">
+                        <i class="fa-solid fa-plus mr-2"></i> Add Supplier
+                    </a>
+                </div>
             </div>
-
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
 
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div class="overflow-x-auto">
@@ -29,7 +30,7 @@
                                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Contact Person</th>
                                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Email</th>
                                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide">Phone</th>
-                                <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide text-center">Products</th>
+                                <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide text-center">Batches</th>
                                 <th class="p-3 text-gray-700 dark:text-gray-300 uppercase text-sm tracking-wide text-center">Actions</th>
                             </tr>
                         </thead>
@@ -45,7 +46,7 @@
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{{ $supplier->phone ?? '-' }}</td>
                                     <td class="px-6 py-4 text-sm text-center">
-                                        <span class="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 text-xs font-medium px-2.5 py-0.5 rounded-full">{{ $supplier->products_count ?? $supplier->products->count() ?? 0 }}</span>
+                                        <x-badge variant="info">{{ $supplier->products_count ?? $supplier->supplierProducts->count() ?? 0 }}</x-badge>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <a href="{{ route('admin.suppliers.edit', $supplier->id) }}" class="p-2 rounded-lg bg-blue-100 text-blue-700 text-sm hover:bg-blue-200 transition" title="Edit">

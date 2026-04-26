@@ -8,21 +8,25 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 class HistoryLogQueryService
 {
     public function __construct(
-        protected HistoryLogRepositoryInterface $historyLogRepository
+        protected HistoryLogRepositoryInterface $historyLogRepository,
+        protected BranchAccessService $branchAccessService
     ) {
     }
 
     public function paginateWithFilters(array $filters, int $perPage = 20): LengthAwarePaginator
     {
-        return $this->historyLogRepository->paginateWithFilters($filters, $perPage)->withQueryString();
+        $branchId = $this->branchAccessService->resolveBranchFilter(auth()->user(), null, defaultToUserBranch: true);
+
+        return $this->historyLogRepository->paginateWithFilters($filters, $perPage, $branchId)->withQueryString();
     }
 
     public function getFilterOptions(): array
     {
+        $branchId = $this->branchAccessService->resolveBranchFilter(auth()->user(), null, defaultToUserBranch: true);
+
         return [
-            'actions' => $this->historyLogRepository->getDistinctActions(),
-            'users' => $this->historyLogRepository->getDistinctUsers(),
+            'actions' => $this->historyLogRepository->getDistinctActions($branchId),
+            'users' => $this->historyLogRepository->getDistinctUsers($branchId),
         ];
     }
 }
-

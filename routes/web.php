@@ -19,14 +19,22 @@ use App\Http\Controllers\Admin\RolePermissionController;
 use App\Http\Controllers\Admin\AuditEventController;
 use App\Http\Controllers\Admin\AnalyticsApiController;
 use App\Http\Controllers\Admin\NotificationController;
+use App\Http\Controllers\Admin\BranchManagementController;
+use App\Http\Controllers\Admin\SystemAnalyticsController;
+use App\Http\Controllers\Admin\WorkflowController;
+use App\Services\AuthSessionService;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
     return view('auth.login');
 });
 
-Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])->name('otp.send');
-Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])->name('otp.verify');
+Route::post('/send-otp', [OtpLoginController::class, 'sendOtp'])
+    ->middleware('throttle:5,1', 'rate.limit:otp')
+    ->name('otp.send');
+Route::post('/verify-otp', [OtpLoginController::class, 'verifyOtp'])
+    ->middleware('throttle:5,1', 'rate.limit:otp')
+    ->name('otp.verify');
 Route::get('/verify-account/{id}', [ManageaccountController::class, 'verifyAccount'])
     ->name('account.verify')
     ->middleware('signed');
@@ -35,7 +43,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // =================== 1. ANG LOGIN REDIRECTOR ===================
     // Ito ang sasalubong sa LAHAT ng user pagka-login.
-    Route::get('/dashboard', function () {
+    Route::get('/dashboard', function (AuthSessionService $authSessionService) {
         $user = Auth::user();
 
         if (!$user || !$user->level) {
@@ -43,13 +51,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             return redirect('/login')->with('error', 'You do not have permission.');
         }
 
-        // Redirect based on permissions
-        if ($user->hasPermission('dashboard.view')) {
-            return redirect()->route('admin.dashboard');
-        }
-
-        if ($user->hasPermission('orders.view')) {
-            return redirect()->route('admin.orders.index');
+        $redirectUrl = $authSessionService->getRedirectUrl($user);
+        if ($redirectUrl) {
+            return redirect()->to($redirectUrl);
         }
 
         Auth::logout();
@@ -68,9 +72,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     //
     // ---- ITO NA ANG MALINIS NA VERSION GAMIT ANG MGA GINAWA NATING MIDDLEWARE ----
     //
-    Route::prefix('admin')
+Route::prefix('admin')
           ->name('admin.')
-          ->middleware('level.all') // L1, L2, L3, L4 CAN ENTER THIS BLOCK
+          ->middleware(['level.all', 'admin.permission', 'rate.limit:admin'])
           ->group(function () {
 
         // == A. BASE ACCESS ROUTES (Para sa lahat ng nakapasa sa level.all) ==
@@ -81,6 +85,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/', [OrderController::class, 'index'])->name('index');
                 Route::get('/create', [OrderController::class, 'create'])->name('create');
                 Route::post('/store', [OrderController::class, 'store'])->name('store');
+                Route::get('/source-inventory', [OrderController::class, 'sourceInventoryOptions'])->name('source-inventory');
                 Route::post('/{id}/update', [OrderController::class, 'updateStatus'])->name('update');
                 Route::get('/{id}/print', [OrderController::class, 'print'])->name('print');
             });
@@ -89,12 +94,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/patientrecords', [PatientRecordsController::class, 'showpatientrecords'])->name('patientrecords');
         Route::post('/patientrecords', [PatientRecordsController::class, 'adddispensation'])->name('patientrecords.adddispensation');
         Route::put('/patientrecords', [PatientRecordsController::class, 'updatePatientRecord'])->name('patientrecords.update');
-        Route::get('/patientrecords/export-pdf', [PatientRecordsController::class, 'exportPdf'])->name('patientrecords.exportPdf');
+        Route::get('/patientrecords/export-pdf', [PatientRecordsController::class, 'exportPdf'])
+            ->middleware('rate.limit:export')
+            ->name('patientrecords.exportPdf');
         Route::get('/patientrecords/export-excel', [PatientRecordsController::class, 'exportExcel'])
+            ->middleware('rate.limit:export')
             ->name('patientrecords.exportExcel');
 
         Route::get('/inventory', [InventoryController::class, 'showinventory'])->name('inventory');
-        Route::post('/inventory/export', [InventoryExportController::class, 'export'])->name('inventory.export');
+        Route::post('/inventory/export', [InventoryExportController::class, 'export'])
+            ->middleware('rate.limit:export')
+            ->name('inventory.export');
 
         // == B. ADMIN/SUPERADMIN ROUTES (Level 1, 2 ONLY) ==
         // SECURITY CHECK: Lahat ng routes dito ay mahigpit na protektado ng level.admin (L1, L2)
@@ -132,6 +142,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/{hold}', [HoldController::class, 'show'])->name('show');
                 Route::post('/{hold}/approve', [HoldController::class, 'approve'])->name('approve');
                 Route::put('/{hold}/release', [HoldController::class, 'release'])->name('release');
+                Route::put('/{hold}/cancel', [HoldController::class, 'cancel'])->name('cancel');
+                Route::post('/pull-out', [HoldController::class, 'pullOut'])->name('pullout');
             });
 
             // == Incoming Requests Workflow Routes ==
@@ -153,11 +165,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::prefix('suppliers')->name('suppliers.')->group(function () {
                 Route::get('/', [SupplierController::class, 'index'])->name('index');
                 Route::get('/create', [SupplierController::class, 'create'])->name('create');
+                Route::get('/export-excel', [SupplierController::class, 'exportExcel'])->name('exportExcel');
                 Route::post('/', [SupplierController::class, 'store'])->name('store');
                 Route::get('/{supplier}/edit', [SupplierController::class, 'edit'])->name('edit');
                 Route::put('/{supplier}', [SupplierController::class, 'update'])->name('update');
-                Route::post('/{supplier}/link-product', [SupplierController::class, 'linkProduct'])->name('link-product');
-                Route::delete('/{supplier}/unlink-product/{product}', [SupplierController::class, 'unlinkProduct'])->name('unlink-product');
+                Route::post('/{supplier}/link-inventory', [SupplierController::class, 'linkInventory'])->name('link-inventory');
+                Route::delete('/{supplier}/unlink-inventory/{inventory}', [SupplierController::class, 'unlinkInventory'])->name('unlink-inventory');
             });
 
             // == Audit Events Routes ==
@@ -172,6 +185,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('/reorder-suggestions', [AnalyticsApiController::class, 'reorderSuggestions'])->name('reorder');
                 Route::get('/low-stock-alerts', [AnalyticsApiController::class, 'lowStockAlerts'])->name('low-stock');
                 Route::get('/stock-kpis', [AnalyticsApiController::class, 'stockKPIs'])->name('kpis');
+
+                // System Analytics & Observability
+                Route::get('/overview', [SystemAnalyticsController::class, 'overview'])->name('overview');
+                Route::get('/inventory-movement-trends', [SystemAnalyticsController::class, 'inventoryMovementTrends'])->name('inventory-movement-trends');
+                Route::get('/stock-level-distribution', [SystemAnalyticsController::class, 'stockLevelDistribution'])->name('stock-level-distribution');
+                Route::get('/expiry-tracking', [SystemAnalyticsController::class, 'expiryTracking'])->name('expiry-tracking');
+                Route::get('/request-status-distribution', [SystemAnalyticsController::class, 'requestStatusDistribution'])->name('request-status-distribution');
+                Route::get('/request-volume-trends', [SystemAnalyticsController::class, 'requestVolumeTrends'])->name('request-volume-trends');
+                Route::get('/hold-analytics', [SystemAnalyticsController::class, 'holdAnalytics'])->name('hold-analytics');
+                Route::get('/user-activity-trends', [SystemAnalyticsController::class, 'userActivityTrends'])->name('user-activity-trends');
+                Route::get('/audit-event-distribution', [SystemAnalyticsController::class, 'auditEventDistribution'])->name('audit-event-distribution');
+                Route::get('/inventory-turnover', [SystemAnalyticsController::class, 'inventoryTurnover'])->name('inventory-turnover');
             });
 
             // == Notification Routes ==
@@ -183,14 +208,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('/preferences', [NotificationController::class, 'updatePreferences'])->name('preferences.update');
             });
 
-            //  Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
-            //     Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
-            //     Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');
-            //     Route::post('/override', [LowStockSettingController::class, 'storeOverride'])->name('override');
-            //     Route::delete('/override/{setting}', [LowStockSettingController::class, 'destroyOverride'])->name('override.destroy');
-            // });
             Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
         Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
+        Route::get('/filter-options', [LowStockSettingController::class, 'filterOptions'])->name('filter-options');
 
         // global threshold
         Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');
@@ -226,8 +246,47 @@ Route::middleware(['auth', 'verified'])->group(function () {
                   ->name('manageaccount');
 
             // L1: Role/Permission Management
-            Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index');
-            Route::post('/roles', [RolePermissionController::class, 'update'])->name('roles.update');
+            Route::get('/roles', [RolePermissionController::class, 'index'])->name('roles.index')->middleware('permission:settings.roles');
+            Route::post('/roles', [RolePermissionController::class, 'update'])->name('roles.update')->middleware('permission:settings.roles');
+
+            // L1: Branch Management
+            Route::prefix('branches')
+                ->name('branches.')
+                ->middleware(['level.superadmin', 'permission:branches.manage'])
+                ->group(function () {
+                    Route::get('/', [BranchManagementController::class, 'index'])->name('index');
+                    Route::post('/', [BranchManagementController::class, 'store'])->name('store');
+                    Route::post('/{branch}/set-main', [BranchManagementController::class, 'setMain'])->name('set-main');
+                    Route::post('/{branch}/archive', [BranchManagementController::class, 'archive'])->name('archive');
+                    Route::post('/runs/{run}/rollback', [BranchManagementController::class, 'rollback'])->name('rollback');
+                });
+        });
+
+        // == D. AUTOMATION BUILDER ROUTES ==
+        Route::prefix('workflows')->name('workflows.')->middleware('permission:workflows.view')->group(function () {
+            Route::get('/', [WorkflowController::class, 'index'])->name('index');
+            Route::post('/', [WorkflowController::class, 'store'])->name('store')->middleware('permission:workflows.create');
+            Route::get('/catalog', [WorkflowController::class, 'catalog'])->name('catalog');
+            Route::get('/templates', [WorkflowController::class, 'templates'])->name('templates');
+            Route::get('/{workflow}/editor', [WorkflowController::class, 'editor'])->name('editor');
+            Route::get('/{workflow}/graph-state', [WorkflowController::class, 'graphState'])->name('graph-state');
+            Route::post('/{workflow}/save-graph', [WorkflowController::class, 'saveGraph'])->name('save-graph')->middleware('permission:workflows.edit');
+            Route::post('/{workflow}/validate', [WorkflowController::class, 'validate'])->name('validate');
+            Route::post('/{workflow}/publish', [WorkflowController::class, 'publish'])->name('publish')->middleware('permission:workflows.publish');
+            Route::post('/{workflow}/disable', [WorkflowController::class, 'disable'])->name('disable')->middleware('permission:workflows.edit');
+            Route::post('/{workflow}/run', [WorkflowController::class, 'run'])->name('run')->middleware('permission:workflows.run');
+            Route::get('/{workflow}/runs', [WorkflowController::class, 'runs'])->name('runs');
+            Route::get('/{workflow}/runs/{run}', [WorkflowController::class, 'showRun'])->name('runs.show');
+            Route::delete('/{workflow}', [WorkflowController::class, 'destroy'])->name('destroy')->middleware('permission:workflows.delete');
+            Route::get('/{workflow}/permissions', [WorkflowController::class, 'permissions'])->name('permissions');
+            Route::post('/{workflow}/permissions', [WorkflowController::class, 'addPermission'])->name('permissions.add')->middleware('permission:workflows.edit');
+            Route::delete('/{workflow}/permissions/{permission}', [WorkflowController::class, 'removePermission'])->name('permissions.remove')->middleware('permission:workflows.edit');
+            // Version history & rollback
+            Route::get('/{workflow}/versions', [WorkflowController::class, 'versionHistory'])->name('versions');
+            Route::post('/{workflow}/versions/{version}/rollback', [WorkflowController::class, 'rollbackVersion'])->name('versions.rollback')->middleware('permission:workflows.publish');
+            // Dead-letter & rerun
+            Route::get('/{workflow}/dead-letter', [WorkflowController::class, 'deadLetterRuns'])->name('dead-letter');
+            Route::post('/{workflow}/runs/{run}/rerun', [WorkflowController::class, 'rerunFailedRun'])->name('runs.rerun')->middleware('permission:workflows.run');
         });
 
     }); // <-- End ng buong /admin group

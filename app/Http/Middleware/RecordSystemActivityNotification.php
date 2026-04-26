@@ -147,7 +147,11 @@ class RecordSystemActivityNotification
             'admin.lowstock.override' => ['Low stock override updated', 'settings', 'update'],
             'admin.lowstock.override.destroy' => ['Low stock override removed', 'settings', 'delete'],
 
-            'admin.roles.update' => ['Role permissions updated', 'settings', 'update'],
+            'admin.roles.update' => ['User permissions updated', 'settings', 'update'],
+            'admin.branches.store' => ['Branch created', 'settings', 'create'],
+            'admin.branches.set-main' => ['Main branch updated', 'settings', 'update'],
+            'admin.branches.archive' => ['Branch archival triggered', 'settings', 'archive'],
+            'admin.branches.rollback' => ['Branch archival rollback marked', 'settings', 'update'],
         ];
 
         if (isset($map[$routeName])) {
@@ -198,4 +202,3 @@ class RecordSystemActivityNotification
         return 'file';
     }
 }
-

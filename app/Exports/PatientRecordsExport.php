@@ -2,7 +2,7 @@
 
 namespace App\Exports;
 
-use App\Models\Patientrecords;
+use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -29,11 +29,13 @@ class PatientRecordsExport implements
     WithCustomStartCell,
     WithEvents
 {
-    protected $filters;
+    protected Builder $query;
+    protected array $filters;
     protected $user;
 
-    public function __construct($filters, $user)
+    public function __construct(Builder $query, $user, array $filters = [])
     {
+        $this->query = clone $query;
         $this->filters = $filters;
         $this->user = $user;
     }
@@ -69,34 +71,7 @@ class PatientRecordsExport implements
 
     public function query()
     {
-        $query = Patientrecords::with(['dispensedMedications', 'barangay', 'branch']);
-        $filters = $this->filters;
-        $user = $this->user;
-
-        // Branch Logic (Same as Controller)
-        if ($user->hasPermission('patients.manage')) {
-            if (isset($filters['branch_filter']) && $filters['branch_filter'] !== 'all') {
-                $query->where('branch_id', $filters['branch_filter']);
-            }
-        } else {
-            $query->where('branch_id', $user->branch_id);
-        }
-
-        // Date & Category Filters
-        if (!empty($filters['from_date'])) {
-            $query->whereDate('created_at', '>=', $filters['from_date']);
-        }
-        if (!empty($filters['to_date'])) {
-            $query->whereDate('created_at', '<=', $filters['to_date']);
-        }
-        if (!empty($filters['category'])) {
-            $query->where('category', $filters['category']);
-        }
-        if (!empty($filters['barangay_id'])) {
-            $query->where('barangay_id', $filters['barangay_id']);
-        }
-
-        return $query->latest();
+        return clone $this->query;
     }
 
     public function headings(): array

@@ -101,22 +101,32 @@
     </style>
 </head>
 <body>
+    <x-global-preloader />
+
+    @php
+        $authSessionService = app(\App\Services\AuthSessionService::class);
+        $destination = auth()->check() ? $authSessionService->getRedirectDestination(auth()->user()) : null;
+        $message = trim((string) ($exception?->getMessage() ?? ''));
+        $fallbackMessage = $authSessionService->getForbiddenMessage(auth()->user());
+        $currentUrl = url()->current();
+        $previousUrl = url()->previous();
+        $safeBackUrl = $previousUrl !== $currentUrl ? $previousUrl : url('/');
+        $primaryUrl = $destination['url'] ?? $safeBackUrl;
+        $primaryLabel = $destination ? 'Go to '.$destination['label'] : 'Go Back';
+    @endphp
     <main class="card" role="main" aria-labelledby="error-title">
         <div class="badge">403 Forbidden</div>
-        <h1 id="error-title">You do not have permission to access this page</h1>
+        <h1 id="error-title">This page cannot be accessed</h1>
         <p>
-            Your account is signed in, but it does not have the required permission for this page or action.
-            If you believe this is incorrect, contact your administrator.
+            {{ $message !== '' ? $message : $fallbackMessage }}
         </p>
 
         <div class="actions">
-            <a class="btn btn-primary" href="{{ route('dashboard') }}">Go to Dashboard</a>
-            <a class="btn btn-secondary" href="{{ url()->previous() }}">Go Back</a>
+            <a class="btn btn-primary" href="{{ $primaryUrl }}">{{ $primaryLabel }}</a>
+            <a class="btn btn-secondary" href="{{ $safeBackUrl }}">Go Back</a>
         </div>
 
-        @if (!empty($exception?->getMessage()))
-            <p class="detail">{{ $exception->getMessage() }}</p>
-        @endif
+        <p class="detail">If you need access, contact the superadmin so your permissions can be reviewed.</p>
     </main>
 </body>
 </html>

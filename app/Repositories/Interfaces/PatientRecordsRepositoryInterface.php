@@ -11,11 +11,11 @@ interface PatientRecordsRepositoryInterface
 {
     public function patientRecordsQuery(): Builder;
 
-    public function getActiveInventoriesWithProduct(): Collection;
+    public function getActiveInventoriesWithProduct(?array $branchIds = null): Collection;
 
     public function getAllBarangays(): Collection;
 
-    public function getAllBranches(): Collection;
+    public function getAllBranches(?array $branchIds = null): Collection;
 
     public function findInventoryWithProductOrFail(int $id): Inventory;
 
@@ -31,4 +31,3 @@ interface PatientRecordsRepositoryInterface
 
     public function updateDispensedMedicationsBarangay(int $patientRecordId, int $barangayId): int;
 }
-

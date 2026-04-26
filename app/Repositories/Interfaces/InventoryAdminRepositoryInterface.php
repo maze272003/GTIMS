@@ -16,13 +16,17 @@ interface InventoryAdminRepositoryInterface
 
     public function getArchivedProducts(): Collection;
 
-    public function getSupportedBranches(): Collection;
+    public function getSupportedBranches(?array $branchIds = null): Collection;
 
-    public function getActiveInventories(): Collection;
+    public function getActiveInventories(?array $branchIds = null): Collection;
 
     public function activeInventoryByBranchQuery(int $branchId): Builder;
 
-    public function paginateArchivedStocksByProduct(int $productId, int $perPage = 20): LengthAwarePaginator;
+    public function buildActiveInventoryByBranchQuery(int $branchId, ?string $search = null, ?string $filter = null): Builder;
+
+    public function getInventoryOverviewStats(?array $branchIds = null): array;
+
+    public function paginateArchivedStocksByProduct(int $productId, ?array $branchIds = null, int $perPage = 20): LengthAwarePaginator;
 
     public function createProduct(array $data): Product;
 
@@ -46,4 +50,3 @@ interface InventoryAdminRepositoryInterface
 
     public function findTransferDestinationStock(Inventory $sourceInventory, int $destinationBranch): ?Inventory;
 }
-

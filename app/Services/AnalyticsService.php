@@ -7,6 +7,8 @@ use App\Models\LowStockSetting;
 use App\Models\ReorderRule;
 use App\Models\Product;
 use App\Models\Inventory;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AnalyticsService
 {
@@ -17,11 +19,12 @@ class AnalyticsService
         $this->availabilityService = $availabilityService;
     }
 
-    public function getRequestSLAMetrics(?\Carbon\Carbon $from = null, ?\Carbon\Carbon $to = null): array
+    public function getRequestSLAMetrics(?\Carbon\Carbon $from = null, ?\Carbon\Carbon $to = null, ?int $branchId = null): array
     {
         $query = IncomingRequest::query();
         if ($from) $query->where('created_at', '>=', $from);
         if ($to) $query->where('created_at', '<=', $to);
+        if ($branchId) $query->where('branch_id', $branchId);
 
         $requests = $query->with('statusHistory')->get();
 
@@ -93,9 +96,10 @@ class AnalyticsService
                     'suggested_quantity' => $rule->reorder_quantity,
                     'preferred_supplier' => $rule->preferredSupplier,
                     'lead_time_days' => $rule->preferredSupplier
-                        ? $rule->product->suppliers()
+                        ? $rule->product?->supplierProducts()
                             ->where('supplier_id', $rule->preferred_supplier_id)
-                            ->first()?->pivot?->lead_time_days
+                            ->orderBy('lead_time_days')
+                            ->value('lead_time_days')
                         : null,
                 ];
             }
@@ -120,6 +124,7 @@ class AnalyticsService
         $inventoryQuery = Inventory::query()
             ->where('is_archived', false)
             ->whereHas('product', fn($q) => $q->where('is_archived', false))
+            ->whereHas('branch', fn($q) => $q->where('is_archived', false))
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->with([
                 'product:id,generic_name,brand_name',
@@ -138,12 +143,13 @@ class AnalyticsService
         foreach ($batches as $batch) {
             $held = (int) ($batch->held_quantity ?? 0);
             $available = max(0, (int) $batch->quantity - $held);
-            $threshold = $this->resolveThreshold(
+            $thresholdData = $this->resolveThresholdWithSource(
                 (int) $batch->product_id,
                 (int) $batch->branch_id,
                 $ruleMap,
                 $globalThreshold
             );
+            $threshold = (int) $thresholdData['threshold'];
 
             if ($available <= $threshold) {
                 $alerts[] = [
@@ -157,6 +163,7 @@ class AnalyticsService
                     'branch_name'   => $batch->branch?->name ?? 'Unknown Branch',
                     'current_stock' => (int) $available,
                     'threshold'     => (int) $threshold,
+                    'threshold_source' => (string) $thresholdData['source'],
                     'on_hand'       => (int) $batch->quantity,
                     'held'          => (int) $held,
                 ];
@@ -170,25 +177,51 @@ class AnalyticsService
 
     public function getStockKPIs(?int $branchId = null): array
     {
-        $products = Product::where('is_archived', false)->get();
+        // Use aggregate SQL queries instead of N+1 loops through products
+        $inventoryQuery = Inventory::query()
+            ->where('is_archived', false)
+            ->whereNotNull('product_id')
+            ->whereHas('product', fn ($q) => $q->where('is_archived', false));
 
-        $totalOnHand = 0;
-        $totalHeld = 0;
-        $totalAvailable = 0;
-
-        foreach ($products as $product) {
-            $onHand = $this->availabilityService->getOnHand($product->id, $branchId);
-            $held = $this->availabilityService->getHeldQuantity($product->id, $branchId);
-            $totalOnHand += $onHand;
-            $totalHeld += $held;
-            $totalAvailable += max(0, $onHand - $held);
+        if ($branchId) {
+            $inventoryQuery->where('branch_id', $branchId);
         }
+
+        // Calculate total on-hand in a single query
+        $totals = (clone $inventoryQuery)
+            ->selectRaw('
+                COALESCE(SUM(COALESCE(onhand_qty, quantity)), 0) as total_on_hand,
+                COALESCE(SUM(COALESCE(hold_qty, 0)), 0) as total_held,
+                COUNT(DISTINCT product_id) as product_count
+            ')
+            ->first();
+
+        // If inventory.hold_qty is not populated, fall back to calculating from hold_items
+        $totalHeld = (int) $totals->total_held;
+        if ($totalHeld === 0) {
+            $holdItemsQuery = DB::table('hold_items')
+                ->join('holds', 'holds.id', '=', 'hold_items.hold_id')
+                ->join('inventories', 'inventories.id', '=', 'hold_items.inventory_id')
+                ->join('products', 'products.id', '=', 'inventories.product_id')
+                ->where('inventories.is_archived', false)
+                ->where('products.is_archived', false)
+                ->whereIn('holds.status', ['pending', 'approved']);
+
+            if ($branchId) {
+                $holdItemsQuery->where('inventories.branch_id', $branchId);
+            }
+
+            $totalHeld = (int) $holdItemsQuery->sum('hold_items.quantity');
+        }
+
+        $totalOnHand = (int) $totals->total_on_hand;
+        $totalAvailable = max(0, $totalOnHand - $totalHeld);
 
         return [
             'total_on_hand' => $totalOnHand,
             'total_held' => $totalHeld,
             'total_available' => $totalAvailable,
-            'product_count' => $products->count(),
+            'product_count' => (int) $totals->product_count,
         ];
     }
 
@@ -214,14 +247,43 @@ class AnalyticsService
 
     private function resolveThreshold(int $productId, int $branchId, array $map, int $globalThreshold): int
     {
+        return (int) $this->resolveThresholdWithSource($productId, $branchId, $map, $globalThreshold)['threshold'];
+    }
+
+    private function resolveThresholdWithSource(int $productId, int $branchId, array $map, int $globalThreshold): array
+    {
         // Priority:
         // 1) product+branch
         // 2) product (all branches)
         // 3) branch default (all products)
         // 4) global
-        return $map["p{$productId}-b{$branchId}"]
-            ?? $map["p{$productId}-b0"]
-            ?? $map["p0-b{$branchId}"]
-            ?? $globalThreshold;
+        $productBranchKey = "p{$productId}-b{$branchId}";
+        if (array_key_exists($productBranchKey, $map)) {
+            return [
+                'threshold' => (int) $map[$productBranchKey],
+                'source' => 'branch_override',
+            ];
+        }
+
+        $productGlobalKey = "p{$productId}-b0";
+        if (array_key_exists($productGlobalKey, $map)) {
+            return [
+                'threshold' => (int) $map[$productGlobalKey],
+                'source' => 'global_override',
+            ];
+        }
+
+        $branchDefaultKey = "p0-b{$branchId}";
+        if (array_key_exists($branchDefaultKey, $map)) {
+            return [
+                'threshold' => (int) $map[$branchDefaultKey],
+                'source' => 'branch_default',
+            ];
+        }
+
+        return [
+            'threshold' => (int) $globalThreshold,
+            'source' => 'global_default',
+        ];
     }
 }

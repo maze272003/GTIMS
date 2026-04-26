@@ -83,7 +83,7 @@
 
                 <div class="flex justify-end gap-3 pb-10">
                     <a href="{{ route('admin.requests.index') }}" class="px-6 py-2.5 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</a>
-                    <button type="button" id="submitRequestBtn" class="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition">
+                    <button type="button" id="submitRequestBtn" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition">
                         Submit Request
                     </button>
                 </div>
@@ -122,7 +122,7 @@
                     </select>
                 </td>
                 <td class="py-3 px-4">
-                    <input type="number" name="items[${rowId}][quantity]" min="1" value="1" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-center font-bold focus:ring-red-500" required>
+                    <input type="number" name="items[${rowId}][quantity_requested]" min="1" value="1" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 text-center font-bold focus:ring-red-500" required>
                 </td>
                 <td class="py-3 px-4 text-center">
                     <input type="checkbox" name="items[${rowId}][allow_substitution]" value="1" class="w-4 h-4 text-red-600 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-red-500">

@@ -20,10 +20,12 @@ class AuditEventRepository extends BaseRepository implements AuditEventRepositor
         ?int $userId = null,
         ?string $dateFrom = null,
         ?string $dateTo = null,
-        int $perPage = 20
+        int $perPage = 20,
+        ?int $branchId = null
     ): LengthAwarePaginator {
         return $this->model
             ->with('user')
+            ->when($branchId, fn ($q, $branch) => $q->whereHas('user', fn ($userQuery) => $userQuery->where('branch_id', $branch)))
             ->when($action, fn ($q, $a) => $q->where('action', $a))
             ->when($entityType, fn ($q, $e) => $q->where('entity_type', $e))
             ->when($userId, fn ($q, $u) => $q->where('user_id', $u))
@@ -33,13 +35,21 @@ class AuditEventRepository extends BaseRepository implements AuditEventRepositor
             ->paginate($perPage);
     }
 
-    public function getDistinctActions(): Collection
+    public function getDistinctActions(?int $branchId = null): Collection
     {
-        return $this->model->newQuery()->select('action')->distinct()->pluck('action');
+        return $this->model->newQuery()
+            ->when($branchId, fn ($q, $branch) => $q->whereHas('user', fn ($userQuery) => $userQuery->where('branch_id', $branch)))
+            ->select('action')
+            ->distinct()
+            ->pluck('action');
     }
 
-    public function getDistinctEntityTypes(): Collection
+    public function getDistinctEntityTypes(?int $branchId = null): Collection
     {
-        return $this->model->newQuery()->select('entity_type')->distinct()->pluck('entity_type');
+        return $this->model->newQuery()
+            ->when($branchId, fn ($q, $branch) => $q->whereHas('user', fn ($userQuery) => $userQuery->where('branch_id', $branch)))
+            ->select('entity_type')
+            ->distinct()
+            ->pluck('entity_type');
     }
 }

@@ -17,10 +17,11 @@ interface AuditEventRepositoryInterface extends RepositoryInterface
         ?int $userId = null,
         ?string $dateFrom = null,
         ?string $dateTo = null,
-        int $perPage = 20
+        int $perPage = 20,
+        ?int $branchId = null
     ): LengthAwarePaginator;
 
-    public function getDistinctActions(): Collection;
+    public function getDistinctActions(?int $branchId = null): Collection;
 
-    public function getDistinctEntityTypes(): Collection;
+    public function getDistinctEntityTypes(?int $branchId = null): Collection;
 }

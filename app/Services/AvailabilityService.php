@@ -6,6 +6,7 @@ use App\Models\Inventory;
 use App\Models\HoldItem;
 use App\Models\ProductMovement;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 
 class AvailabilityService
 {
@@ -21,7 +22,7 @@ class AvailabilityService
             $query->where('branch_id', $branchId);
         }
 
-        return (int) $query->sum('quantity');
+        return (int) ($query->selectRaw('COALESCE(SUM(COALESCE(onhand_qty, quantity)), 0) as aggregate')->value('aggregate') ?? 0);
     }
 
     /**
@@ -29,7 +30,24 @@ class AvailabilityService
      */
     public function getHeldQuantity(int $productId, ?int $branchId = null): int
     {
-        $query = HoldItem::where('product_id', $productId)
+        $inventoryQuery = Inventory::query()
+            ->where('product_id', $productId)
+            ->where('is_archived', false);
+
+        if ($branchId) {
+            $inventoryQuery->where('branch_id', $branchId);
+        }
+
+        $heldFromInventory = (int) ($inventoryQuery
+            ->selectRaw('COALESCE(SUM(COALESCE(hold_qty, 0)), 0) as aggregate')
+            ->value('aggregate') ?? 0);
+
+        if ($heldFromInventory > 0) {
+            return $heldFromInventory;
+        }
+
+        // Backward-compatible fallback for old rows/tests that only populated hold_items.
+        $legacyHoldQuery = HoldItem::where('product_id', $productId)
             ->whereHas('hold', function ($q) use ($branchId) {
                 $q->whereIn('status', ['pending', 'approved']);
                 if ($branchId) {
@@ -37,7 +55,7 @@ class AvailabilityService
                 }
             });
 
-        return (int) $query->sum('quantity');
+        return (int) $legacyHoldQuery->sum('quantity');
     }
 
     /**
@@ -56,7 +74,7 @@ class AvailabilityService
     {
         $batches = Inventory::where('product_id', $productId)
             ->where('is_archived', false)
-            ->where('quantity', '>', 0)
+            ->whereRaw('COALESCE(onhand_qty, quantity) > 0')
             ->when($branchId, fn($q) => $q->where('branch_id', $branchId))
             ->orderBy('expiry_date', 'asc')
             ->lockForUpdate()
@@ -68,7 +86,7 @@ class AvailabilityService
         foreach ($batches as $batch) {
             if ($remaining <= 0) break;
 
-            $available = $batch->available_quantity;
+            $available = max(0, (int) $batch->available_quantity);
             if ($available <= 0) continue;
 
             $allocateQty = min($remaining, $available);
@@ -90,8 +108,16 @@ class AvailabilityService
         DB::transaction(function () use ($allocations, $productId, $userId, $description) {
             foreach ($allocations as $alloc) {
                 $inventory = Inventory::lockForUpdate()->findOrFail($alloc['inventory_id']);
-                $before = $inventory->quantity;
-                $inventory->quantity -= $alloc['quantity'];
+                $beforeOnHand = (int) ($inventory->onhand_qty ?? $inventory->quantity);
+                $heldQty = (int) ($inventory->hold_qty ?? 0);
+                $available = max(0, $beforeOnHand - $heldQty);
+                $deductQty = (int) $alloc['quantity'];
+
+                if ($deductQty > $available) {
+                    throw new RuntimeException("Insufficient available stock for inventory #{$inventory->id}. Requested {$deductQty}, available {$available}.");
+                }
+
+                $inventory->onhand_qty = $beforeOnHand - $deductQty;
                 $inventory->save();
 
                 ProductMovement::create([
@@ -99,9 +125,9 @@ class AvailabilityService
                     'inventory_id' => $inventory->id,
                     'user_id' => $userId,
                     'type' => 'OUT',
-                    'quantity' => $alloc['quantity'],
-                    'quantity_before' => $before,
-                    'quantity_after' => $inventory->quantity,
+                    'quantity' => $deductQty,
+                    'quantity_before' => $beforeOnHand,
+                    'quantity_after' => (int) $inventory->onhand_qty,
                     'description' => $description,
                 ]);
             }

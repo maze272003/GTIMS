@@ -11,10 +11,6 @@
                 <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100 mt-5">Notification Preferences</h2>
             </div>
 
-            @if (session('success'))
-                <script>document.addEventListener('DOMContentLoaded', function() { gtToast.success(@json(session('success'))); });</script>
-            @endif
-
             <form action="{{ route('admin.notifications.preferences.update') }}" method="POST">
                 @csrf
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden mb-6">
@@ -60,7 +56,7 @@
 
                 <div class="flex justify-end gap-3 pb-10">
                     <a href="{{ route('admin.notifications.index') }}" class="px-6 py-2.5 border border-gray-300 text-gray-700 dark:text-gray-300 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition">Cancel</a>
-                    <button type="submit" class="px-6 py-2.5 bg-red-700 hover:bg-red-800 text-white rounded-lg shadow-md transition">
+                    <button type="submit" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-md transition">
                         <i class="fa-solid fa-save mr-1"></i> Save Preferences
                     </button>
                 </div>

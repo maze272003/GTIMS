@@ -3,14 +3,18 @@
 namespace App\Services;
 
 use Illuminate\Http\Request;
+use App\Models\Branch;
 use App\Repositories\Interfaces\OrderRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class OrderAdminService
 {
     public function __construct(
-        protected OrderRepositoryInterface $orderRepository
+        protected OrderRepositoryInterface $orderRepository,
+        protected BranchAccessService $branchAccessService
     ) {
     }
 
@@ -26,55 +30,48 @@ class OrderAdminService
         }
     }
 
-   
-    public function create()
+
+public function create()
 {
+    $this->checkAccess();
+
     $user = Auth::user();
-    $currentBranchId = $user->branch_id;
+    $currentBranchId = $this->branchAccessService->branchId($user) ?? 0;
+    $visibleBranchIds = $this->branchAccessService->accessibleBranchIds($user);
+    $branches = $this->branchAccessService->visibleBranches($user);
 
-    // 1. Fetch ALL active inventory grouped by Product and Branch
-    // This gives us raw rows like: [Prod 1, Branch 1, Qty 50], [Prod 1, Branch 2, Qty 20]
-    $rawInventory = $this->orderRepository->getGroupedActiveInventoryTotals();
+    // 1. Fetch ALL active inventory grouped by Product and Branch.
+    $rawInventory = $this->orderRepository->getGroupedActiveInventoryTotals()
+        ->filter(fn ($item) => in_array((int) $item->branch_id, $visibleBranchIds, true))
+        ->values();
 
-    // 2. Build the Master StockMap
-    // Structure: [ ProductID => ['rhu1' => 50, 'rhu2' => 20, 'total' => 70] ]
+    // 2. Build a dynamic StockMap.
+    // Structure: [ productId => ['branches' => [branchId => qty], 'total' => qty] ]
     $stockMap = [];
     foreach($rawInventory as $item) {
         $pid = $item->product_id;
-        
+
         if (!isset($stockMap[$pid])) {
-            $stockMap[$pid] = ['rhu1' => 0, 'rhu2' => 0, 'total' => 0];
+            $stockMap[$pid] = ['branches' => [], 'total' => 0];
         }
 
-        // Assign quantity to specific branch keys
-        // Assuming ID 1 is RHU 1 and ID 2 is RHU 2
-        if ($item->branch_id == 1) {
-            $stockMap[$pid]['rhu1'] = (int)$item->total_qty;
-        } elseif ($item->branch_id == 2) {
-            $stockMap[$pid]['rhu2'] = (int)$item->total_qty;
-        }
-
-        // Add to total
+        $stockMap[$pid]['branches'][(int) $item->branch_id] = (int) $item->total_qty;
         $stockMap[$pid]['total'] += (int)$item->total_qty;
     }
 
-    // 3. Generate Suggested Items (Low Stock logic)
-    // We only suggest items that are low in the CURRENT user's branch
+    // 3. Generate Suggested Items (Low Stock logic for current user's branch).
     $products = $this->orderRepository->getActiveProductsOrdered();
     $suggestedItems = [];
 
     foreach($products as $product) {
-        $stats = $stockMap[$product->id] ?? ['rhu1' => 0, 'rhu2' => 0, 'total' => 0];
-        
-        // Determine stock for the user's specific branch
-        $myBranchStock = ($currentBranchId == 1) ? $stats['rhu1'] : $stats['rhu2'];
+        $stats = $stockMap[$product->id] ?? ['branches' => [], 'total' => 0];
+        $myBranchStock = (int) ($stats['branches'][$currentBranchId] ?? 0);
 
         if ($myBranchStock <= 100) {
             $suggestedItems[] = [
                 'product_id' => $product->id,
                 'product_name' => $product->generic_name . ' (' . $product->brand_name . ')',
-                'rhu1_stock' => $stats['rhu1'],
-                'rhu2_stock' => $stats['rhu2'],
+                'branch_stocks' => $stats['branches'],
                 'total_stock' => $stats['total'],
                 'suggested_qty' => 1000 - $myBranchStock
             ];
@@ -84,23 +81,80 @@ class OrderAdminService
     return view('admin.orders.create', [
         'suggestedItems' => $suggestedItems,
         'allProducts' => $products,
-        'stockMap' => $stockMap
+        'stockMap' => $stockMap,
+        'branches' => $branches,
+        'defaultSourceBranchId' => (int) old('source_branch_id', $currentBranchId),
     ]);
 }
+
+    public function sourceInventoryOptions(Request $request)
+    {
+        $this->checkAccess();
+
+        $validated = $request->validate([
+            'branch_id' => [
+                'required',
+                'integer',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
+        ]);
+
+        $branchId = $this->branchAccessService->resolveBranchFilter($request->user(), $validated['branch_id']);
+        $inventoryRows = $this->orderRepository->getAvailableSourceInventoryByBranch($branchId);
+        $grouped = [];
+
+        foreach ($inventoryRows as $row) {
+            $productId = (int) $row->product_id;
+            $grouped[$productId] ??= [];
+            $grouped[$productId][] = [
+                'inventory_id' => (int) $row->id,
+                'product_id' => $productId,
+                'batch_number' => (string) $row->batch_number,
+                'available_quantity' => (int) ($row->available_qty ?? 0),
+                'expiry_date' => optional($row->expiry_date)->format('Y-m-d'),
+                'received_date' => optional($row->created_at)->format('Y-m-d'),
+                'label' => sprintf(
+                    'Batch #%s • Exp: %s • Avail: %d • Recv: %s',
+                    $row->batch_number ?: 'N/A',
+                    optional($row->expiry_date)->format('Y-m-d') ?? '-',
+                    (int) ($row->available_qty ?? 0),
+                    optional($row->created_at)->format('Y-m-d') ?? '-'
+                ),
+            ];
+        }
+
+        return response()->json([
+            'branch_id' => $branchId,
+            'inventory_by_product' => $grouped,
+        ]);
+    }
     /**
      * 2. Store the Order (Pharmacist/Admin Action)
      */
     public function store(Request $request)
     {
+        $this->checkAccess();
+
         $request->validate([
-            'items' => 'required|array',
+            'source_branch_id' => [
+                'required',
+                'integer',
+                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
+            ],
+            'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
+            'items.*.source_inventory_id' => 'required|exists:inventories,id',
         ]);
+
+        $requestingBranchId = $this->branchAccessService->branchId(Auth::user());
+        abort_if(!$requestingBranchId, 403, app(AuthSessionService::class)->getForbiddenMessage(Auth::user(), 'create orders without an assigned branch'));
+        $sourceBranchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->integer('source_branch_id'));
 
         try {
             $this->orderRepository->createOrderWithItems(
-                (int) Auth::user()->branch_id,
+                $requestingBranchId,
+                $sourceBranchId,
                 (int) Auth::id(),
                 $request->remarks,
                 $request->items
@@ -111,7 +165,9 @@ class OrderAdminService
 
         } catch (\Exception $e) {
             Log::error('Order Store Error: ' . $e->getMessage());
-            return back()->with('error', 'Failed to submit order. Please try again.');
+            return back()
+                ->withInput()
+                ->with('error', $e->getMessage() ?: 'Failed to submit order. Please try again.');
         }
     }
 
@@ -123,10 +179,10 @@ class OrderAdminService
                 $this->checkAccess(); // <--- Security Check
 
         $user = Auth::user();
-        
+
         $orders = $this->orderRepository->paginateForUserBranch(
-            (int) $user->branch_id,
-            $user->hasPermission('orders.approve_admin'),
+            $this->branchAccessService->branchId($user) ?? 0,
+            $this->branchAccessService->canAccessAllBranches($user),
             10
         );
 
@@ -139,33 +195,48 @@ class OrderAdminService
     public function updateStatus(Request $request, $id)
     {
         $order = $this->orderRepository->findOrFail((int) $id);
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $order->branch_id, 'update orders from another branch');
         $action = $request->input('action'); // 'approve' or 'reject'
 
-        if ($action == 'reject') {
-            $order->update(['status' => 'rejected']);
-            return back()->with('success', 'Order has been rejected.');
-        }
+        try {
+            return DB::transaction(function () use ($order, $action) {
+                if ($action == 'reject') {
+                    $order->update(['status' => 'rejected']);
+                    Log::info('Order rejected', ['order_id' => $order->id, 'user_id' => Auth::id()]);
+                    return back()->with('success', 'Order has been rejected.');
+                }
 
-        // Logic Chain
-        // 1. User with admin approval permission approves -> goes to Finance
-        if ($order->status == 'pending_admin' && Auth::user()->hasPermission('orders.approve_admin')) {
-            $order->update([
-                'status' => 'pending_finance',
-                'admin_approved_at' => now()
-            ]);
-            return back()->with('success', 'Approved! Order forwarded to Finance.');
-        } 
-        
-        // 2. User with finance approval permission approves -> Final Approved
-        if ($order->status == 'pending_finance' && Auth::user()->hasPermission('orders.approve_finance')) {
-            $order->update([
-                'status' => 'approved',
-                'finance_approved_at' => now()
-            ]);
-            return back()->with('success', 'Final Approval Granted! Order is ready to print.');
-        }
+                // Logic Chain
+                // 1. User with admin approval permission approves -> goes to Finance
+                if ($order->status == 'pending_admin' && Auth::user()->hasPermission('orders.approve_admin')) {
+                    $order->update([
+                        'status' => 'pending_finance',
+                        'admin_approved_at' => now()
+                    ]);
+                    Log::info('Order approved by admin', ['order_id' => $order->id, 'user_id' => Auth::id()]);
+                    return back()->with('success', 'Approved! Order forwarded to Finance.');
+                }
 
-        return back()->with('error', 'Unauthorized action or invalid status flow.');
+                // 2. User with finance approval permission approves -> Final Approved
+                if ($order->status == 'pending_finance' && Auth::user()->hasPermission('orders.approve_finance')) {
+                    $order->update([
+                        'status' => 'approved',
+                        'finance_approved_at' => now()
+                    ]);
+                    Log::info('Order approved by finance', ['order_id' => $order->id, 'user_id' => Auth::id()]);
+                    return back()->with('success', 'Final Approval Granted! Order is ready to print.');
+                }
+
+                return back()->with('error', 'Unauthorized action or invalid status flow.');
+            });
+        } catch (\Exception $e) {
+            Log::error('Failed to update order status', [
+                'order_id' => $order->id,
+                'action' => $action,
+                'error' => $e->getMessage(),
+            ]);
+            return back()->with('error', 'Failed to update order status. Please try again.');
+        }
     }
 
     /**
@@ -174,6 +245,7 @@ class OrderAdminService
     public function print($id)
     {
         $order = $this->orderRepository->findForPrint((int) $id);
+        $this->branchAccessService->authorizeBranchAccess(Auth::user(), $order->branch_id, 'print orders from another branch');
 
         if ($order->status != 'approved') {
             abort(403, 'Order must be fully approved to print.');

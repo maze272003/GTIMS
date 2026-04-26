@@ -3,9 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ==============================================================
     // 1. VARIABLES & SELECTORS
     // ==============================================================
-    const tableContainer = document.getElementById('table-container');
-    const searchInput = document.getElementById('patientrecords-search-input');
-    const filterForm = document.getElementById('filterForm'); // The form inside the filter modal
+    const filterModal = document.getElementById('filterModal');
     
     // ==============================================================
     // 2. HELPER FUNCTIONS
@@ -16,71 +14,6 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!modal) return;
         const errorMessages = modal.querySelectorAll('.error-message');
         errorMessages.forEach(error => error.remove());
-    }
-
-    // Debounce Function (Delays AJAX execution while typing)
-    const debounce = (func, delay) => {
-        let timer;
-        return (...args) => {
-            clearTimeout(timer);
-            timer = setTimeout(() => func(...args), delay);
-        };
-    };
-
-    // Build URL based on Search Input AND Filter Form
-    function buildUrl(pageUrl = null) {
-        const url = new URL(pageUrl || window.location.href);
-        const params = url.searchParams;
-
-        // 1. Handle Search
-        if (searchInput) {
-            const val = searchInput.value.trim();
-            if (val) params.set('search', val);
-            else params.delete('search');
-        }
-
-        // 2. Handle Admin Branch Filter (Outside Modal)
-        const branchFilter = document.querySelector('select[name="branch_filter"]');
-        if (branchFilter && branchFilter.value !== 'all') {
-            params.set('branch_filter', branchFilter.value);
-        }
-
-        // 3. Handle Modal Filters (Date, Category, Barangay)
-        if (filterForm) {
-            const formData = new FormData(filterForm);
-            for (const [key, value] of formData.entries()) {
-                if (value) params.set(key, value);
-                else params.delete(key);
-            }
-        }
-
-        // Always reset to page 1 when searching/filtering (unless pagination link was clicked)
-        if (!pageUrl) params.set('page', 1);
-
-        return url.toString();
-    }
-
-    // AJAX Fetch
-    function fetchTableData(url) {
-        if (!tableContainer) return;
-
-        tableContainer.style.opacity = '0.5'; // Loading visual cue
-
-        fetch(url, {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(response => response.text())
-        .then(html => {
-            tableContainer.innerHTML = html;
-            tableContainer.style.opacity = '1';
-            // Update Browser URL Bar
-            window.history.pushState(null, '', url);
-        })
-        .catch(function () {
-            if (typeof gtToast !== 'undefined') gtToast.error('Failed to load patient records.');
-            tableContainer.style.opacity = '1';
-            // Optional: Show error message in table
-        });
     }
 
     // Initialize Searchable Dropdown (Medication Search)
@@ -170,18 +103,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('click', function (e) {
         const target = e.target;
 
-        // A. PAGINATION LINKS
-        const paginationLink = target.closest('.pagination-links a');
-        if (paginationLink && tableContainer.contains(paginationLink)) {
-            e.preventDefault();
-            // Pass the link's href to buildUrl to keep filters intact
-            const url = buildUrl(paginationLink.getAttribute('href'));
-            fetchTableData(url);
-            return;
-        }
-
-        // B. VIEW MEDICATIONS BUTTON
-        const viewBtn = target.closest('.view-medications-btn');
+        // --- A. VIEW MEDICATIONS MODAL ---
+        const viewBtn = e.target.closest('.view-medications-btn');
         if (viewBtn) {
             const row = viewBtn.closest('tr');
             const name = row.dataset.patientName;
@@ -221,8 +144,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // C. EDIT RECORD BUTTON
-        const editBtn = target.closest('.editrecordbtn');
+        // --- B. EDIT RECORD MODAL ---
+        const editBtn = e.target.closest('.editrecordbtn');
         if (editBtn) {
             const row = editBtn.closest('tr');
             const d = row.dataset;
@@ -236,26 +159,31 @@ document.addEventListener('DOMContentLoaded', function () {
             const barangaySelect = document.getElementById('edit-barangay_id');
             if(barangaySelect) barangaySelect.value = d.barangayId;
 
-            document.getElementById('edit-record-title').textContent = `Edit #${d.recordId} – ${d.patientName}`;
+            document.getElementById('edit-record-title').textContent = `Edit #${row.dataset.recordId} - ${row.dataset.patientName}`;
             
             document.getElementById('editrecordmodal').classList.remove('hidden');
             return;
         }
 
-        // D. OPEN MODALS
-        if (target.closest('#adddispensationbtn')) {
+        // --- C. ADD RECORD MODAL TRIGGER ---
+        const addBtn = e.target.closest('#adddispensationbtn');
+        if (addBtn) {
             document.getElementById('adddispensationmodal').classList.remove('hidden');
             return;
         }
-        if (target.closest('#openFilterModal')) {
-            document.getElementById('filterModal').classList.remove('hidden');
+
+        // --- D. FILTER MODAL TRIGGER ---
+        const filterBtn = e.target.closest('#openFilterModal');
+        if (filterBtn) {
+            filterModal.classList.remove('hidden');
             return;
         }
 
-        // E. CLOSE MODALS
-        if (target.closest('#closeadddispensationmodal') || target.closest('.close-modal')) {
-            document.getElementById('adddispensationmodal').classList.add('hidden');
-            clearValidation(document.getElementById('adddispensationmodal'));
+        // --- E. CLOSE MODALS ---
+        if (e.target.closest('#closeadddispensationmodal')) {
+            const m = document.getElementById('adddispensationmodal');
+            m.classList.add('hidden');
+            clearValidation(m);
         }
         if (target.closest('#closeeditrecordmodal')) {
             document.getElementById('editrecordmodal').classList.add('hidden');
@@ -430,46 +358,50 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+    // Search Debounce (GET query persistence)
+    const searchInput = document.getElementById('patientrecords-search-input');
+    const searchForm = document.getElementById('patientrecords-search-form');
+    const searchPageInput = document.getElementById('patientrecords-search-page');
+    let debounceTimer;
+    if (searchInput && searchForm) {
+        searchInput.addEventListener('input', function () {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                if (searchPageInput) {
+                    searchPageInput.value = '1';
+                }
+                searchForm.submit();
+            }, 500);
+        });
+    }
 
-    // --- EDIT DISPENSATION ---
-    const updateBtn = document.getElementById('update-dispensation-btn');
-    const editForm = document.getElementById('edit-dispensation-form');
+});
 
-    if (updateBtn && editForm) {
-        updateBtn.addEventListener('click', (e) => {
-            e.preventDefault();
+// add dispensation sweet alert 
 
-            // Quick manual validation
-            const pName = document.getElementById('edit-patient-name').value.trim();
-            const brgy = document.getElementById('edit-barangay_id').value;
-            const purok = document.getElementById('edit-purok').value.trim();
-            const date = document.getElementById('edit-date-dispensed').value;
+const addDispensationBtn = document.getElementById('add-dispensation-btn');
+if (addDispensationBtn) {
+    addDispensationBtn.addEventListener('click', function () {
+        const form = document.getElementById('add-dispensation-form');
+        if (!form) {
+            return;
+        }
 
-            if (!pName || !brgy || !purok || !date) {
-                Swal.fire({
-                    title: 'Incomplete Data',
-                    text: 'Please fill in all required fields.',
-                    icon: 'warning',
-                    confirmButtonText: 'OK',
-                    customClass: {
-                        container: 'swal-container',
-                        popup: 'swal-popup',
-                        title: 'swal-title',
-                        htmlContainer: 'swal-content',
-                        cancelButton: 'swal-cancel-button',
-                        icon: 'swal-icon'
-                    }
-                });
-                return;
+        const inputs = form.querySelectorAll('input[type="text"], input[type="number"], input[type="date"], select');
+        let allFilled = true;
+
+        inputs.forEach(input => {
+            if (input.value.trim() === '') {
+                allFilled = false;
             }
+        });
 
+        if (!allFilled) {
             Swal.fire({
-                title: 'Are you sure?',
-                text: "Please confirm if you want to proceed.",
-                icon: 'info',
-                showCancelButton: true,
-                cancelButtonText: 'Cancel',
-                confirmButtonText: 'Confirm',
+                title: 'Incomplete Form',
+                text: 'Please fill in all required fields before submitting.',
+                icon: 'warning',
+                confirmButtonText: 'OK',
                 allowOutsideClick: false,
                 customClass: {
                     container: 'swal-container',
@@ -477,29 +409,49 @@ document.addEventListener('DOMContentLoaded', function () {
                     title: 'swal-title',
                     htmlContainer: 'swal-content',
                     confirmButton: 'swal-confirm-button',
-                    cancelButton: 'swal-cancel-button',
                     icon: 'swal-icon'
                 }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Processing...',
-                        text: "Updating record...",
-                        allowOutsideClick: false,
-                        customClass: {
-                            container: 'swal-container',
-                            popup: 'swal-popup',
-                            title: 'swal-title',
-                            htmlContainer: 'swal-content',
-                            cancelButton: 'swal-cancel-button',
-                            icon: 'swal-icon'
-                        },
-                        didOpen: () => Swal.showLoading()
-                    });
-                    editForm.submit();
-                }
             });
-        });
-    }
+            return;
+        }
 
-});
+        Swal.fire({
+            title: 'Are you sure?',
+            text: "Please confirm if you want to proceed.",
+            icon: 'info',
+            showCancelButton: true,
+            cancelButtonText: 'Cancel',
+            confirmButtonText: 'Confirm',
+            allowOutsideClick: false,
+            customClass: {
+                container: 'swal-container',
+                popup: 'swal-popup',
+                title: 'swal-title',
+                htmlContainer: 'swal-content',
+                confirmButton: 'swal-confirm-button',
+                cancelButton: 'swal-cancel-button',
+                icon: 'swal-icon'
+            }
+        }).then((result) => {
+            if (result.isConfirmed) {
+                Swal.fire({
+                    title: 'Processing...',
+                    text: "Please wait, your request is being processed.",
+                    allowOutsideClick: false,
+                    customClass: {
+                        container: 'swal-container',
+                        popup: 'swal-popup',
+                        title: 'swal-title',
+                        htmlContainer: 'swal-content',
+                        cancelButton: 'swal-cancel-button',
+                        icon: 'swal-icon'
+                    },
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                form.submit();
+            }
+        });
+    });
+}
