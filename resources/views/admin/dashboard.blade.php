@@ -452,7 +452,7 @@
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
               <i class="fa-regular fa-wave-pulse text-blue-600 mr-2"></i>System Observability
             </h3>
-            <p class="text-sm text-gray-500 dark:text-gray-400">Real-time monitoring for throughput, latency, error signals, and workflow bottlenecks.</p>
+            <p class="text-sm text-gray-500 dark:text-gray-400">Real-time monitoring for throughput and request latency.</p>
           </div>
           <div class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
             <span class="inline-flex items-center px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">
@@ -465,32 +465,22 @@
           </div>
         </div>
 
-        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div class="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 p-4">
             <p class="text-xs uppercase tracking-wide text-blue-700 dark:text-blue-300">Operations</p>
             <p id="obs-operations-total" class="text-2xl font-bold text-blue-900 dark:text-blue-100">{{ number_format(data_get($observability ?? [], 'summary.operations_total', 0)) }}</p>
             <p class="text-xs text-blue-700 dark:text-blue-300"><span id="obs-operations-per-hour">{{ number_format((float) data_get($observability ?? [], 'summary.operations_per_hour', 0), 2) }}</span> / hour</p>
-          </div>
-          <div class="rounded-lg border border-rose-200 bg-rose-50 dark:bg-rose-900/20 dark:border-rose-800 p-4">
-            <p class="text-xs uppercase tracking-wide text-rose-700 dark:text-rose-300">Error Signals</p>
-            <p id="obs-error-events" class="text-2xl font-bold text-rose-900 dark:text-rose-100">{{ number_format(data_get($observability ?? [], 'summary.error_events', 0)) }}</p>
-            <p class="text-xs text-rose-700 dark:text-rose-300"><span id="obs-error-rate">{{ number_format((float) data_get($observability ?? [], 'summary.error_rate', 0), 2) }}</span>% event rate</p>
           </div>
           <div class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 p-4">
             <p class="text-xs uppercase tracking-wide text-amber-700 dark:text-amber-300">Request Latency</p>
             <p id="obs-cycle-hours" class="text-2xl font-bold text-amber-900 dark:text-amber-100">{{ number_format((float) data_get($observability ?? [], 'summary.avg_cycle_time_hours', 0), 2) }}</p>
             <p class="text-xs text-amber-700 dark:text-amber-300">Avg cycle hours</p>
           </div>
-          <div class="rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-900/20 dark:border-violet-800 p-4">
-            <p class="text-xs uppercase tracking-wide text-violet-700 dark:text-violet-300">Workflow Bottlenecks</p>
-            <p id="obs-stale-open-requests" class="text-2xl font-bold text-violet-900 dark:text-violet-100">{{ number_format(data_get($observability ?? [], 'summary.stale_open_requests', 0)) }}</p>
-            <p class="text-xs text-violet-700 dark:text-violet-300">Stale requests (48h+)</p>
-          </div>
         </div>
 
         <div class="p-4 pt-0 grid grid-cols-1 xl:grid-cols-2 gap-4">
           <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
-            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Operational Throughput</h4>
+            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Operational Flow</h4>
             <div class="relative chart-container !h-72">
               <canvas id="observabilityThroughputChart"></canvas>
             </div>
@@ -499,69 +489,6 @@
             <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Request Stage Latency</h4>
             <div class="relative chart-container !h-72">
               <canvas id="observabilityLatencyChart"></canvas>
-            </div>
-          </div>
-          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
-            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Error Tracking Trend</h4>
-            <div class="relative chart-container !h-72">
-              <canvas id="observabilityErrorChart"></canvas>
-            </div>
-          </div>
-          <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50/70 dark:bg-gray-900/30">
-            <h4 class="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">Open Queue By Status</h4>
-            <div class="relative chart-container !h-72">
-              <canvas id="observabilityBottleneckChart"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <div class="p-4 pt-0 grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-200">Top Error Categories</div>
-            <div class="max-h-52 overflow-y-auto">
-              <table class="w-full text-sm">
-                <thead class="sticky top-0 bg-white dark:bg-gray-800 text-xs uppercase text-gray-500 dark:text-gray-400">
-                  <tr>
-                    <th class="px-4 py-2 text-left">Category</th>
-                    <th class="px-4 py-2 text-right">Count</th>
-                  </tr>
-                </thead>
-                <tbody id="obs-top-errors-body" class="divide-y divide-gray-100 dark:divide-gray-700">
-                  @forelse(data_get($observability ?? [], 'errors.top_categories', []) as $row)
-                    <tr>
-                      <td class="px-4 py-2 text-gray-700 dark:text-gray-200">{{ data_get($row, 'label', 'unknown') }}</td>
-                      <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">{{ (int) data_get($row, 'count', 0) }}</td>
-                    </tr>
-                  @empty
-                    <tr><td class="px-4 py-3 text-gray-500" colspan="2">No error categories found for the selected period.</td></tr>
-                  @endforelse
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div class="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div class="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-200">Aging Open Requests</div>
-            <div class="max-h-52 overflow-y-auto">
-              <table class="w-full text-sm">
-                <thead class="sticky top-0 bg-white dark:bg-gray-800 text-xs uppercase text-gray-500 dark:text-gray-400">
-                  <tr>
-                    <th class="px-4 py-2 text-left">Request</th>
-                    <th class="px-4 py-2 text-left">Status</th>
-                    <th class="px-4 py-2 text-right">Age (hours)</th>
-                  </tr>
-                </thead>
-                <tbody id="obs-aging-requests-body" class="divide-y divide-gray-100 dark:divide-gray-700">
-                  @forelse(data_get($observability ?? [], 'bottlenecks.top_aging_requests', []) as $row)
-                    <tr>
-                      <td class="px-4 py-2 text-gray-700 dark:text-gray-200">#{{ data_get($row, 'id') }} - {{ data_get($row, 'department', '-') }}</td>
-                      <td class="px-4 py-2 text-gray-700 dark:text-gray-200">{{ ucfirst((string) data_get($row, 'status', '')) }} ({{ data_get($row, 'priority', '-') }})</td>
-                      <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">{{ (int) data_get($row, 'age_hours', 0) }}</td>
-                    </tr>
-                  @empty
-                    <tr><td class="px-4 py-3 text-gray-500" colspan="3">No open requests currently detected.</td></tr>
-                  @endforelse
-                </tbody>
-              </table>
             </div>
           </div>
         </div>
@@ -1164,8 +1091,6 @@ const distinctPieColors = [
       const summary = payload.summary || {};
       const throughput = payload.throughput || {};
       const latency = payload.latency || {};
-      const errors = payload.errors || {};
-      const bottlenecks = payload.bottlenecks || {};
 
       const generatedAtEl = document.getElementById('observability-generated-at');
       if (generatedAtEl && payload.generated_at) {
@@ -1175,10 +1100,7 @@ const distinctPieColors = [
       const cardMap = [
         ['obs-operations-total', formatNumber(summary.operations_total)],
         ['obs-operations-per-hour', formatNumber(summary.operations_per_hour, 2)],
-        ['obs-error-events', formatNumber(summary.error_events)],
-        ['obs-error-rate', formatNumber(summary.error_rate, 2)],
         ['obs-cycle-hours', formatNumber(summary.avg_cycle_time_hours, 2)],
-        ['obs-stale-open-requests', formatNumber(summary.stale_open_requests)],
       ];
       cardMap.forEach(([id, value]) => {
         const el = document.getElementById(id);
@@ -1201,46 +1123,6 @@ const distinctPieColors = [
         window.myCharts.observabilityLatencyChart.data.datasets[2].data = latency.fulfillment_hours || [];
         window.myCharts.observabilityLatencyChart.update();
       }
-
-      if (window.myCharts.observabilityErrorChart) {
-        window.myCharts.observabilityErrorChart.data.labels = errors.labels || [];
-        window.myCharts.observabilityErrorChart.data.datasets[0].data = errors.combined || [];
-        window.myCharts.observabilityErrorChart.data.datasets[1].data = errors.audit_failed || [];
-        window.myCharts.observabilityErrorChart.data.datasets[2].data = errors.request_denied || [];
-        window.myCharts.observabilityErrorChart.data.datasets[3].data = errors.history_failed || [];
-        window.myCharts.observabilityErrorChart.update();
-      }
-
-      if (window.myCharts.observabilityBottleneckChart) {
-        window.myCharts.observabilityBottleneckChart.data.labels = bottlenecks.status_labels || [];
-        window.myCharts.observabilityBottleneckChart.data.datasets[0].data = bottlenecks.status_counts || [];
-        window.myCharts.observabilityBottleneckChart.update();
-      }
-
-      renderObservabilityRows(
-        'obs-top-errors-body',
-        errors.top_categories || [],
-        2,
-        (row) => `
-          <tr>
-            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">${row.label || 'unknown'}</td>
-            <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">${formatNumber(row.count || 0)}</td>
-          </tr>
-        `
-      );
-
-      renderObservabilityRows(
-        'obs-aging-requests-body',
-        bottlenecks.top_aging_requests || [],
-        3,
-        (row) => `
-          <tr>
-            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">#${row.id || '-'} - ${row.department || '-'}</td>
-            <td class="px-4 py-2 text-gray-700 dark:text-gray-200">${row.status || '-'} (${row.priority || '-'})</td>
-            <td class="px-4 py-2 text-right font-semibold text-gray-800 dark:text-gray-100">${formatNumber(row.age_hours || 0)}</td>
-          </tr>
-        `
-      );
     }
 
     async function refreshObservabilityWidget() {
@@ -1956,92 +1838,6 @@ const distinctPieColors = [
       };
       window.myCharts.observabilityLatencyChart = new Chart(obsLatencyCtx, obsLatencyConfig);
       window.originalChartConfigs.observabilityLatencyChart = JSON.parse(JSON.stringify(obsLatencyConfig));
-
-      // 8. Observability Error Chart
-      const obsErrorCtx = document.getElementById('observabilityErrorChart').getContext('2d');
-      const obsErrorConfig = {
-        type: 'line',
-        data: {
-          labels: initialChartData.observability?.errors?.labels || [],
-          datasets: [
-            {
-              label: 'Combined Error Signals',
-              data: initialChartData.observability?.errors?.combined || [],
-              borderColor: observabilityColors.errorCombined,
-              backgroundColor: 'rgba(220, 38, 38, 0.15)',
-              fill: true,
-              tension: 0.3
-            },
-            {
-              label: 'Audit Failed',
-              data: initialChartData.observability?.errors?.audit_failed || [],
-              borderColor: observabilityColors.errorAudit,
-              fill: false,
-              tension: 0.25
-            },
-            {
-              label: 'Requests Denied',
-              data: initialChartData.observability?.errors?.request_denied || [],
-              borderColor: observabilityColors.errorRequest,
-              fill: false,
-              tension: 0.25
-            },
-            {
-              label: 'History Fail/Error',
-              data: initialChartData.observability?.errors?.history_failed || [],
-              borderColor: observabilityColors.errorHistory,
-              fill: false,
-              tension: 0.25
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: true, position: 'bottom' },
-            tooltip: { mode: 'index', intersect: false }
-          },
-          scales: {
-            y: { beginAtZero: true, title: { display: true, text: 'Events' } },
-            x: { ticks: { autoSkip: true, maxRotation: 0 } }
-          }
-        }
-      };
-      window.myCharts.observabilityErrorChart = new Chart(obsErrorCtx, obsErrorConfig);
-      window.originalChartConfigs.observabilityErrorChart = JSON.parse(JSON.stringify(obsErrorConfig));
-
-      // 9. Observability Bottleneck Chart
-      const obsBottleneckCtx = document.getElementById('observabilityBottleneckChart').getContext('2d');
-      const obsBottleneckConfig = {
-        type: 'bar',
-        data: {
-          labels: initialChartData.observability?.bottlenecks?.status_labels || [],
-          datasets: [
-            {
-              label: 'Open Requests',
-              data: initialChartData.observability?.bottlenecks?.status_counts || [],
-              backgroundColor: 'rgba(14, 165, 233, 0.75)',
-              borderColor: observabilityColors.bottleneck,
-              borderWidth: 1
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { mode: 'index', intersect: false }
-          },
-          scales: {
-            y: { beginAtZero: true, title: { display: true, text: 'Requests' } },
-            x: { ticks: { autoSkip: false, maxRotation: 0 } }
-          }
-        }
-      };
-      window.myCharts.observabilityBottleneckChart = new Chart(obsBottleneckCtx, obsBottleneckConfig);
-      window.originalChartConfigs.observabilityBottleneckChart = JSON.parse(JSON.stringify(obsBottleneckConfig));
 
       // --- TOGGLE BUTTONS ---
       document.querySelectorAll('.chart-toggle').forEach(button => {
