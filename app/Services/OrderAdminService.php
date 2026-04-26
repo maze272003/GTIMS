@@ -38,7 +38,6 @@ public function create()
     $user = Auth::user();
     $currentBranchId = $this->branchAccessService->branchId($user) ?? 0;
     $visibleBranchIds = $this->branchAccessService->accessibleBranchIds($user);
-    $branches = $this->branchAccessService->visibleBranches($user);
 
     // 1. Fetch ALL active inventory grouped by Product and Branch.
     $rawInventory = $this->orderRepository->getGroupedActiveInventoryTotals()
@@ -82,8 +81,7 @@ public function create()
         'suggestedItems' => $suggestedItems,
         'allProducts' => $products,
         'stockMap' => $stockMap,
-        'branches' => $branches,
-        'defaultSourceBranchId' => (int) old('source_branch_id', $currentBranchId),
+        'branches' => $this->branchAccessService->visibleBranches($user),
     ]);
 }
 
@@ -136,25 +134,17 @@ public function create()
         $this->checkAccess();
 
         $request->validate([
-            'source_branch_id' => [
-                'required',
-                'integer',
-                Rule::exists('branches', 'id')->where(fn ($query) => $query->where('is_archived', false)),
-            ],
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
-            'items.*.source_inventory_id' => 'required|exists:inventories,id',
         ]);
 
         $requestingBranchId = $this->branchAccessService->branchId(Auth::user());
         abort_if(!$requestingBranchId, 403, app(AuthSessionService::class)->getForbiddenMessage(Auth::user(), 'create orders without an assigned branch'));
-        $sourceBranchId = $this->branchAccessService->resolveBranchFilter($request->user(), $request->integer('source_branch_id'));
 
         try {
             $this->orderRepository->createOrderWithItems(
                 $requestingBranchId,
-                $sourceBranchId,
                 (int) Auth::id(),
                 $request->remarks,
                 $request->items
@@ -253,5 +243,66 @@ public function create()
 
         // Return a print view
         return view('admin.orders.print', compact('order'));
+    }
+
+    public function requestIndex()
+    {
+        $this->checkAccess();
+
+        $user = Auth::user();
+        $orders = $this->orderRepository->paginateApprovedForReceiving(
+            $this->branchAccessService->branchId($user) ?? 0,
+            $this->branchAccessService->canAccessAllBranches($user),
+            10
+        );
+
+        return view('admin.requests.index', compact('orders'));
+    }
+
+    public function requestShow(int $id)
+    {
+        $this->checkAccess();
+
+        $order = $this->orderRepository->findForReceiving($id);
+        $this->branchAccessService->authorizeBranchAccess(Auth::user(), $order->branch_id, 'view order receiving details from another branch');
+
+        if ($order->status !== 'approved') {
+            abort(404);
+        }
+
+        return view('admin.requests.show', compact('order'));
+    }
+
+    public function receive(Request $request, int $id)
+    {
+        $this->checkAccess();
+
+        $order = $this->orderRepository->findForReceiving($id);
+        $this->branchAccessService->authorizeBranchAccess($request->user(), $order->branch_id, 'receive orders for another branch');
+
+        $validated = $request->validate([
+            'items' => 'required|array|min:1',
+            'items.*.batches' => 'required|array|min:1',
+            'items.*.batches.*.batch_number' => 'required|string|max:120',
+            'items.*.batches.*.quantity' => 'required|integer|min:1',
+            'items.*.batches.*.expiry_date' => 'required|date',
+        ]);
+
+        try {
+            $this->orderRepository->receiveApprovedOrder($order->id, (int) Auth::id(), $validated['items']);
+
+            return redirect()
+                ->route('admin.requests.show', $order->id)
+                ->with('success', 'Order received and stocked into inventory.');
+        } catch (\Exception $e) {
+            Log::error('Order receive error', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()
+                ->withInput()
+                ->with('error', $e->getMessage() ?: 'Failed to receive order.');
+        }
     }
 }

@@ -85,9 +85,9 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
             ->get();
     }
 
-    public function createOrderWithItems(int $requestingBranchId, int $sourceBranchId, int $userId, ?string $remarks, array $items): Order
+    public function createOrderWithItems(int $requestingBranchId, int $userId, ?string $remarks, array $items): Order
     {
-        return DB::transaction(function () use ($requestingBranchId, $sourceBranchId, $userId, $remarks, $items) {
+        return DB::transaction(function () use ($requestingBranchId, $userId, $remarks, $items) {
             $order = Order::create([
                 'branch_id' => $requestingBranchId,
                 'user_id' => $userId,
@@ -96,77 +96,12 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
             ]);
 
             foreach ($items as $item) {
-                $sourceInventory = Inventory::query()
-                    ->where('is_archived', false)
-                    ->lockForUpdate()
-                    ->find((int) $item['source_inventory_id']);
-
-                if (!$sourceInventory) {
-                    throw new RuntimeException('Selected batch was not found.');
-                }
-
-                if ((int) $sourceInventory->branch_id !== $sourceBranchId) {
-                    throw new RuntimeException('Selected batch does not belong to the selected source branch.');
-                }
-
-                if ((int) $sourceInventory->product_id !== (int) $item['product_id']) {
-                    throw new RuntimeException('Selected batch does not match the chosen product.');
-                }
-
                 $requestedQty = (int) $item['quantity'];
-                $sourceBeforeOnHand = (int) ($sourceInventory->onhand_qty ?? $sourceInventory->quantity ?? 0);
-                $heldQty = (int) ($sourceInventory->hold_qty ?? 0);
-                $availableQty = max(0, $sourceBeforeOnHand - $heldQty);
-
-                if ($requestedQty > $availableQty) {
-                    throw new RuntimeException("Insufficient stock for batch {$sourceInventory->batch_number}. Requested {$requestedQty}, available {$availableQty}.");
-                }
-
-                // Find or create inventory at requesting branch with same product & batch
-                $destInventory = Inventory::query()
-                    ->where('branch_id', $requestingBranchId)
-                    ->where('product_id', (int) $item['product_id'])
-                    ->where('batch_number', $sourceInventory->batch_number)
-                    ->where('is_archived', false)
-                    ->lockForUpdate()
-                    ->first();
-
-                $destBeforeOnHand = 0;
-                if ($destInventory) {
-                    $destBeforeOnHand = (int) ($destInventory->onhand_qty ?? $destInventory->quantity ?? 0);
-                    $destInventory->onhand_qty = $destBeforeOnHand + $requestedQty;
-                    $destInventory->save();
-                } else {
-                    $destInventory = Inventory::create([
-                        'branch_id' => $requestingBranchId,
-                        'product_id' => (int) $item['product_id'],
-                        'batch_number' => $sourceInventory->batch_number,
-                        'expiry_date' => $sourceInventory->expiry_date,
-                        'quantity' => $requestedQty,
-                        'onhand_qty' => $requestedQty,
-                        'hold_qty' => 0,
-                        'is_archived' => false,
-                    ]);
-                }
 
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
                     'quantity_requested' => $requestedQty,
-                    'source_branch_id' => $sourceBranchId,
-                    'source_inventory_id' => $sourceInventory->id,
-                    'source_batch_number' => $sourceInventory->batch_number,
-                ]);
-
-                ProductMovement::create([
-                    'product_id' => (int) $item['product_id'],
-                    'inventory_id' => $destInventory->id,
-                    'user_id' => $userId,
-                    'type' => 'IN',
-                    'quantity' => $requestedQty,
-                    'quantity_before' => $destBeforeOnHand,
-                    'quantity_after' => $destBeforeOnHand + $requestedQty,
-                    'description' => "Order #{$order->id} incoming from branch {$sourceBranchId}",
                 ]);
             }
 
@@ -188,5 +123,125 @@ class OrderRepository extends BaseRepository implements OrderRepositoryInterface
     public function findForPrint(int $id): Order
     {
         return Order::with(['items.product', 'items.sourceBranch', 'branch', 'user'])->findOrFail($id);
+    }
+
+    public function paginateApprovedForReceiving(int $branchId, bool $canSeeAll, int $perPage = 10): LengthAwarePaginator
+    {
+        $query = Order::with(['branch', 'user', 'receiver', 'items.product'])
+            ->where('status', 'approved');
+
+        if (!$canSeeAll) {
+            $query->where('branch_id', $branchId);
+        }
+
+        return $query
+            ->orderByRaw('CASE WHEN received_at IS NULL THEN 0 ELSE 1 END ASC')
+            ->latest()
+            ->paginate($perPage);
+    }
+
+    public function findForReceiving(int $id): Order
+    {
+        return Order::with(['branch', 'user', 'receiver', 'items.product'])->findOrFail($id);
+    }
+
+    public function receiveApprovedOrder(int $orderId, int $userId, array $items): Order
+    {
+        return DB::transaction(function () use ($orderId, $userId, $items) {
+            $order = Order::with(['items.product', 'branch', 'user'])
+                ->lockForUpdate()
+                ->findOrFail($orderId);
+
+            if ($order->status !== 'approved') {
+                throw new RuntimeException('Only approved orders can be received.');
+            }
+
+            if ($order->received_at) {
+                throw new RuntimeException('This order has already been received.');
+            }
+
+            $itemsById = collect($items)->keyBy(fn ($value, $key) => (int) $key);
+
+            foreach ($order->items as $orderItem) {
+                $receivedItem = $itemsById->get((int) $orderItem->id);
+                $batches = is_array($receivedItem['batches'] ?? null) ? $receivedItem['batches'] : [];
+
+                if ($batches === []) {
+                    throw new RuntimeException("No batches were provided for {$orderItem->product?->generic_name}.");
+                }
+
+                $receivedTotal = 0;
+
+                foreach ($batches as $batch) {
+                    $batchNumber = trim((string) ($batch['batch_number'] ?? ''));
+                    $quantity = (int) ($batch['quantity'] ?? 0);
+                    $expiryDate = $batch['expiry_date'] ?? null;
+
+                    if ($batchNumber === '') {
+                        throw new RuntimeException("Batch number is required for {$orderItem->product?->generic_name}.");
+                    }
+
+                    if ($quantity <= 0) {
+                        throw new RuntimeException("Received quantity must be greater than zero for {$orderItem->product?->generic_name}.");
+                    }
+
+                    if (!$expiryDate) {
+                        throw new RuntimeException("Expiry date is required for batch {$batchNumber}.");
+                    }
+
+                    $receivedTotal += $quantity;
+
+                    $inventory = Inventory::query()
+                        ->where('branch_id', $order->branch_id)
+                        ->where('product_id', $orderItem->product_id)
+                        ->where('batch_number', $batchNumber)
+                        ->whereDate('expiry_date', $expiryDate)
+                        ->where('is_archived', false)
+                        ->lockForUpdate()
+                        ->first();
+
+                    $beforeQuantity = (int) ($inventory?->quantity ?? 0);
+
+                    if ($inventory) {
+                        $inventory->quantity = $beforeQuantity + $quantity;
+                        $inventory->save();
+                    } else {
+                        $inventory = Inventory::create([
+                            'branch_id' => $order->branch_id,
+                            'product_id' => $orderItem->product_id,
+                            'batch_number' => $batchNumber,
+                            'expiry_date' => $expiryDate,
+                            'quantity' => $quantity,
+                            'hold_qty' => 0,
+                            'is_archived' => false,
+                        ]);
+                    }
+
+                    ProductMovement::create([
+                        'product_id' => $orderItem->product_id,
+                        'inventory_id' => $inventory->id,
+                        'user_id' => $userId,
+                        'type' => 'IN',
+                        'quantity' => $quantity,
+                        'quantity_before' => $beforeQuantity,
+                        'quantity_after' => (int) $inventory->quantity,
+                        'description' => "Order #{$order->id} received into inventory",
+                    ]);
+                }
+
+                if ($receivedTotal !== (int) $orderItem->quantity_requested) {
+                    throw new RuntimeException(
+                        "{$orderItem->product?->generic_name} must receive exactly {$orderItem->quantity_requested} units. Received {$receivedTotal}."
+                    );
+                }
+            }
+
+            $order->update([
+                'received_at' => now(),
+                'received_by' => $userId,
+            ]);
+
+            return $order->fresh(['branch', 'user', 'receiver', 'items.product']);
+        });
     }
 }

@@ -103,6 +103,8 @@
                                                 <span class="w-2 h-2 mr-1 bg-blue-500 rounded-full animate-pulse"></span>
                                                 Waiting Finance
                                             </x-badge>
+                                        @elseif($order->status == 'approved' && $order->received_at)
+                                            <x-badge variant="success">Received</x-badge>
                                         @elseif($order->status == 'approved')
                                             <x-badge variant="success">Approved</x-badge>
                                         @elseif($order->status == 'rejected')
