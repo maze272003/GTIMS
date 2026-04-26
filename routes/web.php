@@ -148,12 +148,12 @@ Route::prefix('admin')
 
             // == Incoming Requests Workflow Routes ==
             Route::prefix('requests')->name('requests.')->group(function () {
-                Route::get('/', [IncomingRequestController::class, 'index'])->name('index');
+                Route::get('/', [OrderController::class, 'requestIndex'])->name('index');
                 Route::get('/create', [IncomingRequestController::class, 'create'])->name('create');
                 Route::post('/', [IncomingRequestController::class, 'store'])->name('store');
-                Route::get('/{incomingRequest}', [IncomingRequestController::class, 'show'])->name('show');
+                Route::get('/{order}', [OrderController::class, 'requestShow'])->name('show');
                 Route::post('/{incomingRequest}/transition', [IncomingRequestController::class, 'transition'])->name('transition');
-                Route::post('/{incomingRequest}/fulfill', [IncomingRequestController::class, 'fulfill'])->name('fulfill');
+                Route::post('/{order}/fulfill', [OrderController::class, 'receive'])->name('fulfill');
                 Route::post('/{incomingRequest}/comment', [IncomingRequestController::class, 'addComment'])->name('comment');
                 Route::post('/{incomingRequest}/attachment', [IncomingRequestController::class, 'addAttachment'])->name('attachment');
             });

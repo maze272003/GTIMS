@@ -9,179 +9,171 @@
     </div>
 
     {{-- Main Navigation Links --}}
-    <ul id="sidebar-scroll" class="flex flex-col flex-1 min-h-0 mt-6 space-y-2 overflow-y-auto overflow-x-hidden pr-1 scroll-smooth">
+    <ul id="sidebar-scroll" class="flex flex-col flex-1 min-h-0 mt-6 space-y-5 overflow-y-auto overflow-x-hidden pr-1 scroll-smooth">
         @auth
 
-            {{-- 1. DASHBOARD --}}
-            @haspermission('dashboard.view')
-                <li>
-                    <a href="{{ route('admin.dashboard') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                        <i class="fa-regular fa-house-chimney nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                        <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Dashboard</span>
-                    </a>
-                </li>
-            @endhaspermission
-
-            {{-- ORDER STOCK --}}
-            @haspermission('orders.view')
-                <li>
-                    <a href="{{ route('admin.orders.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.orders.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                        <i class="fa-solid fa-cart-shopping nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                        <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Order</span>
-
-                        @php
-                            $pendingCount = 0;
-                            if(auth()->user()->hasPermission('orders.approve_admin')) {
-                                $pendingCount = \App\Models\Order::where('status', 'pending_admin')->count();
-                            }
-                            elseif(auth()->user()->hasPermission('orders.approve_finance')) {
-                                $pendingCount = \App\Models\Order::where('status', 'pending_finance')->count();
-                            }
-                        @endphp
-
-                        @if($pendingCount > 0)
-                            <span class="ml-auto inline-flex items-center justify-center w-5 h-5 ml-2 text-xs font-semibold text-white bg-red-600 rounded-full">
-                                {{ $pendingCount }}
-                            </span>
-                        @endif
-                    </a>
-                </li>
-            @endhaspermission
-
-            {{-- INVENTORY --}}
-            @haspermission('inventory.view')
-            <li>
-                <a href="{{ route('admin.inventory') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <i class="fa-regular fa-cubes-stacked nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Inventory</span>
-                </a>
+            <li class="space-y-2">
+                <p class="nav-text hidden lg:block md:hidden px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                    Overview
+                </p>
+                <ul class="space-y-2">
+                    @haspermission('dashboard.view')
+                        <li>
+                            <a href="{{ route('admin.dashboard') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.dashboard') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                                <i class="fa-regular fa-house-chimney nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                                <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Dashboard</span>
+                            </a>
+                        </li>
+                    @endhaspermission
+                </ul>
             </li>
-            @endhaspermission
 
-            @haspermission('movements.view')
-            <li>
-                <a href="{{ route('admin.movements') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <i class="fa-regular fa-file-spreadsheet nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Product Movement</span>
-                </a>
-            </li>
-            @endhaspermission
+            <li class="space-y-2">
+                <p class="nav-text hidden lg:block md:hidden px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                    Management
+                </p>
+                <ul class="space-y-2">
+                    @haspermission('orders.view')
+                        <li>
+                            <a href="{{ route('admin.orders.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.orders.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                                <i class="fa-solid fa-cart-shopping nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                                <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Order</span>
 
-            {{-- PATIENT RECORDS --}}
-            @haspermission('patients.view')
-            <li>
-                <a href="{{ route('admin.patientrecords') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <i class="fa-regular fa-book-user nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Records</span>
-                </a>
-            </li>
-            @endhaspermission
+                                @php
+                                    $pendingCount = 0;
+                                    if(auth()->user()->hasPermission('orders.approve_admin')) {
+                                        $pendingCount = \App\Models\Order::where('status', 'pending_admin')->count();
+                                    }
+                                    elseif(auth()->user()->hasPermission('orders.approve_finance')) {
+                                        $pendingCount = \App\Models\Order::where('status', 'pending_finance')->count();
+                                    }
+                                @endphp
 
+                                @if($pendingCount > 0)
+                                    <span class="ml-auto inline-flex items-center justify-center w-5 h-5 ml-2 text-xs font-semibold text-white bg-red-600 rounded-full">
+                                        {{ $pendingCount }}
+                                    </span>
+                                @endif
+                            </a>
+                        </li>
+                    @endhaspermission
 
+                    @haspermission('inventory.view')
+                    <li>
+                        <a href="{{ route('admin.inventory') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.inventory') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-cubes-stacked nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Inventory</span>
+                        </a>
+                    </li>
+                    @endhaspermission
 
-            {{-- HOLDS --}}
-            @haspermission('holds.view')
-            <li>
-                <a href="{{ route('admin.holds.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.holds.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-hand nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Holds / Pullout</span>
-                </a>
-            </li>
-            @endhaspermission
+                    @haspermission('movements.view')
+                    <li>
+                        <a href="{{ route('admin.movements') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.movements') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-file-spreadsheet nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Product Movement</span>
+                        </a>
+                    </li>
+                    @endhaspermission
 
-            {{-- REQUESTS --}}
-            @haspermission('requests.view')
-            <li>
-                <a href="{{ route('admin.requests.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.requests.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-inbox nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Requests</span>
-                </a>
-            </li>
-            @endhaspermission
+                    @haspermission('patients.view')
+                    <li>
+                        <a href="{{ route('admin.patientrecords') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.patientrecords*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-book-user nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Records</span>
+                        </a>
+                    </li>
+                    @endhaspermission
 
-            {{-- SUPPLIERS --}}
-            @haspermission('suppliers.view')
-            <li>
-                <a href="{{ route('admin.suppliers.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.suppliers.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-truck nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Suppliers</span>
-                </a>
-            </li>
-            @endhaspermission
+                    @haspermission('holds.view')
+                    <li>
+                        <a href="{{ route('admin.holds.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.holds.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-hand nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Holds / Pullout</span>
+                        </a>
+                    </li>
+                    @endhaspermission
 
-            {{-- LOW STOCK SETTINGS --}}
-            @haspermission('settings.low_stock')
-            <li>
-                <a href="{{ route('admin.lowstock.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.lowstock.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-triangle-exclamation nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Low Stock Settings</span>
-                </a>
-            </li>
-            @endhaspermission
+                    @haspermission('requests.view')
+                    <li>
+                        <a href="{{ route('admin.requests.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.requests.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-inbox nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Incoming Requests</span>
+                        </a>
+                    </li>
+                    @endhaspermission
 
-            {{-- NOTIFICATIONS --}}
-            @haspermission('notifications.manage')
-            <li>
-                <a href="{{ route('admin.notifications.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.notifications.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-bell nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Notifications</span>
-                </a>
+                    @haspermission('suppliers.view')
+                    <li>
+                        <a href="{{ route('admin.suppliers.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.suppliers.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-truck nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Suppliers</span>
+                        </a>
+                    </li>
+                    @endhaspermission
+                </ul>
             </li>
-            @endhaspermission
-            @haspermission('historylog.view')
-            <li>
-                <a href="{{ route('admin.historylog') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.historylog.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-clock-rotate-left nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">History Logs</span>
-                </a>
-            </li>
-            @endhaspermission
-            @haspermission('branches.manage')
-            <li>
-                <a href="{{ route('admin.branches.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.branches.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-building nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Branches</span>
-                </a>
-            </li>
-            @endhaspermission
-            {{-- AUDIT --}}
-            {{-- @haspermission('audit.view')
-            <li>
-                <a href="{{ route('admin.audit.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.audit.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-shield-check nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Audit Logs</span>
-                </a>
-            </li>
-            @endhaspermission --}}
 
-            {{-- AUTOMATION BUILDER --}}
-            {{-- @haspermission('workflows.view')
-            <li>
-                <a href="{{ route('admin.workflows.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.workflows.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-diagram-project nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Automation</span>
-                </a>
-            </li>
-            @endhaspermission --}}
+            <li class="space-y-2">
+                <p class="nav-text hidden lg:block md:hidden px-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                    Administration
+                </p>
+                <ul class="space-y-2">
+                    @haspermission('settings.low_stock')
+                    <li>
+                        <a href="{{ route('admin.lowstock.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.lowstock.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-triangle-exclamation nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Low Stock Settings</span>
+                        </a>
+                    </li>
+                    @endhaspermission
 
-            {{-- MANAGE ACCOUNT --}}
-            @haspermission('users.manage')
-            <li>
-                <a href="{{ route('admin.manageaccount') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.manageaccount.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-users nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Manage Accounts</span>
-                </a>
-            </li>
-            @endhaspermission
+                    @haspermission('notifications.manage')
+                    <li>
+                        <a href="{{ route('admin.notifications.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.notifications.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-bell nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Notifications</span>
+                        </a>
+                    </li>
+                    @endhaspermission
 
-            @haspermission('settings.roles')
-            <li>
-                <a href="{{ route('admin.roles.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
-                    <i class="fa-regular fa-user-shield nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
-                    <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">User Permissions</span>
-                </a>
+                    @haspermission('historylog.view')
+                    <li>
+                        <a href="{{ route('admin.historylog') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.historylog.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-clock-rotate-left nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">History Logs</span>
+                        </a>
+                    </li>
+                    @endhaspermission
+
+                    @haspermission('branches.manage')
+                    <li>
+                        <a href="{{ route('admin.branches.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.branches.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-building nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Branches</span>
+                        </a>
+                    </li>
+                    @endhaspermission
+
+                    @haspermission('users.manage')
+                    <li>
+                        <a href="{{ route('admin.manageaccount') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.manageaccount.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-users nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">Manage Accounts</span>
+                        </a>
+                    </li>
+                    @endhaspermission
+
+                    @haspermission('settings.roles')
+                    <li>
+                        <a href="{{ route('admin.roles.index') }}" class="nav-link flex items-center px-3 py-2.5 rounded-lg text-gray-700 dark:text-gray-300 md:text-gray-700 dark:md:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 {{ request()->routeIs('admin.roles.*') ? 'bg-gray-100 dark:bg-gray-700' : '' }}">
+                            <i class="fa-regular fa-user-shield nav-icon w-5 text-center text-gray-600 dark:text-gray-400"></i>
+                            <span class="nav-text ml-3 font-medium lg:inline md:hidden text-gray-700 dark:text-gray-300">User Permissions</span>
+                        </a>
+                    </li>
+                    @endhaspermission
+                </ul>
             </li>
-            @endhaspermission
 
 
         @endauth

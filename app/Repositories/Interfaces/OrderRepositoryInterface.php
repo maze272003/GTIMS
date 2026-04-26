@@ -29,9 +29,15 @@ interface OrderRepositoryInterface extends RepositoryInterface
 
     public function getAvailableSourceInventoryByBranch(int $branchId): Collection;
 
-    public function createOrderWithItems(int $requestingBranchId, int $sourceBranchId, int $userId, ?string $remarks, array $items): Order;
+    public function createOrderWithItems(int $requestingBranchId, int $userId, ?string $remarks, array $items): Order;
 
     public function paginateForUserBranch(int $branchId, bool $canSeeAll, int $perPage = 10): LengthAwarePaginator;
 
     public function findForPrint(int $id): Order;
+
+    public function paginateApprovedForReceiving(int $branchId, bool $canSeeAll, int $perPage = 10): LengthAwarePaginator;
+
+    public function findForReceiving(int $id): Order;
+
+    public function receiveApprovedOrder(int $orderId, int $userId, array $items): Order;
 }

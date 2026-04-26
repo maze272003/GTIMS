@@ -1,25 +1,39 @@
 document.addEventListener('DOMContentLoaded', function () {
 
     // ==============================================================
-    // 1. GLOBAL VARIABLES & HELPERS
+    // 1. VARIABLES & SELECTORS
     // ==============================================================
     const filterModal = document.getElementById('filterModal');
     
-    // Helper: Clear Validation Errors
+    // ==============================================================
+    // 2. HELPER FUNCTIONS
+    // ==============================================================
+
+    // Clear Validation Errors in Modals
     function clearValidation(modal) {
+        if (!modal) return;
         const errorMessages = modal.querySelectorAll('.error-message');
         errorMessages.forEach(error => error.remove());
     }
 
-    // Helper: Initialize Searchable Dropdown (For Add Modal)
+    // Initialize Searchable Dropdown (Medication Search)
     function initSearchableMedicine(group) {
         const input = group.querySelector('.search-med-input');
         const dropdown = group.querySelector('.dropdown-options');
         const hidden = group.querySelector('.med-name-hidden');
         const options = dropdown.querySelectorAll('.option');
 
+        // Toggle dropdown on focus
         input.addEventListener('focus', () => dropdown.classList.remove('hidden'));
+        
+        // Hide dropdown when clicking outside (Specific to this instance)
+        document.addEventListener('click', (e) => {
+            if (!group.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+        });
 
+        // Filter Options
         input.addEventListener('input', () => {
             const term = input.value.toLowerCase().trim();
             let visibleCount = 0;
@@ -34,38 +48,72 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             });
 
-            if (visibleCount > 0 || term === '') {
-                dropdown.classList.remove('hidden');
-            } else {
-                dropdown.classList.add('hidden');
-            }
+            if (visibleCount > 0) dropdown.classList.remove('hidden');
+            else dropdown.classList.add('hidden');
 
+            // Reset hidden ID if input is cleared
             if (term === '') hidden.value = '';
         });
 
+        // Option Selection
         options.forEach(opt => {
             opt.addEventListener('click', () => {
-                input.value = opt.dataset.label;
-                hidden.value = opt.dataset.id;
+                input.value = opt.dataset.label; // Show readable name
+                hidden.value = opt.dataset.id;   // Store ID
                 dropdown.classList.add('hidden');
             });
         });
     }
 
+    // ==============================================================
+    // 3. EVENT LISTENERS (INPUTS & FORMS)
+    // ==============================================================
+
+    // Search Input Listener
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(() => {
+            const url = buildUrl(); // Rebuild URL with new search term
+            fetchTableData(url);
+        }, 500));
+    }
+
+    // Filter Modal: Apply Button
+    if (filterForm) {
+        filterForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const url = buildUrl();
+            fetchTableData(url);
+            document.getElementById('filterModal').classList.add('hidden');
+        });
+    }
+
+    // Filter Modal: Clear Button
+    const clearFilterBtn = document.getElementById('clearFilters');
+    if (clearFilterBtn) {
+        clearFilterBtn.addEventListener('click', () => {
+            if(filterForm) filterForm.reset();
+            const url = buildUrl(); // Rebuilds URL without form data
+            fetchTableData(url);
+        });
+    }
 
     // ==============================================================
-    // 2. MAIN EVENT DELEGATION (HANDLE ALL CLICKS HERE)
+    // 4. MAIN CLICK DELEGATION (Modals, Pagination, Dynamic Actions)
     // ==============================================================
     document.addEventListener('click', function (e) {
+        const target = e.target;
 
         // --- A. VIEW MEDICATIONS MODAL ---
         const viewBtn = e.target.closest('.view-medications-btn');
         if (viewBtn) {
             const row = viewBtn.closest('tr');
             const name = row.dataset.patientName;
-            const medications = JSON.parse(row.dataset.medications || '[]');
+            // Parse JSON safely
+            let medications = [];
+            try {
+                medications = JSON.parse(row.dataset.medications);
+            } catch (err) { console.error('JSON Parse error', err); }
             
-            const modal = document.getElementById('viewmedicationsmodal');
             const tbody = document.getElementById('view-medications-tbody');
             const title = document.getElementById('view-med-title');
             
@@ -77,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const tr = document.createElement('tr');
                     tr.innerHTML = `
                         <td class="p-3 text-sm text-gray-700">${med.batch || 'N/A'}</td>
-                        <td class="p-3 text-sm text-gray-700 font-medium">
+                        <td class="p-3 text-sm text-gray-700">
                             <div>
                                 <p class="font-semibold text-gray-700">${med.medication}</p>
                                 <p class="italic text-gray-500">${med.brand}</p>
@@ -85,7 +133,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         </td>
                         <td class="p-3 text-sm text-gray-700">${med.form}, ${med.strength}</td>
                         <td class="p-3 text-sm text-gray-700 text-center font-semibold">${med.quantity}</td>
-                        <!-- EDIT BUTTON COMPLETELY REMOVED -->
                     `;
                     tbody.appendChild(tr);
                 });
@@ -93,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">No medications recorded.</td></tr>';
             }
 
-            modal.classList.remove('hidden');
+            document.getElementById('viewmedicationsmodal').classList.remove('hidden');
             return;
         }
 
@@ -101,20 +148,20 @@ document.addEventListener('DOMContentLoaded', function () {
         const editBtn = e.target.closest('.editrecordbtn');
         if (editBtn) {
             const row = editBtn.closest('tr');
-            const modal = document.getElementById('editrecordmodal');
+            const d = row.dataset;
 
-            document.getElementById('edit-record-id').value = row.dataset.recordId;
-            document.getElementById('edit-patient-name').value = row.dataset.patientName;
-            document.getElementById('edit-purok').value = row.dataset.purok;
-            document.getElementById('edit-category').value = row.dataset.category;
-            document.getElementById('edit-date-dispensed').value = row.dataset.dateDispensed;
+            document.getElementById('edit-record-id').value = d.recordId;
+            document.getElementById('edit-patient-name').value = d.patientName;
+            document.getElementById('edit-purok').value = d.purok;
+            document.getElementById('edit-category').value = d.category;
+            document.getElementById('edit-date-dispensed').value = d.dateDispensed;
             
             const barangaySelect = document.getElementById('edit-barangay_id');
-            if(barangaySelect) barangaySelect.value = row.dataset.barangayId;
+            if(barangaySelect) barangaySelect.value = d.barangayId;
 
             document.getElementById('edit-record-title').textContent = `Edit #${row.dataset.recordId} - ${row.dataset.patientName}`;
             
-            modal.classList.remove('hidden');
+            document.getElementById('editrecordmodal').classList.remove('hidden');
             return;
         }
 
@@ -138,85 +185,92 @@ document.addEventListener('DOMContentLoaded', function () {
             m.classList.add('hidden');
             clearValidation(m);
         }
-        if (e.target.closest('#closeeditrecordmodal')) {
-            const m = document.getElementById('editrecordmodal');
-            m.classList.add('hidden');
-            clearValidation(m);
+        if (target.closest('#closeeditrecordmodal')) {
+            document.getElementById('editrecordmodal').classList.add('hidden');
+            clearValidation(document.getElementById('editrecordmodal'));
         }
-        if (e.target.closest('#closeviewmedmodal')) {
+        if (target.closest('#closeviewmedmodal')) {
             document.getElementById('viewmedicationsmodal').classList.add('hidden');
         }
-        if (e.target.closest('#closeFilterModal')) {
-            filterModal.classList.add('hidden');
+        if (target.closest('#closeFilterModal')) {
+            document.getElementById('filterModal').classList.add('hidden');
         }
 
-        // Backdrop close
-        if (e.target.id === 'adddispensationmodal') {
-            e.target.classList.add('hidden');
-            clearValidation(e.target);
+        // F. BACKDROP CLICK CLOSE
+        if (target.id === 'adddispensationmodal') {
+            target.classList.add('hidden');
+            clearValidation(target);
         }
-        if (e.target.id === 'editrecordmodal') {
-            e.target.classList.add('hidden');
-            clearValidation(e.target);
+        if (target.id === 'editrecordmodal') {
+            target.classList.add('hidden');
+            clearValidation(target);
         }
-        if (e.target.id === 'viewmedicationsmodal') {
-            e.target.classList.add('hidden');
+        if (target.id === 'viewmedicationsmodal') {
+            target.classList.add('hidden');
         }
-        if (e.target.id === 'filterModal') {
-            e.target.classList.add('hidden');
-        }
-
-        // Close dropdowns when clicking outside
-        if (!e.target.closest('.medication-group')) {
-            document.querySelectorAll('.dropdown-options').forEach(el => el.classList.add('hidden'));
+        if (target.id === 'filterModal') {
+            target.classList.add('hidden');
         }
     });
 
 
     // ==============================================================
-    // 3. STATIC INITIALIZATIONS
+    // 5. DYNAMIC MEDICATION ROWS (Add/Remove)
     // ==============================================================
-
+    const medContainer = document.getElementById('medication-container');
+    const addMoreBtn = document.getElementById('add-more-medication');
+    
+    // Initialize the first static row
     const firstGroup = document.querySelector('.medication-group');
     if (firstGroup) initSearchableMedicine(firstGroup);
 
-    // Add More Medication Rows
-    const addMoreBtn = document.getElementById('add-more-medication');
-    const medContainer = document.getElementById('medication-container');
     let medIndex = 1;
 
     if (addMoreBtn && medContainer) {
         addMoreBtn.addEventListener('click', () => {
             const template = medContainer.querySelector('.medication-group');
+            // Clone the node
             const clone = template.cloneNode(true);
 
-            clone.querySelector('.search-med-input').value = '';
-            clone.querySelector('.med-name-hidden').value = '';
-            clone.querySelector('input[type="number"]').value = '';
+            // Clear values in the clone
+            const input = clone.querySelector('.search-med-input');
+            const hidden = clone.querySelector('.med-name-hidden');
+            const qty = clone.querySelector('input[type="number"]');
 
-            clone.querySelector('.med-name-hidden').name = `medications[${medIndex}][name]`;
-            clone.querySelector('input[type="number"]').name = `medications[${medIndex}][quantity]`;
+            input.value = '';
+            hidden.value = '';
+            qty.value = '';
 
-            let removeBtn = clone.querySelector('.remove-med-btn');
-            if (!removeBtn) {
-                removeBtn = document.createElement('button');
+            // Update attributes for Laravel Array Validation
+            hidden.name = `medications[${medIndex}][name]`;
+            qty.name = `medications[${medIndex}][quantity]`;
+
+            // Add Remove Button if it doesn't exist
+            if (!clone.querySelector('.remove-med-btn')) {
+                const removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
-                removeBtn.className = 'remove-med-btn bg-red-500 text-white p-2 rounded-lg mt-2 hover:-translate-y-1 hover:shadow-md transition-all duration-200 w-fit text-sm ml-2';
+                removeBtn.className = 'remove-med-btn bg-red-500 text-white p-2 rounded-lg mt-2 hover:-translate-y-1 hover:shadow-md transition-all duration-200 w-fit text-sm ml-auto block';
                 removeBtn.innerHTML = '<i class="fa-regular fa-trash mr-1"></i> Remove';
-                clone.appendChild(removeBtn);
+                clone.querySelector('.w-28').appendChild(removeBtn); // Append below qty or adjust placement
             }
 
+            // Append to container
             medContainer.appendChild(clone);
+            
+            // Re-initialize the search logic for this specific new row
             initSearchableMedicine(clone);
             medIndex++;
         });
 
+        // Event delegation for Remove button
         medContainer.addEventListener('click', (e) => {
             if (e.target.closest('.remove-med-btn')) {
                 const group = e.target.closest('.medication-group');
+                // Ensure at least one row remains
                 if(medContainer.querySelectorAll('.medication-group').length > 1) {
                     group.remove();
                 } else {
+                    // Just clear inputs if it's the last one
                     group.querySelector('.search-med-input').value = '';
                     group.querySelector('.med-name-hidden').value = '';
                     group.querySelector('input[type="number"]').value = '';
@@ -225,31 +279,40 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // edit dispensation form submit with sweet alert
-    const updateBtn = document.getElementById('update-dispensation-btn');
-    const editForm = document.getElementById('edit-dispensation-form');
 
-    if (updateBtn && editForm) {
-        updateBtn.addEventListener('click', (e) => {
-            e.preventDefault();
+    // ==============================================================
+    // 6. SWEETALERT SUBMISSIONS
+    // ==============================================================
 
-            const patientName = document.getElementById('edit-patient-name').value.trim();
-            const barangayId = document.getElementById('edit-barangay_id').value;
-            const purok = document.getElementById('edit-purok').value.trim();
-            const category = document.getElementById('edit-category').value;
-            const dateDispensed = document.getElementById('edit-date-dispensed').value;
+    // --- ADD DISPENSATION ---
+    const addBtn = document.getElementById('add-dispensation-btn');
+    const addForm = document.getElementById('add-dispensation-form');
 
-            // Validation
-            if (!patientName || !barangayId || !purok || !category || !dateDispensed) {
+    if (addBtn && addForm) {
+        addBtn.addEventListener('click', function() {
+            const inputs = addForm.querySelectorAll('input:not([type="hidden"]), select');
+            let allFilled = true;
+
+            inputs.forEach(input => {
+                // Simple validation: check if empty
+                if (input.value.trim() === '') allFilled = false;
+            });
+
+            // Check if hidden medication IDs are filled
+            const medIds = addForm.querySelectorAll('.med-name-hidden');
+            medIds.forEach(id => { if(id.value === '') allFilled = false; });
+
+            if (!allFilled) {
                 Swal.fire({
-                    title: 'Incomplete Data',
-                    text: 'Please fill in all required fields.',
+                    title: 'Incomplete Form',
+                    text: 'Please fill in all required fields (including Medicine selection).',
                     icon: 'warning',
                     confirmButtonText: 'OK',
                     customClass: {
                         container: 'swal-container',
                         popup: 'swal-popup',
                         title: 'swal-title',
+                        htmlContainer: 'swal-content',
                         confirmButton: 'swal-confirm-button',
                         icon: 'swal-icon'
                     }
@@ -278,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (result.isConfirmed) {
                     Swal.fire({
                         title: 'Processing...',
-                        text: "Please wait, your request is being processed.",
+                        text: "Saving record...",
                         allowOutsideClick: false,
                         customClass: {
                             container: 'swal-container',
@@ -287,12 +350,10 @@ document.addEventListener('DOMContentLoaded', function () {
                             htmlContainer: 'swal-content',
                             cancelButton: 'swal-cancel-button',
                             icon: 'swal-icon'
-                            },
-                        didOpen: () => {
-                            Swal.showLoading();
-                            editForm.submit();
-                        }
+                        },
+                        didOpen: () => Swal.showLoading()
                     });
+                    addForm.submit();
                 }
             });
         });

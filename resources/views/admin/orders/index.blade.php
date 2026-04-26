@@ -10,11 +10,14 @@
            
             {{-- Header Section --}}
             <div class="mb-6 pt-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mt-20">
-                <div class="flex flex-col gap-5">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                        Home / <span class="text-red-700 dark:text-red-300 font-medium">Replenish Orders</span>
-                    </p>
-                    <h2 class="text-2xl font-bold text-gray-800 dark:text-gray-100">Order Management</h2>
+                <div class="">
+                    <div class="flex gap-2 items-center font-semibold mb-4">
+                        <a href="{{route('admin.dashboard')}}" class="text-sm text-gray-600 dark:text-gray-400"><i class="fa-regular fa-home mr-2"></i>Dashboard</a>
+                        <span><i class="fa-regular fa-angle-right text-gray-600 dark:text-gray-400"></i></span>
+                        <p class="text-red-500 dark:text-red-400">Order Stock</p>
+                    </div>
+                    <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">Orders Overview</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Can create and view orders.</p>
                 </div>
                 {{-- Create Button: Only for users with orders.create permission --}}
                 <a
@@ -100,6 +103,8 @@
                                                 <span class="w-2 h-2 mr-1 bg-blue-500 rounded-full animate-pulse"></span>
                                                 Waiting Finance
                                             </x-badge>
+                                        @elseif($order->status == 'approved' && $order->received_at)
+                                            <x-badge variant="success">Received</x-badge>
                                         @elseif($order->status == 'approved')
                                             <x-badge variant="success">Approved</x-badge>
                                         @elseif($order->status == 'rejected')

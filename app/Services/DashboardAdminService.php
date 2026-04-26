@@ -1464,15 +1464,15 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
 
     $productName = $validated['product_name'];
 
-    $dataString = collect($validated['seasonal_data'])->map(function ($item) {
-        return "- {$item['label']}: {$item['data']}";
-    })->join("\n");
+    $dataString = collect($validated['seasonal_data'])
+        ->map(fn ($item) => "- {$item['label']}: {$item['data']}")
+        ->join("\n");
 
     $tableStyle  = 'width: 100%; border-collapse: collapse; margin-top: 15px;';
     $headerStyle = 'background-color: #f3f4f6; padding: 10px; border: 1px solid #e5e7eb; text-align: left; font-weight: bold;';
     $cellStyle   = 'padding: 10px; border: 1px solid #e5e7eb; vertical-align: top;';
 
-    // Keep your "HTML only" instruction, but make it stronger for local/ollama models.
+    // Strong HTML-only instruction (use as SYSTEM prompt)
     $systemInstruction =
         "You are a helpful and concise data analyst for a public health clinic in the Philippines. " .
         "OUTPUT MUST BE RAW HTML ONLY. " .
@@ -1481,20 +1481,22 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         "Use inline styles ONLY for table borders/padding/spacing. " .
         "Bold product names using <strong> (e.g., <strong>{$productName}</strong>).";
 
-    $userQuery = "{$systemInstruction}\n\n" .
+    // Build user prompt WITHOUT injecting system text (Ollama supports `system`)
+    $userQuery =
         "Analyze the following monthly dispensation data (items dispensed per month) for the product '{$productName}':\n\n" .
         "{$dataString}\n\n";
 
     if (!empty($validated['compare_product_name'])) {
         $compareName = $validated['compare_product_name'];
 
-        $compareString = collect($validated['compare_data'] ?? [])->map(function ($item) {
-            return "- {$item['label']}: {$item['data']}";
-        })->join("\n");
+        $compareString = collect($validated['compare_data'] ?? [])
+            ->map(fn ($item) => "- {$item['label']}: {$item['data']}")
+            ->join("\n");
 
         $userQuery .= "For comparison, here is the data for '{$compareName}':\n\n{$compareString}\n\n";
 
-        $userQuery .= "Please follow this exact structure, using raw HTML:\n" .
+        $userQuery .=
+            "Please follow this exact structure, using raw HTML:\n" .
             "<h2>🤝 Product Comparison</h2>\n" .
             "Generate a single HTML table (style='{$tableStyle}') with header cells (style='{$headerStyle}') and data cells (style='{$cellStyle}'). " .
             "The table must have columns for 'Product', 'Overall Trend', 'Peak Months', and 'Trough/Zero Months'.\n\n" .
@@ -1503,7 +1505,8 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
             "<h2>📈 Predictive Recommendations</h2>\n" .
             "Provide a <div> block with separate predictive recommendations for <strong>{$productName}</strong> and <strong>{$compareName}</strong>.";
     } else {
-        $userQuery .= "Based ONLY on the data provided, structure your response using raw HTML with the following sections:\n" .
+        $userQuery .=
+            "Based ONLY on the data provided, structure your response using raw HTML with the following sections:\n" .
             "<h2>📊 Key Observations & Trends</h2>\n" .
             "<p>Summarize the overall demand pattern and identify notable <strong>peaks</strong> and <strong>troughs</strong>.</p>\n" .
             "<h2>💡 Contextual Insights</h2>\n" .
@@ -1534,11 +1537,15 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         ],
         'generationConfig' => [
             'temperature' => 0.3,
+            'num_predict' => (int) env('OLLAMA_NUM_PREDICT', 650), // limit output to reduce timeouts
+            'num_ctx'     => (int) env('OLLAMA_NUM_CTX', 4096),
         ],
     ];
 
     try {
-        $response = Http::timeout(90)
+        $response = Http::retry(2, 800)          // retry twice with 800ms delay
+            ->connectTimeout(10)                 // fail fast if cannot connect
+            ->timeout(180)                       // total request timeout
             ->acceptJson()
             ->withHeaders([
                 'x-goog-api-key' => $apiKey,
@@ -1553,7 +1560,7 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
 
             $raw = data_get($response->json(), 'error.message', $response->body());
             return response()->json([
-                'error' => 'AI service failed: ' . ($raw ?: 'Unknown error')
+                'error' => 'AI service failed: ' . ($response->body() ?: 'Unknown error'),
             ], $response->status());
         }
 
@@ -1569,9 +1576,9 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
         }
 
         $text = preg_replace('/```[\s\S]*?```/m', '', $text);
-        $text = str_replace(['**', '*'], '', $text);
+        $text = trim(str_replace(['**', '*'], '', $text));
 
-        return response()->json(['analysis' => trim($text)]);
+        return response()->json(['analysis' => $text]);
     } catch (\Illuminate\Http\Client\ConnectionException $e) {
         Log::error('Connection error calling Gemini API: ' . $e->getMessage());
         return response()->json(['error' => 'Could not connect to AI analysis service.'], 503);

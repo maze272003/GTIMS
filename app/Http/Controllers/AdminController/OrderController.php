@@ -42,4 +42,19 @@ class OrderController extends Controller
     {
         return $this->orderAdminService->print($id);
     }
+
+    public function requestIndex()
+    {
+        return $this->orderAdminService->requestIndex();
+    }
+
+    public function requestShow($id)
+    {
+        return $this->orderAdminService->requestShow((int) $id);
+    }
+
+    public function receive(Request $request, $id)
+    {
+        return $this->orderAdminService->receive($request, (int) $id);
+    }
 }
