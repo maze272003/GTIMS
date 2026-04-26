@@ -208,12 +208,6 @@ Route::prefix('admin')
                 Route::post('/preferences', [NotificationController::class, 'updatePreferences'])->name('preferences.update');
             });
 
-            //  Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
-            //     Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
-            //     Route::post('/global', [LowStockSettingController::class, 'updateGlobal'])->name('global');
-            //     Route::post('/override', [LowStockSettingController::class, 'storeOverride'])->name('override');
-            //     Route::delete('/override/{setting}', [LowStockSettingController::class, 'destroyOverride'])->name('override.destroy');
-            // });
             Route::prefix('low-stock-settings')->name('lowstock.')->group(function () {
         Route::get('/', [LowStockSettingController::class, 'index'])->name('index');
         Route::get('/filter-options', [LowStockSettingController::class, 'filterOptions'])->name('filter-options');
