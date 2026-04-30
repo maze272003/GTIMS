@@ -11,9 +11,13 @@
             {{-- AUTHORIZED VIEW --}}
             <main id="main-content" class="pt-20 p-4 lg:p-8 min-h-screen">
                 <div class="mb-6 pt-16">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                        Home / <span class="text-red-700 dark:text-red-300 font-medium">History Logs</span>
-                    </p>
+                    <div class="flex gap-2 items-center font-semibold mb-4">
+                        <a href="{{route('admin.dashboard')}}" class="text-sm text-gray-600 dark:text-gray-400"><i class="fa-regular fa-home mr-2"></i>Dashboard</a>
+                        <span><i class="fa-regular fa-angle-right text-gray-600 dark:text-gray-400"></i></span>
+                        <p class="text-red-500 dark:text-red-400">History Logs</p>
+                    </div>
+                    <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">History Logs</p>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">Can view all the system activity logs for all branches.</p>
                 </div>
     
                 <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden mt-6 border border-gray-200 dark:border-gray-700">

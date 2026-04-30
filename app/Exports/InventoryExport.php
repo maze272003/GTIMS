@@ -173,9 +173,9 @@ class InventoryExport implements
     {
         return [
             AfterSheet::class => function(AfterSheet $event) {
-                $sheet = $event->sheet;
-                $highestRow = $sheet->getHighestRow(); // Last data row (including month headers)
-                $footerRow = $highestRow + 3;           // Leave some space
+                $sheet = $event->sheet->getDelegate();
+                $highestRow = $sheet->getHighestRow(); // Last data row (including month headers + possible "no records")
+                $footerRow = $highestRow + 3;           // Space before footer
 
                 // Report Title (Row 7)
                 $sheet->mergeCells('A7:G7');
@@ -185,35 +185,37 @@ class InventoryExport implements
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_LEFT],
                 ]);
 
-                // Exported By & Date - NOW CENTERED (Row 8)
-                $by = $this->user?->name ?? 'Unknown';
-                $date = now()->format('M d, Y h:i A');
-                
+                // Filter info (Row 8 & 9 – centered)
                 $filterText = 'All Items';
                 if ($this->filter) {
                     $labels = [
-                        'in_stock' => 'In Stock (≥100)',
-                        'low_stock' => 'Low Stock (1–99)',
+                        'in_stock' => 'In Stock',
+                        'low_stock' => 'Low Stock',
                         'out_of_stock' => 'Out of Stock',
-                        'nearly_expired' => 'Nearly Expired (<30 days)',
+                        'nearly_expired' => 'Nearly Expired',
                         'expired' => 'Expired',
                     ];
                     $filterText = $labels[$this->filter] ?? ucfirst($this->filter);
                 }
-                if ($this->search) $filterText .= " | Search: \"{$this->search}\"";
+                if ($this->search) {
+                    $filterText .= " | Search: \"{$this->search}\"";
+                }
 
                 $sheet->mergeCells('A8:G8');
-                $sheet->setCellValue('A8', "Exported By: {$by}");
-                $sheet->setCellValue('A9', "Filter: {$filterText}");
-                $sheet->getStyle('A8:A9')->applyFromArray([
+                $sheet->setCellValue('A8', "Filter: {$filterText}");
+                $sheet->getStyle('A8')->applyFromArray([
                     'font' => ['italic' => true, 'size' => 11, 'color' => ['rgb' => '4B5563']],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER], // ← CENTERED
+                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                 ]);
 
-                // Timestamp at the very bottom
-                $sheet->mergeCells("A{$footerRow}:G{$footerRow}");
-                $sheet->setCellValue("A{$footerRow}", "Generated on " . now()->format('F d, Y \a\t h:i:s A'));
-                $sheet->getStyle("A{$footerRow}:G{$footerRow}")->applyFromArray([
+                // Exported By + Timestamp at the very bottom (together)
+                $by = $this->user?->name ?? 'Unknown';
+
+                $sheet->mergeCells("A{$footerRow}:B{$footerRow}");
+                $sheet->setCellValue("A{$footerRow}", "Exported By: {$by}");
+                $sheet->mergeCells("C{$footerRow}:E{$footerRow}");
+                $sheet->setCellValue("C{$footerRow}", "Generated on " . now()->format('F d, Y \a\\t h:i:s A'));
+                $sheet->getStyle("A{$footerRow}:E{$footerRow}")->applyFromArray([
                     'font' => ['italic' => true, 'size' => 10, 'color' => ['rgb' => '6B7280']],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                 ]);

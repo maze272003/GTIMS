@@ -42,7 +42,7 @@ class OrderSourceBatchFlowTest extends TestCase
         ]);
     }
 
-    public function test_order_submission_deducts_selected_batch_and_records_traceability(): void
+    public function test_order_submission_creates_pending_order_without_touching_inventory(): void
     {
         $user = $this->createOrderUser(true, true);
         $sourceBranch = Branch::factory()->create();
@@ -59,13 +59,11 @@ class OrderSourceBatchFlowTest extends TestCase
         ]);
 
         $response = $this->actingAs($user)->post(route('admin.orders.store'), [
-            'source_branch_id' => $sourceBranch->id,
             'remarks' => 'Urgent replenishment',
             'items' => [
                 [
                     'product_id' => $product->id,
                     'quantity' => 5,
-                    'source_inventory_id' => $inventory->id,
                 ],
             ],
         ]);
@@ -80,71 +78,42 @@ class OrderSourceBatchFlowTest extends TestCase
             'order_id' => $order->id,
             'product_id' => $product->id,
             'quantity_requested' => 5,
-            'source_branch_id' => $sourceBranch->id,
-            'source_inventory_id' => $inventory->id,
-            'source_batch_number' => 'BATCH-123',
+            'source_branch_id' => null,
+            'source_inventory_id' => null,
+            'source_batch_number' => null,
         ]);
 
         $this->assertDatabaseHas('inventories', [
             'id' => $inventory->id,
-            'onhand_qty' => 15,
-            'quantity' => 15,
+            'onhand_qty' => 20,
+            'quantity' => 20,
         ]);
 
-        $this->assertDatabaseHas('product_movements', [
-            'product_id' => $product->id,
-            'inventory_id' => $inventory->id,
-            'user_id' => $user->id,
-            'type' => 'OUT',
-            'quantity' => 5,
-            'quantity_before' => 20,
-            'quantity_after' => 15,
-            'description' => "Order #{$order->id} submission",
-        ]);
+        $this->assertDatabaseCount('product_movements', 0);
     }
 
-    public function test_order_submission_fails_when_selected_batch_has_insufficient_available_stock(): void
+    public function test_order_submission_requires_only_product_and_quantity(): void
     {
         $user = $this->createOrderUser(true, true);
-        $sourceBranch = Branch::factory()->create();
         $product = Product::factory()->create(['is_archived' => 0]);
-
-        $inventory = Inventory::create([
-            'product_id' => $product->id,
-            'branch_id' => $sourceBranch->id,
-            'batch_number' => 'BATCH-LOW',
-            'quantity' => 10,
-            'hold_qty' => 9,
-            'expiry_date' => '2026-05-10',
-            'is_archived' => false,
-        ]);
 
         $response = $this->from(route('admin.orders.create'))
             ->actingAs($user)
             ->post(route('admin.orders.store'), [
-                'source_branch_id' => $sourceBranch->id,
                 'items' => [
                     [
                         'product_id' => $product->id,
                         'quantity' => 3,
-                        'source_inventory_id' => $inventory->id,
                     ],
                 ],
             ]);
 
-        $response->assertRedirect(route('admin.orders.create'));
-        $response->assertSessionHas('error');
+        $response->assertRedirect(route('admin.orders.index'));
+        $response->assertSessionHas('success');
 
-        $this->assertDatabaseCount('orders', 0);
-        $this->assertDatabaseCount('order_items', 0);
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertDatabaseCount('order_items', 1);
         $this->assertDatabaseCount('product_movements', 0);
-
-        $this->assertDatabaseHas('inventories', [
-            'id' => $inventory->id,
-            'onhand_qty' => 10,
-            'quantity' => 10,
-            'hold_qty' => 9,
-        ]);
     }
 
     public function test_source_inventory_endpoint_returns_fefo_fifo_sorted_non_zero_batches(): void

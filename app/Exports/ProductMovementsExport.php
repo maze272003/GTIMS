@@ -76,7 +76,7 @@ class ProductMovementsExport implements
             'Product Name',
             'Batch #',
             'Type',
-            'Qty Change',    // This will be red
+            'Qty Change',
             'Before',
             'After',
             'Description',
@@ -112,7 +112,7 @@ class ProductMovementsExport implements
                 $sheet = $event->sheet->getDelegate();
                 $highestRow = $sheet->getHighestRow();
 
-                // Title
+                // Title (Row 16)
                 $sheet->mergeCells('A16:J16');
                 $sheet->setCellValue('A16', 'Product Movement Report');
                 $sheet->getStyle('A16')->applyFromArray([
@@ -134,20 +134,21 @@ class ProductMovementsExport implements
 
                 // Only Generated Timestamp at the very bottom
                 $footerRow = $highestRow + 3;
-                $sheet->mergeCells("A$footerRow:J$footerRow");
-                $sheet->setCellValue("A$footerRow", "Generated: $generatedAt");
-                $sheet->getStyle("A$footerRow")->applyFromArray([
+
+                $sheet->mergeCells("A{$footerRow}:J{$footerRow}");
+                $sheet->setCellValue("A{$footerRow}", $footerText);
+                $sheet->getStyle("A{$footerRow}:J{$footerRow}")->applyFromArray([
                     'font' => ['italic' => true, 'size' => 11, 'color' => ['rgb' => '6B7280']],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                 ]);
 
                 // Qty Change column: Red if negative, Dark Green if positive
                 for ($row = 20; $row <= $highestRow; $row++) {
-                    $qtyValue = $sheet->getCell("F$row")->getValue();
+                    $qtyValue = $sheet->getCell("F{$row}")->getValue();
                     if ($qtyValue < 0) {
-                        $sheet->getStyle("F$row")->getFont()->setColor(new Color(Color::COLOR_RED));
-                    } else {
-                        $sheet->getStyle("F$row")->getFont()->setColor(new Color(Color::COLOR_DARKGREEN));
+                        $sheet->getStyle("F{$row}")->getFont()->setColor(new Color(Color::COLOR_RED));
+                    } else if ($qtyValue > 0) {
+                        $sheet->getStyle("F{$row}")->getFont()->setColor(new Color(Color::COLOR_DARKGREEN));
                     }
                 }
             },
@@ -180,7 +181,7 @@ class ProductMovementsExport implements
         // Add borders to data rows
         $lastRow = $sheet->getHighestRow();
         if ($lastRow >= 20) {
-            $sheet->getStyle("A19:J$lastRow")->applyFromArray([
+            $sheet->getStyle("A19:J{$lastRow}")->applyFromArray([
                 'borders' => [
                     'allBorders' => [
                         'borderStyle' => Border::BORDER_THIN,

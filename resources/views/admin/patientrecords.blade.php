@@ -16,9 +16,15 @@
                 
                 {{-- HEADER with Branch Label --}}
                 <div class="mb-6 pt-16 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                        Home / <span class="text-red-700 dark:text-red-300 font-medium">Reports</span>
-                    </p>
+                    <div class="flex flex-col gap-2">
+                        <div class="flex gap-2 items-center font-semibold mb-4">
+                            <a href="{{route('admin.dashboard')}}" class="text-sm text-gray-600 dark:text-gray-400"><i class="fa-regular fa-home mr-2"></i>Dashboard</a>
+                            <span><i class="fa-regular fa-angle-right text-gray-600 dark:text-gray-400"></i></span>
+                            <p class="text-red-500 dark:text-red-400">Records</p>
+                        </div>
+                        <p class="text-3xl font-bold text-gray-900 dark:text-gray-100">Patient Records</p>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Can add and view patient records for all branches.</p>
+                    </div>
 
                     {{-- Current Unit Badge --}}
                     <div class="flex items-center gap-2">
@@ -116,11 +122,11 @@
                                     </form>
                                 @endif
 
-                                {{-- NEW FILTER MODAL BUTTON --}}
-                                <button type="button" id="openFilterModal" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
-                                    <i class="fa-regular fa-sliders-up text-lg mr-2"></i>
-                                    <span class="hidden sm:inline">Filter</span>
-                                </button>
+                            {{-- NEW FILTER MODAL BUTTON --}}
+                            <button type="button" id="openFilterModal" class="bg-white dark:bg-gray-800 inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:-translate-y-1 hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300">
+                                <i class="fa-regular fa-sliders-up text-lg mr-2"></i>
+                                <span class="hidden sm:inline">Filter</span>
+                            </button>
 
                                 <div class="flex gap-2">
                                     {{-- PDF Button --}}
@@ -147,15 +153,16 @@
                             </div>
                         </div>
 
-                        {{-- DYNAMIC TABLE CONTAINER --}}
-                        <div id="table-container">
-                            @include('admin.partials.patientrecords_table')
-                        </div>
-
+                    {{-- DYNAMIC TABLE CONTAINER (Ajax Target) --}}
+                    <div id="table-container">
+                        @include('admin.partials.patientrecords_table')
                     </div>
+
                 </div>
 
-                {{-- ==================== FILTER MODAL ==================== --}}
+                {{-- ==================== MODALS SECTION ==================== --}}
+
+                {{-- 1. FILTER MODAL --}}
                 <div id="filterModal" class="fixed inset-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden overflow-y-auto">
                     <div class="modal bg-white dark:bg-gray-800 rounded-lg w-full max-w-md p-6 shadow-xl max-h-[90vh] overflow-y-auto">
                         <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-5">
@@ -167,8 +174,7 @@
                             </button>
                         </div>
 
-                        <form id="filterForm" method="GET" action="{{ route('admin.patientrecords') }}" class="space-y-5">
-
+                        <form id="filterForm" class="space-y-5">
                             {{-- Preserve branch filter for Admin --}}
                             @if(auth()->user()->hasPermission('patients.manage'))
                                 <input type="hidden" name="branch_filter" value="{{ $filters['branch_filter'] ?? 'all' }}">
@@ -200,7 +206,7 @@
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Barangay</label>
-                                <select name="barangay_id" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                <select name="barangay_id" class="w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                                     <option value="">All Barangays</option>
                                     @foreach($barangays as $barangay)
                                         <option value="{{ $barangay->id }}" {{ (string) ($filters['barangay_id'] ?? '') === (string) $barangay->id ? 'selected' : '' }}>
@@ -336,7 +342,7 @@
                     </div>
                 </div>
 
-                {{-- Edit Dispensation Modal --}}
+                {{-- 3. EDIT DISPENSATION MODAL --}}
                 <div id="editrecordmodal" class="fixed w-full h-screen top-0 left-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
                     <div class="modal bg-white dark:bg-gray-800 rounded-lg w-full max-w-lg p-5">
                         <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
@@ -354,9 +360,7 @@
                                 <input type="text" name="patient-name" id="edit-patient-name" class="mt-1 p-2 w-full border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                                 @error('patient-name', 'editdispensation')
                                     <p class="mt-1 text-sm text-red-600 dark:text-red-400 error-message">{{ $message }}</p>
-                                    <script>
-                                        document.getElementById('editrecordmodal').classList.remove('hidden');
-                                    </script>
+                                    <script>document.getElementById('editrecordmodal').classList.remove('hidden');</script>
                                 @enderror
                             </div>
                             <div class="flex gap-2 mb-3">
@@ -405,7 +409,7 @@
                     </div>
                 </div>
 
-                {{-- View Medications Modal --}}
+                {{-- 4. VIEW MEDICATIONS MODAL --}}
                 <div id="viewmedicationsmodal" class="fixed w-full h-screen top-0 left-0 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
                     <div class="modal bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl p-5 max-h-[90vh] overflow-y-auto">
                         <div class="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-4">
