@@ -1450,141 +1450,143 @@ public function showdashboard(Request $request): View | JsonResponse | RedirectR
 //     }
 
     public function getAiAnalysis(Request $request): JsonResponse
-{
-    $validated = $request->validate([
-        'product_name' => 'required|string',
-        'seasonal_data' => 'required|array',
-        'seasonal_data.*.label' => 'required|string',
-        'seasonal_data.*.data' => 'required|numeric',
-        'compare_product_name' => 'nullable|string',
-        'compare_data' => 'nullable|array',
-        'compare_data.*.label' => 'required_with:compare_product_name|string',
-        'compare_data.*.data' => 'required_with:compare_product_name|numeric',
-    ]);
+    {
+        $validated = $request->validate([
+            'product_name' => 'required|string',
+            'seasonal_data' => 'required|array',
+            'seasonal_data.*.label' => 'required|string',
+            'seasonal_data.*.data' => 'required|numeric',
+            'compare_product_name' => 'nullable|string',
+            'compare_data' => 'nullable|array',
+            'compare_data.*.label' => 'required_with:compare_product_name|string',
+            'compare_data.*.data' => 'required_with:compare_product_name|numeric',
+        ]);
 
-    $productName = $validated['product_name'];
+        $productName = $validated['product_name'];
 
-    $dataString = collect($validated['seasonal_data'])
-        ->map(fn ($item) => "- {$item['label']}: {$item['data']}")
-        ->join("\n");
-
-    $tableStyle  = 'width: 100%; border-collapse: collapse; margin-top: 15px;';
-    $headerStyle = 'background-color: #f3f4f6; padding: 10px; border: 1px solid #e5e7eb; text-align: left; font-weight: bold;';
-    $cellStyle   = 'padding: 10px; border: 1px solid #e5e7eb; vertical-align: top;';
-
-    // Strong HTML-only instruction (use as SYSTEM prompt)
-    $systemInstruction =
-        "You are a helpful and concise data analyst for a public health clinic in the Philippines. " .
-        "OUTPUT MUST BE RAW HTML ONLY. " .
-        "Do NOT output Markdown. Do NOT use bullet lists. Do NOT wrap in ``` fences. " .
-        "Use only these tags: <h2>, <div>, <p>, <table>, <thead>, <tbody>, <tr>, <th>, <td>, <strong>, <br>. " .
-        "Use inline styles ONLY for table borders/padding/spacing. " .
-        "Bold product names using <strong> (e.g., <strong>{$productName}</strong>).";
-
-    // Build user prompt WITHOUT injecting system text (Ollama supports `system`)
-    $userQuery =
-        "Analyze the following monthly dispensation data (items dispensed per month) for the product '{$productName}':\n\n" .
-        "{$dataString}\n\n";
-
-    if (!empty($validated['compare_product_name'])) {
-        $compareName = $validated['compare_product_name'];
-
-        $compareString = collect($validated['compare_data'] ?? [])
+        $dataString = collect($validated['seasonal_data'])
             ->map(fn ($item) => "- {$item['label']}: {$item['data']}")
             ->join("\n");
 
-        $userQuery .= "For comparison, here is the data for '{$compareName}':\n\n{$compareString}\n\n";
+        $tableStyle  = 'width: 100%; border-collapse: collapse; margin-top: 15px;';
+        $headerStyle = 'background-color: #f3f4f6; padding: 10px; border: 1px solid #e5e7eb; text-align: left; font-weight: bold;';
+        $cellStyle   = 'padding: 10px; border: 1px solid #e5e7eb; vertical-align: top;';
 
-        $userQuery .=
-            "Please follow this exact structure, using raw HTML:\n" .
-            "<h2>🤝 Product Comparison</h2>\n" .
-            "Generate a single HTML table (style='{$tableStyle}') with header cells (style='{$headerStyle}') and data cells (style='{$cellStyle}'). " .
-            "The table must have columns for 'Product', 'Overall Trend', 'Peak Months', and 'Trough/Zero Months'.\n\n" .
-            "<h2>💡 Insights & Drivers</h2>\n" .
-            "Provide a <div> block with HTML paragraphs summarizing the primary differences and similarities.\n\n" .
-            "<h2>📈 Predictive Recommendations</h2>\n" .
-            "Provide a <div> block with separate predictive recommendations for <strong>{$productName}</strong> and <strong>{$compareName}</strong>.";
-    } else {
-        $userQuery .=
-            "Based ONLY on the data provided, structure your response using raw HTML with the following sections:\n" .
-            "<h2>📊 Key Observations & Trends</h2>\n" .
-            "<p>Summarize the overall demand pattern and identify notable <strong>peaks</strong> and <strong>troughs</strong>.</p>\n" .
-            "<h2>💡 Contextual Insights</h2>\n" .
-            "<p>Suggest potential reasons in the Philippines context. Explain impact of zero dispensation on inventory vs patient need.</p>\n" .
-            "<h2>📈 Predictive Recommendation</h2>\n" .
-            "<p>Provide one clear predictive recommendation for managing stock for <strong>{$productName}</strong>.</p>";
-    }
+        // Strong HTML-only instruction (use as SYSTEM prompt)
+        $systemInstruction =
+            "You are a helpful and concise data analyst for a public health clinic in the Philippines. " .
+            "OUTPUT MUST BE RAW HTML ONLY. " .
+            "Do NOT output Markdown. Do NOT use bullet lists. Do NOT wrap in ``` fences. " .
+            "Use only these tags: <h2>, <div>, <p>, <table>, <thead>, <tbody>, <tr>, <th>, <td>, <strong>, <br>. " .
+            "Use inline styles ONLY for table borders/padding/spacing. " .
+            "Bold product names using <strong> (e.g., <strong>{$productName}</strong>).";
 
-    $apiKey = config('services.gemini.api_key');
-    $baseUrl = rtrim(config('services.gemini.base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
-    $model = config('services.gemini.model', 'gemini-2.5-flash');
+        // Build user prompt WITHOUT injecting system text (Ollama supports `system`)
+        $userQuery =
+            "Analyze the following monthly dispensation data (items dispensed per month) for the product '{$productName}':\n\n" .
+            "{$dataString}\n\n";
 
-    if (!$apiKey) {
-        Log::error('GEMINI_API_KEY is not configured for seasonal trend analysis.');
-        return response()->json(['error' => 'AI analysis is not configured on the server.'], 500);
-    }
+        if (!empty($validated['compare_product_name'])) {
+            $compareName = $validated['compare_product_name'];
 
-    $endpoint = "{$baseUrl}/models/{$model}:generateContent";
+            $compareString = collect($validated['compare_data'] ?? [])
+                ->map(fn ($item) => "- {$item['label']}: {$item['data']}")
+                ->join("\n");
 
-    $payload = [
-        'contents' => [
-            [
-                'role' => 'user',
+            $userQuery .= "For comparison, here is the data for '{$compareName}':\n\n{$compareString}\n\n";
+
+            $userQuery .=
+                "Please follow this exact structure, using raw HTML:\n" .
+                "<h2>🤝 Product Comparison</h2>\n" .
+                "Generate a single HTML table (style='{$tableStyle}') with header cells (style='{$headerStyle}') and data cells (style='{$cellStyle}'). " .
+                "The table must have columns for 'Product', 'Overall Trend', 'Peak Months', and 'Trough/Zero Months'.\n\n" .
+                "<h2>💡 Insights & Drivers</h2>\n" .
+                "Provide a <div> block with HTML paragraphs summarizing the primary differences and similarities.\n\n" .
+                "<h2>📈 Predictive Recommendations</h2>\n" .
+                "Provide a <div> block with separate predictive recommendations for <strong>{$productName}</strong> and <strong>{$compareName}</strong>.";
+        } else {
+            $userQuery .=
+                "Based ONLY on the data provided, structure your response using raw HTML with the following sections:\n" .
+                "<h2>📊 Key Observations & Trends</h2>\n" .
+                "<p>Summarize the overall demand pattern and identify notable <strong>peaks</strong> and <strong>troughs</strong>.</p>\n" .
+                "<h2>💡 Contextual Insights</h2>\n" .
+                "<p>Suggest potential reasons in the Philippines context. Explain impact of zero dispensation on inventory vs patient need.</p>\n" .
+                "<h2>📈 Predictive Recommendation</h2>\n" .
+                "<p>Provide one clear predictive recommendation for managing stock for <strong>{$productName}</strong>.</p>";
+        }
+
+        $apiKey = config('services.gemini.api_key');
+        $baseUrl = rtrim(config('services.gemini.base_url', '[https://generativelanguage.googleapis.com/v1beta](https://generativelanguage.googleapis.com/v1beta)'), '/');
+        $model = config('services.gemini.model', 'gemini-2.5-flash');
+
+        if (!$apiKey) {
+            Log::error('GEMINI_API_KEY is not configured for seasonal trend analysis.');
+            return response()->json(['error' => 'AI analysis is not configured on the server.'], 500);
+        }
+
+        $endpoint = "{$baseUrl}/models/{$model}:generateContent";
+
+        $payload = [
+            'systemInstruction' => [
                 'parts' => [
-                    ['text' => $userQuery],
+                    ['text' => $systemInstruction],
                 ],
             ],
-        ],
-        'generationConfig' => [
-            'temperature' => 0.3,
-            'num_predict' => (int) env('OLLAMA_NUM_PREDICT', 650), // limit output to reduce timeouts
-            'num_ctx'     => (int) env('OLLAMA_NUM_CTX', 4096),
-        ],
-    ];
+            'contents' => [
+                [
+                    'role' => 'user',
+                    'parts' => [
+                        ['text' => $userQuery],
+                    ],
+                ],
+            ]
+            // Removed generationConfig to uncap temperature and maxOutputTokens
+        ];
 
-    try {
-        $response = Http::retry(2, 800)          // retry twice with 800ms delay
-            ->connectTimeout(10)                 // fail fast if cannot connect
-            ->timeout(180)                       // total request timeout
-            ->acceptJson()
-            ->withHeaders([
-                'x-goog-api-key' => $apiKey,
-            ])
-            ->post($endpoint, $payload);
+        try {
+            $response = Http::retry(2, 800)          // retry twice with 800ms delay
+                ->connectTimeout(10)                 // fail fast if cannot connect
+                ->timeout(180)                       // total request timeout
+                ->acceptJson()
+                ->withHeaders([
+                    'x-goog-api-key' => $apiKey,
+                ])
+                ->post($endpoint, $payload);
 
-        if (!$response->successful()) {
-            Log::error('Gemini API request failed', [
-                'status' => $response->status(),
-                'body'   => $response->json(),
-            ]);
+            if (!$response->successful()) {
+                Log::error('Gemini API request failed', [
+                    'status' => $response->status(),
+                    'body'   => $response->json(),
+                ]);
 
-            $raw = data_get($response->json(), 'error.message', $response->body());
-            return response()->json([
-                'error' => 'AI service failed: ' . ($response->body() ?: 'Unknown error'),
-            ], $response->status());
+                $raw = data_get($response->json(), 'error.message', $response->body());
+                return response()->json([
+                    'error' => 'AI service failed: ' . ($response->body() ?: 'Unknown error'),
+                ], $response->status());
+            }
+
+            $parts = data_get($response->json(), 'candidates.0.content.parts', []);
+            $text = collect($parts)
+                ->pluck('text')
+                ->filter()
+                ->implode("\n");
+
+            if (!$text) {
+                Log::error('Gemini returned no response text', ['body' => $response->json()]);
+                return response()->json(['error' => 'No valid response received from AI service.'], 500);
+            }
+
+            $text = preg_replace('/^```(?:html)?\s*/i', '', trim($text));
+            $text = preg_replace('/\s*```$/', '', $text);
+            $text = trim(str_replace(['**', '*'], '', $text));
+
+            return response()->json(['analysis' => $text]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            Log::error('Connection error calling Gemini API: ' . $e->getMessage());
+            return response()->json(['error' => 'Could not connect to AI analysis service.'], 503);
+        } catch (\Exception $e) {
+            Log::error('Error calling Gemini API: ' . $e->getMessage());
+            return response()->json(['error' => 'Unexpected error while contacting AI analysis service.'], 500);
         }
-
-        $parts = data_get($response->json(), 'candidates.0.content.parts', []);
-        $text = collect($parts)
-            ->pluck('text')
-            ->filter()
-            ->implode("\n");
-
-        if (!$text) {
-            Log::error('Gemini returned no response text', ['body' => $response->json()]);
-            return response()->json(['error' => 'No valid response received from AI service.'], 500);
-        }
-
-        $text = preg_replace('/```[\s\S]*?```/m', '', $text);
-        $text = trim(str_replace(['**', '*'], '', $text));
-
-        return response()->json(['analysis' => $text]);
-    } catch (\Illuminate\Http\Client\ConnectionException $e) {
-        Log::error('Connection error calling Gemini API: ' . $e->getMessage());
-        return response()->json(['error' => 'Could not connect to AI analysis service.'], 503);
-    } catch (\Exception $e) {
-        Log::error('Error calling Gemini API: ' . $e->getMessage());
-        return response()->json(['error' => 'Unexpected error while contacting AI analysis service.'], 500);
     }
-}
 }
